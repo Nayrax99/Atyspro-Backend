@@ -1,0 +1,151 @@
+import { supabase } from "@/lib/supabase";
+import { parseSms } from "@/lib/leadParsing";
+import { computeScore } from "@/lib/leadScoring";
+import { NextRequest, NextResponse } from "next/server";
+
+/**
+ * Webhook POST /api/webhooks/twilio/sms
+ * Reçoit les SMS entrants Twilio
+ * Flow: SMS → parse → score → upsert lead
+ */
+export async function POST(req: NextRequest) {
+  try {
+    // Lire form-data Twilio (application/x-www-form-urlencoded)
+    const formData = await req.formData();
+
+    const From = formData.get("From")?.toString() || "";
+    const To = formData.get("To")?.toString() || "";
+    const Body = formData.get("Body")?.toString() || "";
+    const MessageSid = formData.get("MessageSid")?.toString() || null;
+
+    console.log("Twilio SMS Webhook:", { From, To, Body });
+
+    // Validation des champs requis
+    if (!From || !To || !Body) {
+      return NextResponse.json(
+        { ok: false, error: "Champs Twilio manquants" },
+        { status: 400 }
+      );
+    }
+
+    // Résoudre account_id via phone_numbers.e164 == To
+    const { data: phoneNumber, error: phoneError } = await supabase
+      .from("phone_numbers")
+      .select("id, account_id")
+      .eq("e164", To)
+      .single();
+
+    if (phoneError || !phoneNumber) {
+      console.error("Numéro professionnel non trouvé:", To);
+      return NextResponse.json(
+        { ok: false, error: "Numéro professionnel non trouvé" },
+        { status: 400 }
+      );
+    }
+
+    const { account_id } = phoneNumber;
+
+    // Enregistrer le SMS dans sms_messages (si la table existe)
+    try {
+      await supabase.from("sms_messages").insert({
+        account_id,
+        from_number: From,
+        to_number: To,
+        direction: "inbound",
+        body: Body,
+        twilio_message_sid: MessageSid,
+      });
+    } catch (smsError) {
+      console.warn("Impossible d'enregistrer SMS (table sms_messages peut-être absente):", smsError);
+      // Continue quand même, pas bloquant
+    }
+
+    // Parser le SMS
+    const parsed = parseSms(Body);
+    console.log("SMS parsé:", parsed);
+
+    // Calculer le score
+    const scored = computeScore(parsed.type_code, parsed.delay_code);
+    console.log("Score calculé:", scored);
+
+    // Chercher le lead le plus récent pour ce client
+    const { data: existingLead } = await supabase
+      .from("leads")
+      .select("id, relance_count")
+      .eq("account_id", account_id)
+      .eq("client_phone", From)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    const leadData: any = {
+      account_id,
+      client_phone: From,
+      type_code: parsed.type_code,
+      delay_code: parsed.delay_code,
+      address: parsed.address,
+      full_name: parsed.full_name,
+      description: parsed.description,
+      raw_message: parsed.raw_message,
+      status: parsed.lead_status,
+      priority_score: scored.priority_score,
+      value_estimate: scored.value_estimate,
+      last_inbound_sms_at: new Date().toISOString(),
+    };
+
+    // Gestion relance_count si SMS inexploitable
+    const isUnparsable =
+      parsed.type_code === null &&
+      parsed.delay_code === null &&
+      !parsed.raw_message.includes("/") &&
+      !parsed.raw_message.includes(";") &&
+      !parsed.raw_message.includes("|");
+
+    if (isUnparsable) {
+      leadData.status = "needs_review";
+      if (existingLead && existingLead.relance_count < 2) {
+        leadData.relance_count = existingLead.relance_count + 1;
+      }
+    }
+
+    if (existingLead) {
+      // Update le lead existant
+      const { error: updateError } = await supabase
+        .from("leads")
+        .update(leadData)
+        .eq("id", existingLead.id);
+
+      if (updateError) {
+        throw new Error(`Erreur update lead: ${updateError.message}`);
+      }
+
+      console.log("Lead mis à jour:", existingLead.id);
+    } else {
+      // Créer un nouveau lead
+      const { error: insertError } = await supabase
+        .from("leads")
+        .insert(leadData);
+
+      if (insertError) {
+        throw new Error(`Erreur création lead: ${insertError.message}`);
+      }
+
+      console.log("Nouveau lead créé pour:", From);
+    }
+
+    return NextResponse.json({
+      ok: true,
+      parsed,
+      scored,
+    });
+  } catch (error) {
+    console.error("Erreur webhook Twilio SMS:", error);
+    return NextResponse.json(
+      {
+        ok: false,
+        error: error instanceof Error ? error.message : "Erreur inconnue",
+      },
+      { status: 500 }
+    );
+  }
+}
