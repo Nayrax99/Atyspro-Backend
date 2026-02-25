@@ -19,7 +19,8 @@ export function normalizeBody(body: string): {
 }
 
 /**
- * Parse un SMS de qualification et extrait les informations structurées
+ * Parse un SMS de qualification et extrait les informations structurées.
+ * has_separator: true si le message contient / ou ; ou | (pour détecter réponse exploitable/inexploitable).
  */
 export function parseSms(body: string): {
   type_code: number | null;
@@ -29,6 +30,7 @@ export function parseSms(body: string): {
   description: string | null;
   raw_message: string;
   lead_status: "complete" | "incomplete" | "needs_review";
+  has_separator: boolean;
   parsing_notes?: string | null;
 } {
   const { bodyTrim, bodyLower, bodySingleLine } = normalizeBody(body);
@@ -38,6 +40,7 @@ export function parseSms(body: string): {
   if (bodyLower.includes("/")) separator = "/";
   else if (bodyLower.includes(";")) separator = ";";
   else if (bodyLower.includes("|")) separator = "|";
+  const has_separator = separator !== null;
 
   let parts: string[] = [];
   if (separator) {
@@ -123,6 +126,7 @@ export function parseSms(body: string): {
     description,
     raw_message: bodyTrim,
     lead_status,
+    has_separator,
     parsing_notes,
   };
 }

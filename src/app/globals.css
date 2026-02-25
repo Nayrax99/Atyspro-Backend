@@ -1,3 +1,234 @@
+@import "tailwindcss";
+
+@source "../components/**/*.{js,ts,jsx,tsx}";
+@source "../app/**/*.{js,ts,jsx,tsx}";
+
+/* Custom CSS - fallback for Tailwind v4 classes that don't generate */
+.card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+  margin-bottom: 16px;
+}
+.card-hover {
+  transition: all 0.2s ease;
+}
+.card-hover:active {
+  transform: scale(0.98);
+}
+.filter-btn {
+  padding: 8px 16px;
+  border-radius: 9999px;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.filter-active {
+  background: #4f46e5;
+  color: white;
+  box-shadow: 0 4px 12px rgba(79,70,229,0.3);
+}
+.filter-urgent-active {
+  background: #ef4444;
+  color: white;
+  box-shadow: 0 4px 12px rgba(239,68,68,0.3);
+}
+.filter-inactive {
+  background: white;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+.keypad-btn {
+  background: #f8fafc;
+  border-radius: 16px;
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 500;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
+  transition: all 0.1s;
+  max-height: 80px;
+}
+.keypad-btn:active {
+  transform: scale(0.9);
+  background: #e2e8f0;
+}
+.effacer-wrap {
+  margin-top: 8px;
+}
+.effacer-btn {
+  color: #94a3b8;
+}
+.keypad-container {
+  margin: 0 auto;
+  max-width: 280px;
+  width: 100%;
+  padding: 24px;
+}
+.call-btn {
+  background: #10b981;
+  color: white;
+  border-radius: 16px;
+  padding: 16px;
+  width: 100%;
+  max-width: 280px;
+  margin: 24px auto 0;
+  font-size: 18px;
+  font-weight: 600;
+  box-shadow: 0 8px 20px rgba(16,185,129,0.3);
+  transition: all 0.15s;
+}
+.call-btn:active {
+  transform: scale(0.95);
+}
+.settings-card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  margin-bottom: 16px;
+}
+.bottom-nav {
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+  border-top: 1px solid #f1f5f9;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+}
+.page-container {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 24px 20px 112px 20px;
+  min-height: 100vh;
+  background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
+}
+.number-display {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  font-size: 24px;
+  letter-spacing: 0.15em;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+}
+.logout-btn {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 12px;
+  font-weight: 600;
+  width: 100%;
+  transition: all 0.15s;
+}
+.secondary-btn {
+  background: white;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px;
+  width: 100%;
+  font-size: 15px;
+  font-weight: 600;
+  transition: all 0.15s;
+  margin-top: 8px;
+}
+.secondary-btn:active {
+  transform: scale(0.97);
+  background: #f8fafc;
+}
+.detail-label {
+  font-size: 12px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+.detail-value {
+  font-size: 15px;
+  color: #1e293b;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+.count-badge {
+  background: #4f46e5;
+  color: white;
+}
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.badge-complete {
+  background: #ecfdf5;
+  color: #059669;
+}
+.badge-incomplete {
+  background: #fffbeb;
+  color: #d97706;
+}
+.badge-urgent {
+  background: #fef2f2;
+  color: #dc2626;
+}
+.badge-new {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+.relances-text {
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+.score-section {
+  border-top: 1px solid #f1f5f9;
+  padding-top: 12px;
+  margin-top: 12px;
+}
+.toggle-off {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+.toggle-on {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #10b981;
+  color: white;
+}
+.nav-tab-active {
+  background: #eef2ff;
+  border-radius: 12px;
+  padding: 8px 16px;
+}
+.page-header {
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -40,3 +271,32 @@ a {
     color-scheme: dark;
   }
 }
+
+/* Hide scrollbar for filter chips */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes cardSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.lead-card {
+  animation: cardSlideIn 0.4s ease-out forwards;
+}
+.lead-card:nth-child(1) { animation-delay: 0.05s; }
+.lead-card:nth-child(2) { animation-delay: 0.12s; }
+.lead-card:nth-child(3) { animation-delay: 0.19s; }
+.lead-card:nth-child(4) { animation-delay: 0.26s; }
+.lead-card:nth-child(5) { animation-delay: 0.33s; }
