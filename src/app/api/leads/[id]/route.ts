@@ -1,5 +1,6 @@
-import { supabase } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
+import { getLeadById, updateLeadById } from "@/modules/leads";
+import { isValidUuid } from "@/lib/utils";
 
 type Ctx = { params: { id: string } | Promise<{ id: string }> };
 
@@ -8,34 +9,34 @@ async function getId(ctx: Ctx): Promise<string> {
   return p.id;
 }
 
-// Validation UUID basique
-const uuidRegex =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ALLOWED_FIELDS = [
+  "status",
+  "contact_name",
+  "phone",
+  "address",
+  "request_text",
+  "urgency",
+  "job_type",
+  "score",
+] as const;
+
+const VALID_STATUSES = ["complete", "incomplete", "needs_review"];
 
 /**
- * Route GET /api/leads/:id
- * Récupère le détail d'un lead spécifique
+ * GET /api/leads/:id - Get lead by id
  */
-export async function GET(request: NextRequest, ctx: Ctx) {
+export async function GET(_request: NextRequest, ctx: Ctx) {
   try {
     const id = await getId(ctx);
 
-    if (!uuidRegex.test(id)) {
+    if (!isValidUuid(id)) {
       return NextResponse.json(
         { success: false, error: "ID invalide (format UUID requis)" },
         { status: 400 }
       );
     }
 
-    const { data: lead, error } = await supabase
-      .from("leads")
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
-
-    if (error) {
-      throw new Error(`Erreur Supabase: ${error.message}`);
-    }
+    const lead = await getLeadById(id);
 
     if (!lead) {
       return NextResponse.json(
@@ -58,35 +59,23 @@ export async function GET(request: NextRequest, ctx: Ctx) {
 }
 
 /**
- * Route PATCH /api/leads/:id
- * Met à jour un lead (status + champs éditables)
+ * PATCH /api/leads/:id - Update lead
  */
 export async function PATCH(request: NextRequest, ctx: Ctx) {
   try {
     const id = await getId(ctx);
 
-    if (!uuidRegex.test(id)) {
+    if (!isValidUuid(id)) {
       return NextResponse.json(
         { success: false, error: "ID invalide (format UUID requis)" },
         { status: 400 }
       );
     }
 
-    const body = await request.json();
+    const body = (await request.json()) as Record<string, unknown>;
+    const updates: Record<string, unknown> = {};
 
-    const allowedFields = [
-      "status",
-      "contact_name",
-      "phone",
-      "address",
-      "request_text",
-      "urgency",
-      "job_type",
-      "score",
-    ] as const;
-
-    const updates: Record<string, any> = {};
-    for (const field of allowedFields) {
+    for (const field of ALLOWED_FIELDS) {
       if (body[field] !== undefined) updates[field] = body[field];
     }
 
@@ -98,12 +87,11 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
     }
 
     if (updates.status !== undefined) {
-      const validStatuses = ["complete", "incomplete", "needs_review"];
-      if (!validStatuses.includes(updates.status)) {
+      if (!VALID_STATUSES.includes(updates.status as string)) {
         return NextResponse.json(
           {
             success: false,
-            error: `Status invalide. Valeurs autorisées: ${validStatuses.join(", ")}`,
+            error: `Status invalide. Valeurs autorisées: ${VALID_STATUSES.join(", ")}`,
           },
           { status: 400 }
         );
@@ -136,16 +124,7 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
       }
     }
 
-    const { data: updatedLead, error } = await supabase
-      .from("leads")
-      .update(updates)
-      .eq("id", id)
-      .select()
-      .maybeSingle();
-
-    if (error) {
-      throw new Error(`Erreur Supabase: ${error.message}`);
-    }
+    const updatedLead = await updateLeadById(id, updates);
 
     if (!updatedLead) {
       return NextResponse.json(
