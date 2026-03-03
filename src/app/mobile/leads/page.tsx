@@ -45,9 +45,12 @@ export default function MobileLeadsPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4">
+      <div className="mt-6 space-y-6">
         {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="h-24 rounded-2xl bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)]" />
+          <div
+            key={i}
+            className="h-28 rounded-[24px] border border-[#f1f3f6] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.08)]"
+          />
         ))}
       </div>
     );
@@ -55,21 +58,21 @@ export default function MobileLeadsPage() {
 
   if (error) {
     return (
-      <div className="flex items-center gap-3 rounded-[20px] bg-red-50 px-4 py-3">
+      <div className="mt-6 flex items-center gap-3 rounded-[24px] bg-red-50 px-5 py-4">
         <AlertCircle className="h-5 w-5 shrink-0 text-red-500" />
-        <span className="text-sm font-medium text-red-700">{error}</span>
+        <span className="text-[14px] font-medium text-red-700">{error}</span>
       </div>
     );
   }
 
   if (data.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-200">
-          <AlertCircle className="h-6 w-6 text-slate-500" />
+      <div className="mt-6 flex flex-col items-center justify-center py-20 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100">
+          <AlertCircle className="h-7 w-7 text-slate-500" />
         </div>
-        <p className="mt-4 text-base font-semibold text-slate-800">Aucun lead</p>
-        <p className="mt-1 max-w-[260px] text-sm text-slate-500">
+        <p className="mt-6 text-[17px] font-semibold text-slate-900">Aucun lead</p>
+        <p className="mt-2 max-w-[260px] text-[14px] text-slate-500">
           Les leads apparaîtront ici lorsqu&apos;ils seront disponibles.
         </p>
       </div>
@@ -77,7 +80,7 @@ export default function MobileLeadsPage() {
   }
 
   return (
-    <section className="space-y-5">
+    <section className="mt-6 space-y-6">
       {data.map((lead) => (
         <LeadCard key={lead.id} lead={lead} />
       ))}
