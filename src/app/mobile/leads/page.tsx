@@ -45,12 +45,9 @@ export default function MobileLeadsPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         {[1, 2, 3, 4, 5].map((i) => (
-          <div
-            key={i}
-            className="h-28 rounded-[20px] bg-slate-100"
-          />
+          <div key={i} className="h-28 rounded-[16px] bg-white" style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }} />
         ))}
       </div>
     );
@@ -58,21 +55,21 @@ export default function MobileLeadsPage() {
 
   if (error) {
     return (
-      <div className="flex items-center gap-3 rounded-[20px] border border-red-100 bg-red-50/80 px-5 py-4 text-sm font-medium text-red-700">
-        <AlertCircle className="h-5 w-5 shrink-0" />
-        <span>{error}</span>
+      <div className="flex items-center gap-3 rounded-[12px] bg-[#ffebee] px-5 py-4">
+        <AlertCircle className="h-5 w-5 shrink-0 text-[#ff3b30]" />
+        <span className="text-[15px] font-medium text-[#c62828]">{error}</span>
       </div>
     );
   }
 
   if (data.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
-          <AlertCircle className="h-8 w-8 text-slate-400" />
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#e5e5ea]">
+          <AlertCircle className="h-7 w-7 text-[#8e8e93]" />
         </div>
-        <p className="mt-5 text-base font-semibold text-slate-800">Aucun lead</p>
-        <p className="mt-2 max-w-[260px] text-sm font-medium text-slate-500">
+        <p className="mt-6 text-[17px] font-semibold text-[#1c1c1e]">Aucun lead</p>
+        <p className="mt-2 max-w-[260px] text-[15px] font-normal text-[#8e8e93] leading-snug">
           Les leads apparaîtront ici lorsqu&apos;ils seront disponibles.
         </p>
       </div>
@@ -80,7 +77,7 @@ export default function MobileLeadsPage() {
   }
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-6">
       {data.map((lead) => (
         <LeadCard key={lead.id} lead={lead} />
       ))}

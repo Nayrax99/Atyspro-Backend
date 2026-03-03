@@ -9,11 +9,11 @@ import { LEAD_STATUS_LABELS, formatDelay, formatType } from "@/types/lead";
 
 const API_BASE = "";
 
-function getScoreBadgeClass(score: number | null): string {
-  if (score == null) return "bg-slate-200 text-slate-600";
-  if (score >= 80) return "bg-blue-600 text-white";
-  if (score >= 50) return "bg-amber-500 text-white";
-  return "bg-slate-300 text-slate-600";
+function getScoreClass(score: number | null): string {
+  if (score == null) return "bg-[#e5e5ea] text-[#8e8e93]";
+  if (score >= 80) return "bg-[#007AFF] text-white";
+  if (score >= 50) return "bg-[#ff9500] text-white";
+  return "bg-[#e5e5ea] text-[#6e6e73]";
 }
 
 export default function MobileLeadDetailPage() {
@@ -92,94 +92,86 @@ export default function MobileLeadDetailPage() {
 
   if (loading && !lead) {
     return (
-      <div className="space-y-5">
-        <div className="h-6 w-24 rounded-lg bg-slate-100" />
-        <div className="h-64 rounded-[20px] bg-slate-100" />
+      <div className="space-y-6">
+        <div className="h-6 w-20 rounded bg-[#e5e5ea]" />
+        <div className="h-72 rounded-[16px] bg-white" style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }} />
       </div>
     );
   }
 
   if (error || !lead) {
     return (
-      <div className="space-y-5">
+      <div className="space-y-6">
         <Link
           href="/mobile/leads"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 transition-colors hover:text-slate-800"
+          className="inline-flex items-center gap-1 text-[17px] font-normal text-[#007AFF]"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-5 w-5" />
           Retour
         </Link>
-        <div className="flex items-center gap-3 rounded-[20px] border border-red-100 bg-red-50/80 px-5 py-4 text-sm font-medium text-red-700">
-          <AlertCircle className="h-5 w-5 shrink-0" />
-          <span>{error || "Lead non trouvé"}</span>
+        <div className="flex items-center gap-3 rounded-[12px] bg-[#ffebee] px-5 py-4">
+          <AlertCircle className="h-5 w-5 shrink-0 text-[#ff3b30]" />
+          <span className="text-[15px] font-medium text-[#c62828]">{error || "Lead non trouvé"}</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <Link
         href="/mobile/leads"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 transition-colors hover:text-slate-800"
+        className="inline-flex items-center gap-1 text-[17px] font-normal text-[#007AFF]"
       >
-        <ChevronLeft className="h-4 w-4" />
+        <ChevronLeft className="h-5 w-5" />
         Retour
       </Link>
 
       <section
-        className="rounded-[20px] bg-white p-6"
-        style={{
-          boxShadow: "0 4px 20px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.02)",
-        }}
+        className="rounded-[16px] bg-white p-6"
+        style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}
       >
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-bold text-slate-800">
+            <h1 className="text-[22px] font-semibold text-[#1c1c1e] leading-tight">
               {lead.full_name || "Client inconnu"}
             </h1>
             <button
               type="button"
               onClick={handleCall}
-              className="mt-1 text-sm font-semibold text-blue-600 transition-colors hover:text-blue-700"
+              className="mt-0.5 text-[15px] font-normal text-[#007AFF]"
             >
               {lead.client_phone || "—"}
             </button>
           </div>
           <span
-            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold ${getScoreBadgeClass(
+            className={`shrink-0 rounded-full px-2.5 py-1 text-[12px] font-semibold ${getScoreClass(
               lead.priority_score
             )}`}
           >
-            Score {lead.priority_score ?? "—"}
+            {lead.priority_score ?? "—"}
           </span>
         </div>
 
-        <div className="mt-8 space-y-5">
+        <div className="mt-8 space-y-6">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Type
-            </p>
-            <p className="mt-0.5 text-sm font-semibold text-slate-700">{formatType(lead)}</p>
+            <p className="text-[13px] font-normal text-[#8e8e93]">Type</p>
+            <p className="mt-0.5 text-[17px] font-normal text-[#1c1c1e]">{formatType(lead)}</p>
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Délai
-            </p>
-            <p className="mt-0.5 text-sm font-semibold text-slate-700">{formatDelay(lead)}</p>
+            <p className="text-[13px] font-normal text-[#8e8e93]">Délai</p>
+            <p className="mt-0.5 text-[17px] font-normal text-[#1c1c1e]">{formatDelay(lead)}</p>
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Statut
-            </p>
-            <p className="mt-0.5 text-sm font-semibold text-slate-700">
+            <p className="text-[13px] font-normal text-[#8e8e93]">Statut</p>
+            <p className="mt-0.5 text-[17px] font-normal text-[#1c1c1e]">
               {LEAD_STATUS_LABELS[lead.status]}
             </p>
           </div>
           {lead.address && (
-            <div className="flex items-start gap-2.5">
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-              <p className="text-sm font-medium leading-relaxed text-slate-700">
+            <div className="flex items-start gap-2">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#8e8e93]" />
+              <p className="text-[15px] font-normal leading-relaxed text-[#1c1c1e]">
                 {lead.address}
               </p>
             </div>
@@ -187,18 +179,12 @@ export default function MobileLeadDetailPage() {
         </div>
       </section>
 
-      <div className="space-y-3 pt-1">
+      <div className="space-y-3 pt-2">
         <button
           type="button"
           onClick={handleCall}
           disabled={!lead.client_phone}
-          className="flex w-full items-center justify-center gap-2.5 rounded-[20px] px-6 py-4 font-semibold text-white shadow-lg shadow-blue-500/30 transition-all disabled:opacity-50 disabled:shadow-none active:scale-[0.98]"
-          style={{
-            background: "linear-gradient(135deg, #1d4ed8 0%, #2563eb 50%, #3b82f6 100%)",
-            boxShadow: lead.client_phone
-              ? "0 8px 24px rgba(37, 99, 235, 0.35)"
-              : "0 2px 8px rgba(0,0,0,0.06)",
-          }}
+          className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-[#007AFF] px-6 py-4 text-[17px] font-semibold text-white active:opacity-80 disabled:opacity-40"
         >
           <PhoneCall className="h-5 w-5" strokeWidth={2} />
           Appeler
@@ -207,7 +193,7 @@ export default function MobileLeadDetailPage() {
           type="button"
           onClick={handleUpdateStatus}
           disabled={saving || lead.status === "complete"}
-          className="flex w-full items-center justify-center gap-2 rounded-[20px] border border-slate-200 bg-white px-6 py-4 font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-[#e5e5ea] px-6 py-4 text-[17px] font-semibold text-[#1c1c1e] active:opacity-80 disabled:opacity-40"
         >
           {saving ? "Enregistrement…" : "Marquer comme traité"}
         </button>
