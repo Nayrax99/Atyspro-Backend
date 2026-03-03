@@ -55,7 +55,7 @@ export default function MobileLeadsPage() {
 
   if (error) {
     return (
-      <div className="flex items-center gap-3 rounded-2xl bg-red-50 px-4 py-3">
+      <div className="flex items-center gap-3 rounded-[20px] bg-red-50 px-4 py-3">
         <AlertCircle className="h-5 w-5 shrink-0 text-red-500" />
         <span className="text-sm font-medium text-red-700">{error}</span>
       </div>
@@ -77,7 +77,7 @@ export default function MobileLeadsPage() {
   }
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-5">
       {data.map((lead) => (
         <LeadCard key={lead.id} lead={lead} />
       ))}

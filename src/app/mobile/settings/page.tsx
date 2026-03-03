@@ -13,7 +13,7 @@ export default function MobileSettingsPage() {
         <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-400">
           Compte
         </h2>
-        <div className="overflow-hidden rounded-2xl bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
+        <div className="overflow-hidden rounded-[20px] bg-white shadow-[0_6px_16px_rgba(0,0,0,0.08)]">
           <Link
             href="#"
             className="flex min-h-[48px] items-center justify-between border-b border-slate-100 px-4 transition-colors hover:bg-slate-50"
@@ -32,7 +32,7 @@ export default function MobileSettingsPage() {
         <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-400">
           Notifications
         </h2>
-        <div className="overflow-hidden rounded-2xl bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
+        <div className="overflow-hidden rounded-[20px] bg-white shadow-[0_6px_16px_rgba(0,0,0,0.08)]">
           <div className="flex min-h-[48px] items-center justify-between border-b border-slate-100 px-4 transition-colors hover:bg-slate-50">
             <span className="text-sm font-medium text-slate-800">Notifications push</span>
             <button
@@ -68,7 +68,7 @@ export default function MobileSettingsPage() {
         <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-400">
           Application
         </h2>
-        <div className="overflow-hidden rounded-2xl bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
+        <div className="overflow-hidden rounded-[20px] bg-white shadow-[0_6px_16px_rgba(0,0,0,0.08)]">
           <div className="flex min-h-[48px] items-center justify-between border-b border-slate-100 px-4 transition-colors hover:bg-slate-50">
             <span className="text-sm font-medium text-slate-800">Version</span>
             <span className="text-sm text-slate-500">1.0.0</span>

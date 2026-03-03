@@ -2,39 +2,13 @@ import type { ReactNode } from "react";
 import { BottomNav } from "@/components/mobile/BottomNav";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
 
-const commitHash = process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? "local";
-
-/**
- * Layout mobile - DEBUG: Visual proof + commit hash
- * If black background is NOT visible on /mobile routes, this layout is not active.
- */
 export default function MobileLayout({ children }: { children: ReactNode }) {
   return (
-    <div
-      style={{
-        background: "black",
-        color: "white",
-        minHeight: "100vh",
-      }}
-    >
-      <div
-        style={{
-          position: "fixed",
-          top: 4,
-          right: 8,
-          zIndex: 9999,
-          fontSize: 10,
-          fontFamily: "monospace",
-          opacity: 0.8,
-        }}
-      >
-        LAYOUT ACTIVE | {commitHash.slice(0, 7)}
-      </div>
-      MOBILE LAYOUT ACTIVE
-      <div className="mx-auto flex min-h-screen max-w-md flex-col overflow-x-hidden bg-[#f1f3f6]">
+    <div className="flex min-h-screen justify-center bg-[#e9edf3] py-8">
+      <div className="flex w-full max-w-[390px] flex-col overflow-hidden rounded-[32px] bg-[#f5f6f8] shadow-[0_30px_60px_rgba(0,0,0,0.12)]">
         <MobileHeader />
-        <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-24 pt-6">
-          <div className="mt-4">{children}</div>
+        <main className="min-h-0 flex-1 overflow-y-auto px-5 pb-24 pt-6">
+          {children}
         </main>
         <BottomNav />
       </div>

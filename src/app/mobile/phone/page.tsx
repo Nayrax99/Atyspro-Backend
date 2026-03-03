@@ -22,21 +22,21 @@ export default function PhonePage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <section className="rounded-2xl bg-slate-200 py-4 text-center shadow-inner">
-        <p className={`tracking-widest ${number ? "text-slate-800" : "text-slate-500"}`}>
+      <section className="rounded-[20px] bg-[#e5e7eb] py-4 text-center">
+        <p className={`text-[14px] tracking-[0.2em] ${number ? "text-slate-800" : "text-slate-600"}`}>
           {number || "Composez un numéro"}
         </p>
       </section>
 
-      <div className="mt-4 flex items-center justify-between">
-        <span className="text-sm text-slate-600">Effacer</span>
+      <div className="mt-6 flex items-center justify-between">
+        <span className="text-[14px] text-slate-600">Effacer</span>
         <button
           type="button"
           onClick={handleBackspace}
-          className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
+          className="flex h-10 w-10 items-center justify-center rounded-[20px] bg-white shadow-[0_4px_10px_rgba(0,0,0,0.08)]"
           aria-label="Effacer"
         >
-          <Delete className="h-5 w-5" strokeWidth={1.8} />
+          <Delete className="h-5 w-5 text-slate-500" strokeWidth={1.8} />
         </button>
       </div>
 
@@ -48,7 +48,7 @@ export default function PhonePage() {
         type="button"
         onClick={handleCall}
         disabled={!number}
-        className="mt-8 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 py-3 text-base font-semibold text-white shadow-[0_6px_18px_rgba(37,99,235,0.35)] transition-all hover:brightness-105 disabled:opacity-40"
+        className="mt-8 flex w-full items-center justify-center gap-2 rounded-[20px] bg-gradient-to-r from-[#3b82f6] to-[#2563eb] py-3 text-[16px] font-semibold text-white shadow-[0_8px_20px_rgba(37,99,235,0.4)] disabled:opacity-40"
       >
         <PhoneCall className="h-5 w-5" strokeWidth={2} />
         Appeler
