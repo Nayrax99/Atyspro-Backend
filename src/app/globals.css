@@ -469,3 +469,35 @@ a {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* ============================================
+   MOBILE APP - iOS-native Design System
+   ============================================ */
+
+:root {
+  --mobile-bg: #f2f2f7;
+  --mobile-card: #ffffff;
+  --mobile-separator: rgba(60, 60, 67, 0.12);
+  --mobile-text: #1c1c1e;
+  --mobile-text-secondary: #3c3c43;
+  --mobile-text-tertiary: #8e8e93;
+  --mobile-blue: #007AFF;
+  --mobile-red: #ff3b30;
+  --mobile-radius: 12px;
+  --mobile-radius-lg: 16px;
+}
+
+/* Subtle scrollbar for mobile main area */
+.mobile-scroll-area::-webkit-scrollbar {
+  width: 6px;
+}
+.mobile-scroll-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+.mobile-scroll-area::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 3px;
+}
+.mobile-scroll-area::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.6);
+}

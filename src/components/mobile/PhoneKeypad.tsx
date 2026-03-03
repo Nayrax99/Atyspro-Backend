@@ -1,7 +1,5 @@
 "use client";
 
-import { Delete } from "lucide-react";
-
 interface PhoneKeypadProps {
   onDigit: (digit: string) => void;
   onBackspace: () => void;
@@ -18,41 +16,29 @@ const ROWS: { digit: string; letters?: string }[] = [
   { digit: "8", letters: "WXYZ" },
   { digit: "9" },
   { digit: "*" },
-  { digit: "0" },
+  { digit: "0", letters: "+" },
   { digit: "#" },
 ];
 
-export function PhoneKeypad({ onDigit, onBackspace }: PhoneKeypadProps) {
+export function PhoneKeypad({ onDigit }: PhoneKeypadProps) {
   return (
-    <div className="keypad-container">
-      <div className="grid grid-cols-3 gap-3">
-        {ROWS.map(({ digit, letters }) => (
-          <button
-            key={digit}
-            type="button"
-            onClick={() => onDigit(digit)}
-            className="keypad-btn"
-          >
-            {digit}
-            {letters && (
-              <span className="mt-0.5 text-[9px] uppercase tracking-widest text-slate-400">
-                {letters}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-      <div className="effacer-wrap mt-4 flex justify-center">
+    <div className="grid grid-cols-3 gap-4">
+      {ROWS.map(({ digit, letters }) => (
         <button
+          key={digit}
           type="button"
-          onClick={onBackspace}
-          className="effacer-btn inline-flex items-center gap-1.5 transition-colors hover:text-slate-600"
-          aria-label="Effacer"
+          onClick={() => onDigit(digit)}
+          className="flex aspect-square flex-col items-center justify-center rounded-full bg-white text-[28px] font-light text-[#1c1c1e] active:opacity-70"
+          style={{ boxShadow: "0 2px 10px rgba(0,0,0,0.06)" }}
         >
-          <Delete className="h-5 w-5" />
-          <span className="text-sm font-medium">Effacer</span>
+          {digit}
+          {letters && (
+            <span className="mt-0.5 text-[10px] font-normal uppercase tracking-[0.2em] text-[#8e8e93]">
+              {letters}
+            </span>
+          )}
         </button>
-      </div>
+      ))}
     </div>
   );
 }

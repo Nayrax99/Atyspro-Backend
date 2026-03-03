@@ -78,3 +78,17 @@ export function formatDelay(lead: Pick<Lead, "delay_code">): string {
       return "Non renseigné";
   }
 }
+
+export function formatRelativeTime(createdAt: string): string {
+  const created = new Date(createdAt).getTime();
+  const now = Date.now();
+  const diffMs = now - created;
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffH = Math.floor(diffMin / 60);
+  const diffD = Math.floor(diffH / 24);
+  if (diffMin < 1) return "À l'instant";
+  if (diffMin < 60) return `il y a ${diffMin}min`;
+  if (diffH < 24) return `il y a ${diffH}h`;
+  if (diffD < 7) return `il y a ${diffD}j`;
+  return new Date(createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+}
