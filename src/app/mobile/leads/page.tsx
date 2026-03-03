@@ -45,9 +45,9 @@ export default function MobileLeadsPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="h-28 rounded-[16px] bg-white" style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }} />
+          <div key={i} className="h-24 rounded-xl bg-white shadow-sm" />
         ))}
       </div>
     );
@@ -55,21 +55,21 @@ export default function MobileLeadsPage() {
 
   if (error) {
     return (
-      <div className="flex items-center gap-3 rounded-[12px] bg-[#ffebee] px-5 py-4">
-        <AlertCircle className="h-5 w-5 shrink-0 text-[#ff3b30]" />
-        <span className="text-[15px] font-medium text-[#c62828]">{error}</span>
+      <div className="flex items-center gap-3 rounded-xl bg-red-50 px-4 py-3">
+        <AlertCircle className="h-5 w-5 shrink-0 text-red-500" />
+        <span className="text-sm font-medium text-red-700">{error}</span>
       </div>
     );
   }
 
   if (data.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#e5e5ea]">
-          <AlertCircle className="h-7 w-7 text-[#8e8e93]" />
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-200">
+          <AlertCircle className="h-6 w-6 text-slate-500" />
         </div>
-        <p className="mt-6 text-[17px] font-semibold text-[#1c1c1e]">Aucun lead</p>
-        <p className="mt-2 max-w-[260px] text-[15px] font-normal text-[#8e8e93] leading-snug">
+        <p className="mt-4 text-base font-semibold text-slate-800">Aucun lead</p>
+        <p className="mt-1 max-w-[260px] text-sm text-slate-500">
           Les leads apparaîtront ici lorsqu&apos;ils seront disponibles.
         </p>
       </div>
@@ -77,7 +77,7 @@ export default function MobileLeadsPage() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-4">
       {data.map((lead) => (
         <LeadCard key={lead.id} lead={lead} />
       ))}

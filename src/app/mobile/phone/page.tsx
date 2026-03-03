@@ -21,34 +21,30 @@ export default function PhonePage() {
   };
 
   return (
-    <div className="flex flex-1 flex-col gap-10">
-      <section
-        className="rounded-[12px] px-6 py-6"
-        style={{ background: "rgba(118,118,128,0.12)" }}
-      >
+    <div className="flex flex-1 flex-col gap-6">
+      <section className="rounded-xl bg-slate-100 px-5 py-5 shadow-sm">
         <p
-          className={`text-center font-mono text-[28px] font-medium tracking-[0.15em] leading-relaxed ${
-            number ? "text-[#1c1c1e]" : "text-[#8e8e93]"
+          className={`text-center font-mono text-xl tracking-wide ${
+            number ? "text-slate-800 font-medium" : "text-slate-400"
           }`}
         >
           {number || "Composez un numéro"}
         </p>
       </section>
 
-      <div className="flex items-center justify-between">
-        <span className="text-[15px] font-medium text-[#8e8e93]">Effacer</span>
+      <div className="flex items-center justify-between px-1">
+        <span className="text-sm text-slate-500">Effacer</span>
         <button
           type="button"
           onClick={handleBackspace}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#8e8e93] active:opacity-70"
-          style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}
+          className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm"
           aria-label="Effacer"
         >
           <Delete className="h-5 w-5" strokeWidth={1.8} />
         </button>
       </div>
 
-      <section className="mx-auto w-full max-w-[280px] flex-1">
+      <section className="mx-auto w-full max-w-[260px] flex-1">
         <PhoneKeypad onDigit={handleDigit} onBackspace={handleBackspace} />
       </section>
 
@@ -56,7 +52,7 @@ export default function PhonePage() {
         type="button"
         onClick={handleCall}
         disabled={!number}
-        className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-[#007AFF] px-6 py-4 text-[17px] font-semibold text-white active:opacity-80 disabled:opacity-40 disabled:active:opacity-40"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-base font-semibold text-white shadow-sm disabled:opacity-40"
       >
         <PhoneCall className="h-5 w-5" strokeWidth={2} />
         Appeler
