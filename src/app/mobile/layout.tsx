@@ -1,28 +1,19 @@
 import type { ReactNode } from "react";
 import { BottomNav } from "@/components/mobile/BottomNav";
+import { MobileHeader } from "@/components/mobile/MobileHeader";
 
 /**
- * Layout mobile premium - Background gradient app + container iPhone-like
- * Design: AtysPro Électricien - Uber/Airbnb/Revolut niveau
+ * Layout mobile - Interface web interne légère
+ * max-width 420px, fond neutre clair, header et nav partagés
  */
 export default function MobileLayout({ children }: { children: ReactNode }) {
   return (
-    /* Background gradient global (135deg #667eea → #764ba2) */
-    <div
-      className="min-h-screen lg:py-8 lg:px-4"
-      style={{
-        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-      }}
-    >
-      {/* Container mobile glassmorphism - border-radius 48px iPhone-like */}
-      <div className="relative mx-auto min-h-[calc(100vh-4rem)] max-w-[480px] overflow-hidden lg:rounded-[48px] lg:shadow-2xl">
-        <main className="page-container flex flex-col">
-          {children}
-        </main>
-        {/* BottomNav fixed pour mobile, contenu dans le viewport */}
+    <div className="min-h-screen bg-slate-100">
+      <div className="mx-auto min-h-screen max-w-[420px] bg-slate-50 shadow-sm">
+        <MobileHeader />
+        <main className="px-4 pb-24 pt-4">{children}</main>
         <BottomNav />
       </div>
     </div>
   );
 }
-

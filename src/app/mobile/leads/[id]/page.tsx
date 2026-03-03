@@ -1,18 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import {
-  AlertCircle,
-  ChevronLeft,
-  MapPin,
-  PhoneCall,
-} from "lucide-react";
+import Link from "next/link";
+import { AlertCircle, ChevronLeft, MapPin, PhoneCall } from "lucide-react";
 import type { Lead, LeadDetailResponse } from "@/types/lead";
 import { LEAD_STATUS_LABELS, formatDelay, formatType } from "@/types/lead";
 
 const API_BASE = "";
+
+function getScoreBadgeClass(score: number | null): string {
+  if (score == null) return "bg-slate-200 text-slate-600";
+  if (score >= 80) return "bg-blue-600 text-white";
+  if (score >= 50) return "bg-amber-500 text-white";
+  return "bg-slate-300 text-slate-600";
+}
 
 export default function MobileLeadDetailPage() {
   const params = useParams();
@@ -58,18 +60,16 @@ export default function MobileLeadDetailPage() {
 
   const handleCall = () => {
     if (!lead?.client_phone) return;
-    // TODO: intégration Twilio
     console.log(`Appel vers ${lead.client_phone}`);
   };
 
-  const handleMarkDone = async () => {
+  const handleUpdateStatus = async () => {
     if (!id) return;
     setSaving(true);
     try {
       const res = await fetch(`${API_BASE}/api/leads/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        // Utilise status \"complete\" pour rester compatible avec l'API actuelle
         body: JSON.stringify({ status: "complete" }),
       });
       const json = (await res.json()) as {
@@ -92,175 +92,115 @@ export default function MobileLeadDetailPage() {
 
   if (loading && !lead) {
     return (
-      <div className="flex flex-1 flex-col px-4">
-        <div className="mt-4 h-6 w-32 animate-pulse rounded bg-slate-200" />
-        <div className="mt-4 h-40 animate-pulse rounded-2xl bg-slate-200" />
+      <div className="space-y-4">
+        <div className="h-8 w-32 rounded bg-slate-200" />
+        <div className="h-48 rounded-[18px] bg-slate-200" />
       </div>
     );
   }
 
   if (error || !lead) {
     return (
-      <div className="flex flex-1 flex-col pb-4">
-        <header className="card sticky top-0 z-10 flex items-center gap-2 backdrop-blur">
-          <Link
-            href="/mobile/leads"
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Link>
-          <h1 className="text-lg font-semibold text-slate-900">
-            Demande client
-          </h1>
-        </header>
-        <div className="mt-8 flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">
-          <AlertCircle className="h-4 w-4" />
+      <div className="space-y-4">
+        <Link
+          href="/mobile/leads"
+          className="inline-flex items-center gap-1 text-sm font-medium text-slate-600"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Retour
+        </Link>
+        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4 shrink-0" />
           <span>{error || "Lead non trouvé"}</span>
         </div>
       </div>
     );
   }
 
-  const statusBadgeClass =
-    lead.status === "complete"
-      ? "badge badge-complete"
-      : lead.status === "incomplete"
-        ? "badge badge-incomplete"
-        : "badge badge-urgent";
+  const score = lead.priority_score ?? 0;
 
   return (
-    <div className="flex flex-1 flex-col gap-3 pb-4">
-      <header className="card sticky top-0 z-10 flex items-center gap-2 backdrop-blur">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-        <h1 className="text-lg font-semibold text-slate-900">
-          Demande client
-        </h1>
-      </header>
+    <div className="space-y-4">
+      <Link
+        href="/mobile/leads"
+        className="inline-flex items-center gap-1 text-sm font-medium text-slate-600"
+      >
+        <ChevronLeft className="h-4 w-4" />
+        Retour
+      </Link>
 
-      <section className="card">
-        <div className="mb-2 flex items-center justify-between gap-2">
+      <section className="rounded-[18px] bg-white p-4 shadow-md">
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="detail-value mb-0 text-lg font-semibold">
+            <p className="text-lg font-semibold text-slate-800">
               {lead.full_name || "Client inconnu"}
             </p>
             <button
               type="button"
               onClick={handleCall}
-              className="detail-value mb-0 text-sm font-medium text-blue-600"
+              className="mt-1 text-sm font-medium text-blue-600"
             >
-              {lead.client_phone || "Numéro inconnu"}
+              {lead.client_phone || "—"}
             </button>
           </div>
-          <span className={statusBadgeClass}>
-            {LEAD_STATUS_LABELS[lead.status]}
+          <span
+            className={`rounded-full px-2.5 py-1 text-xs font-semibold ${getScoreBadgeClass(
+              lead.priority_score
+            )}`}
+          >
+            Score {lead.priority_score ?? "—"}
           </span>
         </div>
-        {lead.address && (
-          <div className="mt-2 flex items-center gap-1">
-            <MapPin className="h-3 w-3 shrink-0 text-slate-500" />
-            <span className="line-clamp-2 detail-value mb-0 text-xs">
-              {lead.address}
-            </span>
-          </div>
-        )}
-      </section>
 
-      <section className="card">
-        <h2 className="detail-label mb-2">DEMANDE</h2>
-        <div>
-          <p className="detail-label">Type</p>
-          <p className="detail-value">{formatType(lead)}</p>
-        </div>
-        <div>
-          <p className="detail-label">Délai</p>
-          <p className="detail-value">{formatDelay(lead)}</p>
-        </div>
-        <div>
-          <p className="detail-label">Description</p>
-          <p className="detail-value whitespace-pre-wrap">
-            {lead.description || lead.raw_message || "Aucun message"}
-          </p>
-        </div>
-      </section>
-
-      <section className="card">
-        <h2 className="detail-label mb-2">SCORING</h2>
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mt-4 grid gap-3 text-sm">
           <div>
-            <p className="detail-label">Score de priorité</p>
-            <p className="detail-value mb-0 text-2xl font-semibold">
-              {lead.priority_score ?? "—"}
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
+              Type
+            </p>
+            <p className="font-medium text-slate-700">{formatType(lead)}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
+              Délai
+            </p>
+            <p className="font-medium text-slate-700">{formatDelay(lead)}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
+              Statut
+            </p>
+            <p className="font-medium text-slate-700">
+              {LEAD_STATUS_LABELS[lead.status]}
             </p>
           </div>
-          <div className="w-24">
-            <div className="h-1.5 w-full rounded-full bg-slate-200">
-              <div
-                className="h-1.5 rounded-full bg-emerald-500"
-                style={{
-                  width: `${Math.max(
-                    0,
-                    Math.min(100, lead.priority_score ?? 0),
-                  )}%`,
-                }}
-              />
+          {lead.address && (
+            <div className="flex items-start gap-2">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+              <p className="text-sm font-medium text-slate-700">{lead.address}</p>
             </div>
-          </div>
-        </div>
-        <div>
-          <p className="detail-label">Valeur estimée</p>
-          <div className="detail-value mb-0 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-sm font-medium text-slate-700">
-            {lead.value_estimate === "high"
-              ? "Élevée"
-              : lead.value_estimate === "medium"
-                ? "Moyenne"
-                : lead.value_estimate === "low"
-                  ? "Faible"
-                  : "Non estimée"}
-          </div>
-        </div>
-        <div>
-          <p className="detail-label">Relances</p>
-          <div className="detail-value mb-0">
-            {lead.relance_count && lead.relance_count > 0 ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-sm font-medium text-orange-600">
-                <AlertCircle className="h-3 w-3" />
-                {lead.relance_count} relance
-                {lead.relance_count > 1 ? "s" : ""}
-              </span>
-            ) : (
-              <span className="text-slate-500">Aucune</span>
-            )}
-          </div>
+          )}
         </div>
       </section>
 
-      <section className="space-y-3">
+      <div className="space-y-3">
         <button
           type="button"
           onClick={handleCall}
-          className="call-btn flex items-center justify-center gap-2 disabled:opacity-60"
           disabled={!lead.client_phone}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-4 font-semibold text-white shadow-md disabled:opacity-50"
         >
           <PhoneCall className="h-5 w-5" />
-          Rappeler maintenant
+          Appeler
         </button>
-
         <button
           type="button"
-          onClick={handleMarkDone}
-          className="secondary-btn flex items-center justify-center gap-2 disabled:opacity-60"
-          disabled={saving}
+          onClick={handleUpdateStatus}
+          disabled={saving || lead.status === "complete"}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-4 font-medium text-slate-700 shadow-sm disabled:opacity-50"
         >
           {saving ? "Enregistrement…" : "Marquer comme traité"}
         </button>
-      </section>
+      </div>
     </div>
   );
 }
-
