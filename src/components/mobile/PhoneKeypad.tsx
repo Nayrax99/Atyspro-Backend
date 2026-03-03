@@ -22,18 +22,17 @@ const ROWS: { digit: string; letters?: string }[] = [
 
 export function PhoneKeypad({ onDigit }: PhoneKeypadProps) {
   return (
-    <div className="grid grid-cols-3 gap-4">
+    <div className="grid grid-cols-3 justify-items-center gap-6">
       {ROWS.map(({ digit, letters }) => (
         <button
           key={digit}
           type="button"
           onClick={() => onDigit(digit)}
-          className="flex aspect-square flex-col items-center justify-center rounded-full bg-white text-[28px] font-light text-[#1c1c1e] active:opacity-70"
-          style={{ boxShadow: "0 2px 10px rgba(0,0,0,0.06)" }}
+          className="flex h-[70px] w-[70px] flex-col items-center justify-center rounded-[22px] bg-white text-[20px] font-medium text-slate-800 shadow-[0_6px_18px_rgba(15,23,42,0.12)] transition-all duration-150 active:scale-95"
         >
           {digit}
           {letters && (
-            <span className="mt-0.5 text-[10px] font-normal uppercase tracking-[0.2em] text-[#8e8e93]">
+            <span className="mt-0.5 text-[10px] tracking-wide text-slate-400">
               {letters}
             </span>
           )}

@@ -9,10 +9,10 @@ interface LeadCardProps {
 }
 
 function getScoreClass(score: number | null): string {
-  if (score == null) return "bg-[#e5e5ea] text-[#8e8e93]";
-  if (score >= 80) return "bg-[#007AFF] text-white";
-  if (score >= 50) return "bg-[#ff9500] text-white";
-  return "bg-[#e5e5ea] text-[#6e6e73]";
+  if (score == null) return "bg-slate-100 text-slate-600";
+  if (score >= 85) return "bg-blue-100 text-blue-600";
+  if (score >= 70) return "bg-amber-100 text-amber-600";
+  return "bg-slate-100 text-slate-600";
 }
 
 function getTagLabel(lead: Lead): string {
@@ -28,39 +28,34 @@ export function LeadCard({ lead }: LeadCardProps) {
   return (
     <Link
       href={`/mobile/leads/${lead.id}`}
-      className="block rounded-[16px] bg-white p-5 active:opacity-95"
-      style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}
+      className="block rounded-[24px] border border-[#f1f3f6] bg-white p-6 shadow-[0_12px_30px_rgba(15,23,42,0.08)]"
     >
-      <div className="flex gap-4">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[17px] font-semibold text-[#1c1c1e] leading-tight">
+      <div className="space-y-4">
+        <div className="flex items-start justify-between">
+          <p className="min-w-0 flex-1 truncate text-[17px] font-semibold text-slate-900">
             {lead.full_name || "Client inconnu"}
           </p>
-          <p className="mt-0.5 text-[15px] font-normal text-[#8e8e93]">
-            {lead.client_phone || "—"}
-          </p>
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-            {tagLabel ? (
-              <span className="rounded-md bg-[#f2f2f7] px-2 py-0.5 text-[13px] font-medium text-[#6e6e73]">
-                {tagLabel}
-              </span>
-            ) : (
-              <span />
-            )}
-            <span className="text-[13px] font-normal text-[#8e8e93]">
-              {formatRelativeTime(lead.created_at)}
-            </span>
-          </div>
-        </div>
-        <div className="flex shrink-0 items-start">
           <span
-            className={`rounded-full px-2.5 py-1 text-[12px] font-semibold ${getScoreClass(
+            className={`shrink-0 rounded-full px-3 py-1 text-[12px] font-medium ${getScoreClass(
               lead.priority_score
             )}`}
           >
-            {lead.priority_score ?? "—"}
+            Score {lead.priority_score ?? "—"}
           </span>
         </div>
+        <div className="flex items-center justify-between">
+          <p className="min-w-0 flex-1 truncate text-[14px] text-slate-500">
+            {lead.client_phone || "—"}
+          </p>
+          <span className="shrink-0 text-[12px] text-slate-400">
+            {formatRelativeTime(lead.created_at)}
+          </span>
+        </div>
+        {tagLabel && (
+          <span className="mt-2 inline-block rounded-full bg-slate-100 px-3 py-1 text-[12px] text-slate-600">
+            {tagLabel}
+          </span>
+        )}
       </div>
     </Link>
   );

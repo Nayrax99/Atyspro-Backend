@@ -5,6 +5,13 @@ import { simulateSms } from "@/modules/dev";
  * POST /api/dev/simulate/sms - Simulate incoming SMS (DEV ONLY)
  */
 export async function POST(req: NextRequest) {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { success: false, error: "Endpoint désactivé en production" },
+      { status: 403 }
+    );
+  }
+
   try {
     const body = (await req.json()) as Record<string, unknown>;
     const to = typeof body.to === "string" ? body.to.trim() : null;

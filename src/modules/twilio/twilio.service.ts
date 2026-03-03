@@ -291,7 +291,20 @@ export async function handleVoiceWebhook(
       console.log("Lead existant trouvé, pas de doublon");
     }
 
-    await sendQualificationSMS(From, To, account_id);
+    // Éviter le double envoi si Twilio appelle answer URL puis status callback
+    const { data: recentSms } = await supabase
+      .from("sms_messages")
+      .select("id")
+      .eq("account_id", account_id)
+      .eq("to_number", From)
+      .eq("direction", "outbound")
+      .gte("created_at", new Date(Date.now() - 5 * 60 * 1000).toISOString())
+      .limit(1)
+      .maybeSingle();
+
+    if (!recentSms) {
+      await sendQualificationSMS(From, To, account_id);
+    }
     console.log("TODO: Relance 1 dans 10-15 min si aucune réponse");
     console.log("TODO: Relance 2 dans 3h si toujours aucune réponse");
   }

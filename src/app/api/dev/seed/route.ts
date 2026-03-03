@@ -5,6 +5,13 @@ import { seedDev } from "@/modules/dev";
  * POST /api/dev/seed - Seed dev data (DEV ONLY)
  */
 export async function POST() {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { success: false, error: "Endpoint désactivé en production" },
+      { status: 403 }
+    );
+  }
+
   try {
     const data = await seedDev();
 

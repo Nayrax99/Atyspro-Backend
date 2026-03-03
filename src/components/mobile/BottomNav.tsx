@@ -16,31 +16,26 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav
-      className="shrink-0 border-t bg-white px-2 py-2"
-      style={{
-        borderColor: "var(--mobile-separator)",
-        paddingBottom: "max(12px, env(safe-area-inset-bottom))",
-      }}
-    >
-      <div className="flex items-center justify-around">
-        {tabs.map((tab) => {
-          const isActive = pathname.startsWith(tab.href);
-
-          return (
-            <Link
-              key={tab.key}
-              href={tab.href}
-              className={`flex flex-col items-center gap-1 px-4 py-2 ${
-                isActive ? "text-[#007AFF]" : "text-[#8e8e93]"
-              }`}
-            >
-              <tab.Icon className="h-6 w-6" strokeWidth={isActive ? 2.2 : 1.6} aria-hidden />
-              <span className="text-[10px] font-medium">{tab.label}</span>
-            </Link>
-          );
-        })}
-      </div>
+    <nav className="flex h-[72px] shrink-0 items-center justify-around border-t border-[#eef2f7] bg-white px-2 shadow-[0_-6px_20px_rgba(15,23,42,0.06)]">
+      {tabs.map((tab) => {
+        const isActive = pathname.startsWith(tab.href);
+        return (
+          <Link
+            key={tab.key}
+            href={tab.href}
+            className={`flex flex-col items-center justify-center ${
+              isActive ? "text-[#2563eb]" : "text-slate-400"
+            }`}
+          >
+            <tab.Icon
+              className="h-6 w-6"
+              strokeWidth={isActive ? 2.2 : 1.6}
+              aria-hidden
+            />
+            <span className="mt-1 text-[12px]">{tab.label}</span>
+          </Link>
+        );
+      })}
     </nav>
   );
 }

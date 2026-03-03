@@ -1,27 +1,58 @@
 /**
- * Client Twilio - envoi SMS
- * V1 : mode DEV = simulation (logs uniquement), pas d'envoi réel
+ * Client Twilio - envoi SMS + validation signature webhook
  */
 
+import twilio from "twilio";
+
+const accountSid = process.env.TWILIO_ACCOUNT_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
+
+// Singleton : client créé une seule fois
+const client =
+  accountSid && authToken ? twilio(accountSid, authToken) : null;
+
+export interface SendSMSResult {
+  sid: string | null;
+  success: boolean;
+  error?: string;
+}
+
 /**
- * Envoie un SMS (simulation en DEV : log en console uniquement).
- * TODO: activer Twilio en prod avec twilio(accountSid, authToken) et client.messages.create()
+ * Envoie un SMS via Twilio.
+ * Retourne { sid, success: true } ou { sid: null, success: false, error }.
  */
 export async function sendSMS(
   to: string,
   from: string,
   body: string
-): Promise<{ sid: string; success: boolean }> {
-  console.log("═══ SMS SIMULATION (DEV MODE) ═══");
-  console.log("From:", from);
-  console.log("To:", to);
-  console.log("Body:", body);
-  console.log("═══════════════════════════════════");
+): Promise<SendSMSResult> {
+  if (!client) {
+    console.error("Twilio client non initialisé (TWILIO_ACCOUNT_SID/AUTH_TOKEN manquants)");
+    return { sid: null, success: false, error: "Client Twilio non configuré" };
+  }
 
-  // TODO: Activer Twilio plus tard
-  // const client = twilio(accountSid, authToken);
-  // const msg = await client.messages.create({ to, from, body });
-  // return { sid: msg.sid, success: true };
+  try {
+    const message = await client.messages.create({ to, from, body });
+    return { sid: message.sid, success: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("Erreur envoi SMS Twilio:", err);
+    return { sid: null, success: false, error: message };
+  }
+}
 
-  return { sid: `SIM${Date.now()}`, success: true };
+/**
+ * Valide la signature Twilio d'une requête webhook.
+ * Utilise twilio.validateRequest(authToken, signature, url, params).
+ */
+export function validateTwilioSignature(
+  url: string,
+  params: Record<string, string>,
+  signature: string
+): boolean {
+  if (!authToken) {
+    console.error("TWILIO_AUTH_TOKEN manquant pour la validation de signature");
+    return false;
+  }
+  return twilio.validateRequest(authToken, signature, url, params);
 }
