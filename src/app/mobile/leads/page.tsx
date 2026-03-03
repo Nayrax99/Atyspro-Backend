@@ -46,10 +46,10 @@ export default function MobileLeadsPage() {
   if (loading) {
     return (
       <div className="space-y-4">
-        {[1, 2, 3, 4].map((i) => (
+        {[1, 2, 3, 4, 5].map((i) => (
           <div
             key={i}
-            className="h-24 rounded-[18px] bg-slate-200"
+            className="h-28 rounded-[20px] bg-slate-100"
           />
         ))}
       </div>
@@ -58,8 +58,8 @@ export default function MobileLeadsPage() {
 
   if (error) {
     return (
-      <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-        <AlertCircle className="h-4 w-4 shrink-0" />
+      <div className="flex items-center gap-3 rounded-[20px] border border-red-100 bg-red-50/80 px-5 py-4 text-sm font-medium text-red-700">
+        <AlertCircle className="h-5 w-5 shrink-0" />
         <span>{error}</span>
       </div>
     );
@@ -67,12 +67,14 @@ export default function MobileLeadsPage() {
 
   if (data.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-200 text-slate-500">
-          <AlertCircle className="h-6 w-6" />
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
+          <AlertCircle className="h-8 w-8 text-slate-400" />
         </div>
-        <p className="mt-3 text-sm font-medium text-slate-700">Aucun lead</p>
-        <p className="mt-1 text-sm text-slate-500">Les leads apparaîtront ici.</p>
+        <p className="mt-5 text-base font-semibold text-slate-800">Aucun lead</p>
+        <p className="mt-2 max-w-[260px] text-sm font-medium text-slate-500">
+          Les leads apparaîtront ici lorsqu&apos;ils seront disponibles.
+        </p>
       </div>
     );
   }
