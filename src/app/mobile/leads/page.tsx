@@ -47,7 +47,7 @@ export default function MobileLeadsPage() {
     return (
       <div className="space-y-4">
         {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="h-24 rounded-xl bg-white shadow-sm" />
+          <div key={i} className="h-24 rounded-2xl bg-white shadow-sm" />
         ))}
       </div>
     );
@@ -55,7 +55,7 @@ export default function MobileLeadsPage() {
 
   if (error) {
     return (
-      <div className="flex items-center gap-3 rounded-xl bg-red-50 px-4 py-3">
+      <div className="flex items-center gap-3 rounded-2xl bg-red-50 px-4 py-3">
         <AlertCircle className="h-5 w-5 shrink-0 text-red-500" />
         <span className="text-sm font-medium text-red-700">{error}</span>
       </div>

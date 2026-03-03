@@ -13,7 +13,7 @@ export default function MobileSettingsPage() {
         <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-500">
           Compte
         </h2>
-        <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+        <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
           <Link
             href="#"
             className="flex min-h-[48px] items-center justify-between border-b border-slate-100 px-4"
@@ -32,7 +32,7 @@ export default function MobileSettingsPage() {
         <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-500">
           Notifications
         </h2>
-        <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+        <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
           <div className="flex min-h-[48px] items-center justify-between border-b border-slate-100 px-4">
             <span className="text-sm font-medium text-slate-800">Notifications push</span>
             <button
@@ -68,7 +68,7 @@ export default function MobileSettingsPage() {
         <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-500">
           Application
         </h2>
-        <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+        <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
           <div className="flex min-h-[48px] items-center justify-between border-b border-slate-100 px-4">
             <span className="text-sm font-medium text-slate-800">Version</span>
             <span className="text-sm text-slate-500">1.0.0</span>

@@ -21,30 +21,26 @@ export default function PhonePage() {
   };
 
   return (
-    <div className="flex flex-1 flex-col gap-6">
-      <section className="rounded-xl bg-slate-100 px-5 py-5 shadow-sm">
-        <p
-          className={`text-center font-mono text-xl tracking-wide ${
-            number ? "text-slate-800 font-medium" : "text-slate-400"
-          }`}
-        >
+    <div className="flex flex-1 flex-col">
+      <section className="rounded-2xl bg-slate-200 py-3 text-center">
+        <p className={`tracking-widest ${number ? "text-slate-800" : "text-slate-500"}`}>
           {number || "Composez un numéro"}
         </p>
       </section>
 
-      <div className="flex items-center justify-between px-1">
-        <span className="text-sm text-slate-500">Effacer</span>
+      <div className="mt-4 flex items-center justify-between">
+        <span className="text-sm text-slate-600">Effacer</span>
         <button
           type="button"
           onClick={handleBackspace}
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm"
+          className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-sm"
           aria-label="Effacer"
         >
           <Delete className="h-5 w-5" strokeWidth={1.8} />
         </button>
       </div>
 
-      <section className="mx-auto w-full max-w-[260px] flex-1">
+      <section className="mx-auto mt-6 w-full max-w-[280px] flex-1">
         <PhoneKeypad onDigit={handleDigit} onBackspace={handleBackspace} />
       </section>
 
@@ -52,7 +48,7 @@ export default function PhonePage() {
         type="button"
         onClick={handleCall}
         disabled={!number}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-base font-semibold text-white shadow-sm disabled:opacity-40"
+        className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 py-3 font-semibold text-white shadow-md disabled:opacity-40"
       >
         <PhoneCall className="h-5 w-5" strokeWidth={2} />
         Appeler
