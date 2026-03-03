@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLeadById, updateLeadById } from "@/modules/leads";
-import { isValidUuid } from "@/lib/utils";
+import { requireAuth } from "@/lib/auth";
+import { createSupabaseClient } from "@/lib/supabase";
+import { isValidUuid, ApiError } from "@/lib/utils";
 
 type Ctx = { params: { id: string } | Promise<{ id: string }> };
 
@@ -23,10 +25,12 @@ const ALLOWED_FIELDS = [
 const VALID_STATUSES = ["complete", "incomplete", "needs_review"];
 
 /**
- * GET /api/leads/:id - Get lead by id
+ * GET /api/leads/:id - Get lead by id (authentifié)
  */
-export async function GET(_request: NextRequest, ctx: Ctx) {
+export async function GET(request: NextRequest, ctx: Ctx) {
   try {
+    const { account_id, token } = await requireAuth(request);
+    const client = createSupabaseClient(token);
     const id = await getId(ctx);
 
     if (!isValidUuid(id)) {
@@ -36,7 +40,7 @@ export async function GET(_request: NextRequest, ctx: Ctx) {
       );
     }
 
-    const lead = await getLeadById(id);
+    const lead = await getLeadById(client, id, account_id);
 
     if (!lead) {
       return NextResponse.json(
@@ -48,6 +52,14 @@ export async function GET(_request: NextRequest, ctx: Ctx) {
     return NextResponse.json({ success: true, data: lead });
   } catch (error) {
     console.error("Erreur GET /leads/:id:", error);
+
+    if (error instanceof ApiError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,
@@ -59,10 +71,12 @@ export async function GET(_request: NextRequest, ctx: Ctx) {
 }
 
 /**
- * PATCH /api/leads/:id - Update lead
+ * PATCH /api/leads/:id - Update lead (authentifié)
  */
 export async function PATCH(request: NextRequest, ctx: Ctx) {
   try {
+    const { account_id, token } = await requireAuth(request);
+    const client = createSupabaseClient(token);
     const id = await getId(ctx);
 
     if (!isValidUuid(id)) {
@@ -124,7 +138,7 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
       }
     }
 
-    const updatedLead = await updateLeadById(id, updates);
+    const updatedLead = await updateLeadById(client, id, account_id, updates);
 
     if (!updatedLead) {
       return NextResponse.json(
@@ -140,6 +154,14 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
     });
   } catch (error) {
     console.error("Erreur PATCH /leads/:id:", error);
+
+    if (error instanceof ApiError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,

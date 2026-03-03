@@ -5,6 +5,7 @@
 import type { Lead } from "@/types/lead";
 
 export interface ListLeadsParams {
+  account_id: string;
   page: number;
   limit: number;
 }

@@ -1,0 +1,72 @@
+/**
+ * Auth Supabase - Magic Link par email
+ * Vérification JWT et récupération du contexte utilisateur/account
+ */
+
+import { NextRequest } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase";
+import { ApiError } from "@/lib/utils";
+
+export interface AuthUser {
+  id: string;
+  email: string;
+}
+
+export interface AuthContext {
+  user: AuthUser;
+  account_id: string;
+  /** Token JWT brut (pour createSupabaseClient) */
+  token: string;
+}
+
+/**
+ * Extrait et valide l'utilisateur depuis le header Authorization.
+ * Retourne { user, account_id } ou null si non authentifié / invalide.
+ */
+export async function getAuthUser(req: NextRequest): Promise<AuthContext | null> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return null;
+  }
+
+  const token = authHeader.slice(7).trim();
+  if (!token) return null;
+
+  if (!supabaseAdmin) {
+    console.error("supabaseAdmin non initialisé (SUPABASE_SERVICE_ROLE_KEY manquant)");
+    return null;
+  }
+
+  const { data: { user: authUser }, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !authUser?.email) {
+    return null;
+  }
+
+  const { data: account } = await supabaseAdmin
+    .from("accounts")
+    .select("id")
+    .eq("user_id", authUser.id)
+    .maybeSingle();
+
+  if (!account) {
+    return null;
+  }
+
+  return {
+    user: { id: authUser.id, email: authUser.email },
+    account_id: account.id,
+    token,
+  };
+}
+
+/**
+ * Exige une authentification valide.
+ * Throw ApiError 401 si non authentifié.
+ */
+export async function requireAuth(req: NextRequest): Promise<AuthContext> {
+  const ctx = await getAuthUser(req);
+  if (!ctx) {
+    throw new ApiError("Non authentifié", 401);
+  }
+  return ctx;
+}

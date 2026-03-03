@@ -2,7 +2,7 @@
  * Twilio domain service - business logic for webhooks
  */
 
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase";
 import { ApiError } from "@/lib/utils";
 import { parseSms } from "@/lib/leadParsing";
 import { computeScore } from "@/lib/leadScoring";
@@ -42,7 +42,7 @@ async function sendQualificationSMS(
   const result = await sendSMS(clientPhone, ourNumber, body);
 
   try {
-    await supabase.from("sms_messages").insert({
+    await supabaseAdmin!.from("sms_messages").insert({
       account_id: accountId,
       from_number: ourNumber,
       to_number: clientPhone,
@@ -63,7 +63,7 @@ export async function handleSmsWebhook(
 
   console.log("Twilio SMS Webhook:", { From, To, Body });
 
-  const { data: phoneNumber, error: phoneError } = await supabase
+  const { data: phoneNumber, error: phoneError } = await supabaseAdmin!
     .from("phone_numbers")
     .select("id, account_id")
     .eq("e164", To)
@@ -77,7 +77,7 @@ export async function handleSmsWebhook(
   const { account_id } = phoneNumber;
 
   try {
-    await supabase.from("sms_messages").insert({
+    await supabaseAdmin!.from("sms_messages").insert({
       account_id,
       from_number: From,
       to_number: To,
@@ -95,7 +95,7 @@ export async function handleSmsWebhook(
   const exploitable = isReponseExploitable(parsed);
   const scored = computeScore(parsed.type_code, parsed.delay_code);
 
-  const { data: existingLead } = await supabase
+  const { data: existingLead } = await supabaseAdmin!
     .from("leads")
     .select("id, relance_count")
     .eq("account_id", account_id)
@@ -121,7 +121,7 @@ export async function handleSmsWebhook(
 
   if (exploitable) {
     if (existingLead) {
-      const { error: updateError } = await supabase
+      const { error: updateError } = await supabaseAdmin!
         .from("leads")
         .update(leadData)
         .eq("id", existingLead.id);
@@ -129,7 +129,7 @@ export async function handleSmsWebhook(
       console.log("Lead mis à jour (réponse exploitable):", existingLead.id);
     } else {
       (leadData as Record<string, unknown>).relance_count = 0;
-      const { error: insertError } = await supabase.from("leads").insert(leadData);
+      const { error: insertError } = await supabaseAdmin!.from("leads").insert(leadData);
       if (insertError) throw new Error(`Erreur création lead: ${insertError.message}`);
       console.log("Nouveau lead créé (réponse exploitable):", From);
     }
@@ -147,7 +147,7 @@ export async function handleSmsWebhook(
 
     const result = await sendSMS(From, To, RELANCE_CORRECTION_SMS);
     try {
-      await supabase.from("sms_messages").insert({
+      await supabaseAdmin!.from("sms_messages").insert({
         account_id,
         from_number: To,
         to_number: From,
@@ -160,14 +160,14 @@ export async function handleSmsWebhook(
     }
 
     if (existingLead) {
-      const { error: updateError } = await supabase
+      const { error: updateError } = await supabaseAdmin!
         .from("leads")
         .update(leadData)
         .eq("id", existingLead.id);
       if (updateError) throw new Error(`Erreur update lead: ${updateError.message}`);
       console.log("Lead mis à jour après relance correction:", existingLead.id);
     } else {
-      const { error: insertError } = await supabase.from("leads").insert(leadData);
+      const { error: insertError } = await supabaseAdmin!.from("leads").insert(leadData);
       if (insertError) throw new Error(`Erreur création lead: ${insertError.message}`);
       console.log("Nouveau lead créé (réponse inexploitable, relance envoyée):", From);
     }
@@ -185,7 +185,7 @@ export async function handleSmsWebhook(
   leadData.raw_message = parsed.raw_message;
 
   if (existingLead) {
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin!
       .from("leads")
       .update(leadData)
       .eq("id", existingLead.id);
@@ -193,7 +193,7 @@ export async function handleSmsWebhook(
     console.log("Lead mis à jour (needs_review, plus de relance):", existingLead.id);
   } else {
     (leadData as Record<string, unknown>).relance_count = 2;
-    const { error: insertError } = await supabase.from("leads").insert(leadData);
+    const { error: insertError } = await supabaseAdmin!.from("leads").insert(leadData);
     if (insertError) throw new Error(`Erreur création lead: ${insertError.message}`);
     console.log("Nouveau lead créé (inexploitable, quota relances atteint):", From);
   }
@@ -215,7 +215,7 @@ export async function handleVoiceWebhook(
 
   console.log("Twilio Voice Webhook:", { CallSid, CallStatus, From, To, Direction });
 
-  const { data: phoneNumber, error: phoneError } = await supabase
+  const { data: phoneNumber, error: phoneError } = await supabaseAdmin!
     .from("phone_numbers")
     .select("id, account_id, e164")
     .eq("e164", To)
@@ -232,7 +232,7 @@ export async function handleVoiceWebhook(
   const inProgressStatuses = ["in-progress", "ringing"];
   const missedStatuses = ["no-answer", "busy", "failed", "canceled"];
 
-  const { data: existingCall } = await supabase
+  const { data: existingCall } = await supabaseAdmin!
     .from("calls")
     .select("id, status, started_at, ended_at")
     .eq("twilio_call_sid", CallSid)
@@ -256,9 +256,9 @@ export async function handleVoiceWebhook(
   }
 
   if (existingCall) {
-    await supabase.from("calls").update(callData).eq("twilio_call_sid", CallSid);
+    await supabaseAdmin!.from("calls").update(callData).eq("twilio_call_sid", CallSid);
   } else {
-    await supabase.from("calls").insert(callData);
+    await supabaseAdmin!.from("calls").insert(callData);
   }
 
   const canPlayTwiML = !endedStatuses.includes(CallStatus);
@@ -269,7 +269,7 @@ export async function handleVoiceWebhook(
       isMissedCall ? "Appel manqué (status callback), lead + SMS" : "Answer URL, lead + SMS qualification"
     );
 
-    const { data: existingLead } = await supabase
+    const { data: existingLead } = await supabaseAdmin!
       .from("leads")
       .select("id")
       .eq("account_id", account_id)
@@ -279,7 +279,7 @@ export async function handleVoiceWebhook(
       .maybeSingle();
 
     if (!existingLead) {
-      await supabase.from("leads").insert({
+      await supabaseAdmin!.from("leads").insert({
         account_id,
         client_phone: From,
         raw_message: null,
@@ -292,7 +292,7 @@ export async function handleVoiceWebhook(
     }
 
     // Éviter le double envoi si Twilio appelle answer URL puis status callback
-    const { data: recentSms } = await supabase
+    const { data: recentSms } = await supabaseAdmin!
       .from("sms_messages")
       .select("id")
       .eq("account_id", account_id)

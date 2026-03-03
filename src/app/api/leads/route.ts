@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listLeads } from "@/modules/leads";
+import { requireAuth } from "@/lib/auth";
+import { createSupabaseClient } from "@/lib/supabase";
+import { ApiError } from "@/lib/utils";
 
 /**
- * GET /api/leads - List leads paginated
+ * GET /api/leads - List leads paginated (authentifié)
  */
 export async function GET(request: NextRequest) {
   try {
+    const { account_id, token } = await requireAuth(request);
+    const client = createSupabaseClient(token);
+
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
@@ -20,7 +26,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { leads, count, totalPages } = await listLeads({ page, limit });
+    const { leads, count, totalPages } = await listLeads(client, {
+      account_id,
+      page,
+      limit,
+    });
 
     return NextResponse.json({
       success: true,
@@ -36,6 +46,14 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Erreur GET /leads:", error);
+
+    if (error instanceof ApiError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: error.status }
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,

@@ -2,7 +2,7 @@
  * Dev domain service - business logic for dev tools (seed, simulate)
  */
 
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase";
 import type { SimulateSmsParams } from "./dev.types";
 
 const LEADS_DATA = [
@@ -43,7 +43,7 @@ const LEADS_DATA = [
 export async function seedDev() {
   let accountId: string;
 
-  const { data: existingAccount } = await supabase
+  const { data: existingAccount } = await supabaseAdmin!
     .from("accounts")
     .select("id")
     .eq("name", "Électricité Dupont DEV")
@@ -53,7 +53,7 @@ export async function seedDev() {
     accountId = existingAccount.id;
     console.log("Account existant réutilisé:", accountId);
   } else {
-    const { data: newAccount, error: accountError } = await supabase
+    const { data: newAccount, error: accountError } = await supabaseAdmin!
       .from("accounts")
       .insert({ name: "Électricité Dupont DEV" })
       .select()
@@ -67,7 +67,7 @@ export async function seedDev() {
     console.log("Nouveau account créé:", accountId);
   }
 
-  const { data: phoneNumber, error: phoneError } = await supabase
+  const { data: phoneNumber, error: phoneError } = await supabaseAdmin!
     .from("phone_numbers")
     .insert({
       account_id: accountId,
@@ -86,7 +86,7 @@ export async function seedDev() {
     account_id: accountId,
   }));
 
-  const { data: leads, error: leadsError } = await supabase
+  const { data: leads, error: leadsError } = await supabaseAdmin!
     .from("leads")
     .insert(leadsData)
     .select();
@@ -106,7 +106,7 @@ export async function seedDev() {
 export async function seedHealthDb() {
   let accountId: string;
 
-  const { data: existingAccount } = await supabase
+  const { data: existingAccount } = await supabaseAdmin!
     .from("accounts")
     .select("id")
     .eq("name", "Électricité Dupont DEV")
@@ -115,7 +115,7 @@ export async function seedHealthDb() {
   if (existingAccount) {
     accountId = existingAccount.id;
   } else {
-    const { data: newAccount, error: accountError } = await supabase
+    const { data: newAccount, error: accountError } = await supabaseAdmin!
       .from("accounts")
       .insert({ name: "Électricité Dupont DEV" })
       .select()
@@ -128,7 +128,7 @@ export async function seedHealthDb() {
     accountId = newAccount.id;
   }
 
-  const { data: phoneNumber, error: phoneError } = await supabase
+  const { data: phoneNumber, error: phoneError } = await supabaseAdmin!
     .from("phone_numbers")
     .insert({
       account_id: accountId,
@@ -147,7 +147,7 @@ export async function seedHealthDb() {
     account_id: accountId,
   }));
 
-  const { data: leads, error: leadsError } = await supabase
+  const { data: leads, error: leadsError } = await supabaseAdmin!
     .from("leads")
     .insert(leadsData)
     .select();
@@ -167,7 +167,7 @@ export async function seedHealthDb() {
 export async function simulateSms(params: SimulateSmsParams) {
   const { to, from, body: smsBody } = params;
 
-  const { data: phoneNumber, error: phoneError } = await supabase
+  const { data: phoneNumber, error: phoneError } = await supabaseAdmin!
     .from("phone_numbers")
     .select("id, account_id")
     .eq("e164", to)
@@ -200,7 +200,7 @@ export async function simulateSms(params: SimulateSmsParams) {
     relance_count: 0,
   };
 
-  const { data: lead, error: leadError } = await supabase
+  const { data: lead, error: leadError } = await supabaseAdmin!
     .from("leads")
     .insert(leadData)
     .select()
