@@ -10,18 +10,18 @@ export default function MobileSettingsPage() {
   return (
     <div className="space-y-8">
       <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-500">
+        <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-400">
           Compte
         </h2>
-        <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+        <div className="overflow-hidden rounded-2xl bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
           <Link
             href="#"
-            className="flex min-h-[48px] items-center justify-between border-b border-slate-100 px-4"
+            className="flex min-h-[48px] items-center justify-between border-b border-slate-100 px-4 transition-colors hover:bg-slate-50"
           >
             <span className="text-sm font-medium text-slate-800">Mon profil</span>
             <ChevronRight className="h-4 w-4 text-slate-400" strokeWidth={1.5} />
           </Link>
-          <div className="flex min-h-[48px] items-center justify-between px-4">
+          <div className="flex min-h-[48px] items-center justify-between px-4 transition-colors hover:bg-slate-50">
             <span className="text-sm font-medium text-slate-800">Mon numéro pro</span>
             <span className="text-sm font-medium text-blue-600">+33 6 12 34 56 78</span>
           </div>
@@ -29,11 +29,11 @@ export default function MobileSettingsPage() {
       </section>
 
       <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-500">
+        <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-400">
           Notifications
         </h2>
-        <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
-          <div className="flex min-h-[48px] items-center justify-between border-b border-slate-100 px-4">
+        <div className="overflow-hidden rounded-2xl bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
+          <div className="flex min-h-[48px] items-center justify-between border-b border-slate-100 px-4 transition-colors hover:bg-slate-50">
             <span className="text-sm font-medium text-slate-800">Notifications push</span>
             <button
               type="button"
@@ -53,7 +53,7 @@ export default function MobileSettingsPage() {
           </div>
           <Link
             href="#"
-            className="flex min-h-[48px] items-center justify-between px-4"
+            className="flex min-h-[48px] items-center justify-between px-4 transition-colors hover:bg-slate-50"
           >
             <span className="text-sm font-medium text-slate-800">Seuil de score minimum</span>
             <span className="flex items-center gap-1 text-sm text-slate-500">
@@ -65,17 +65,17 @@ export default function MobileSettingsPage() {
       </section>
 
       <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-500">
+        <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-400">
           Application
         </h2>
-        <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
-          <div className="flex min-h-[48px] items-center justify-between border-b border-slate-100 px-4">
+        <div className="overflow-hidden rounded-2xl bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
+          <div className="flex min-h-[48px] items-center justify-between border-b border-slate-100 px-4 transition-colors hover:bg-slate-50">
             <span className="text-sm font-medium text-slate-800">Version</span>
             <span className="text-sm text-slate-500">1.0.0</span>
           </div>
           <Link
             href="#"
-            className="flex min-h-[48px] items-center justify-between px-4"
+            className="flex min-h-[48px] items-center justify-between px-4 transition-colors hover:bg-slate-50"
           >
             <span className="text-sm font-medium text-slate-800">
               Conditions d&apos;utilisation

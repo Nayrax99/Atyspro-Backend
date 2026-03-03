@@ -22,7 +22,7 @@ export default function PhonePage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <section className="rounded-2xl bg-slate-200 py-3 text-center">
+      <section className="rounded-2xl bg-slate-200 py-4 text-center shadow-inner">
         <p className={`tracking-widest ${number ? "text-slate-800" : "text-slate-500"}`}>
           {number || "Composez un numéro"}
         </p>
@@ -33,7 +33,7 @@ export default function PhonePage() {
         <button
           type="button"
           onClick={handleBackspace}
-          className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-sm"
+          className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
           aria-label="Effacer"
         >
           <Delete className="h-5 w-5" strokeWidth={1.8} />
@@ -48,7 +48,7 @@ export default function PhonePage() {
         type="button"
         onClick={handleCall}
         disabled={!number}
-        className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 py-3 font-semibold text-white shadow-md disabled:opacity-40"
+        className="mt-8 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 py-3 text-base font-semibold text-white shadow-[0_6px_18px_rgba(37,99,235,0.35)] transition-all hover:brightness-105 disabled:opacity-40"
       >
         <PhoneCall className="h-5 w-5" strokeWidth={2} />
         Appeler

@@ -47,7 +47,7 @@ export default function MobileLeadsPage() {
     return (
       <div className="space-y-4">
         {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="h-24 rounded-2xl bg-white shadow-sm" />
+          <div key={i} className="h-24 rounded-2xl bg-white shadow-[0_4px_12px_rgba(0,0,0,0.06)]" />
         ))}
       </div>
     );
@@ -77,7 +77,7 @@ export default function MobileLeadsPage() {
   }
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-3">
       {data.map((lead) => (
         <LeadCard key={lead.id} lead={lead} />
       ))}
