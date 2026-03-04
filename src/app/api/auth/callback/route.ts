@@ -50,7 +50,18 @@ export async function GET(req: NextRequest) {
         .eq("id", account.id);
     }
 
-    return NextResponse.redirect(getAppUrl());
+    const redirectUrl = `${getAppUrl()}/dashboard`;
+    const response = NextResponse.redirect(redirectUrl);
+
+    response.cookies.set("sb-access-token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7, // 7 jours
+    });
+
+    return response;
   } catch (err) {
     console.error("Erreur GET /auth/callback:", err);
     return NextResponse.redirect(

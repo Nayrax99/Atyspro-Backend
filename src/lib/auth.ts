@@ -20,16 +20,19 @@ export interface AuthContext {
 }
 
 /**
- * Extrait et valide l'utilisateur depuis le header Authorization.
+ * Extrait et valide l'utilisateur depuis le header Authorization ou le cookie.
  * Retourne { user, account_id } ou null si non authentifié / invalide.
  */
 export async function getAuthUser(req: NextRequest): Promise<AuthContext | null> {
+  let token: string | undefined;
+
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return null;
+  if (authHeader?.startsWith("Bearer ")) {
+    token = authHeader.slice(7).trim();
+  } else {
+    token = req.cookies.get("sb-access-token")?.value;
   }
 
-  const token = authHeader.slice(7).trim();
   if (!token) return null;
 
   if (!supabaseAdmin) {
