@@ -25,7 +25,9 @@ Nom et prénom
 Problème (1 phrase)
 
 Exemple :
-1 / 3 / 44 rue de la Paix 75012 Paris / Jean Dupont / Plus d'électricité dans la cuisine`;
+1 / 3 / 44 rue de la Paix 75012 Paris / Jean Dupont / Plus d'électricité dans la cuisine
+
+STOP au même numéro pour se désinscrire.`;
 
 /** Relance 1 - 10-15 min après SMS principal, aucune réponse reçue */
 export const RELANCE_1_SMS = `Pour être rappelé, merci de répondre à ce message
@@ -33,7 +35,9 @@ en indiquant au minimum :
 Type / Délai / Adresse.
 
 Exemple :
-1 / 2 / 44 rue de la Paix 75012 Paris`;
+1 / 2 / 44 rue de la Paix 75012 Paris
+
+STOP au même numéro pour se désinscrire.`;
 
 /** Relance 2 - 3h après SMS principal, toujours aucune réponse */
 export const RELANCE_2_SMS = `Sans réponse, votre demande ne pourra pas être priorisée.`;

@@ -72,128 +72,130 @@ export default function DashboardPage() {
   const pagination = data?.pagination;
 
   return (
-    <>
-      <h1 className="dashboard-page-title">Leads</h1>
+    <div className="max-w-5xl mx-auto">
+      <>
+        <h1 className="dashboard-page-title">Leads</h1>
 
-      <div className="dashboard-card">
-        <div className="dashboard-card-header">Liste des leads</div>
-        <div className="leads-table-wrap">
-          {leads.length === 0 ? (
-            <div className="dashboard-empty">
-              <h2>Aucun lead</h2>
-              <p>
-                Les leads issus des SMS Twilio apparaîtront ici. Vous pouvez
-                utiliser le seed DEV pour des données de test.
-              </p>
-            </div>
-          ) : (
-            <table className="leads-table">
-              <thead>
-                <tr>
-                  <th>Contact</th>
-                  <th>Téléphone</th>
-                  <th>Type / Délai</th>
-                  <th>Statut</th>
-                  <th>Score</th>
-                  <th>Relances</th>
-                  <th>Date</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {leads.map((lead: Lead) => (
-                  <tr key={lead.id}>
-                    <td>
-                      {lead.full_name || (
-                        <span className="lead-cell-empty">—</span>
-                      )}
-                    </td>
-                    <td>{lead.client_phone || "—"}</td>
-                    <td>
-                      <span className="lead-job-type">
-                        {formatType(lead)}
-                      </span>
-                      <div className="lead-request-preview">
-                        {formatDelay(lead)}
-                      </div>
-                    </td>
-                    <td>
-                      <span
-                        className={`badge badge--${lead.status}`}
-                        title={lead.status}
-                      >
-                        {LEAD_STATUS_LABELS[lead.status]}
-                      </span>
-                    </td>
-                    <td>
-                      <span
-                        className={`score-cell ${getScoreClass(
-                          lead.priority_score,
-                        )}`}
-                      >
-                        {lead.priority_score != null
-                          ? lead.priority_score
-                          : "—"}
-                      </span>
-                    </td>
-                    <td>
-                      {lead.relance_count && lead.relance_count > 0 ? (
-                        <span className="badge badge--warning">
-                          {lead.relance_count} relance
-                          {lead.relance_count > 1 ? "s" : ""}
-                        </span>
-                      ) : (
-                        <span className="lead-cell-empty">—</span>
-                      )}
-                    </td>
-                    <td>
-                      {lead.created_at
-                        ? new Date(lead.created_at).toLocaleDateString(
-                            "fr-FR",
-                            {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            },
-                          )
-                        : "—"}
-                    </td>
-                    <td>
-                      <Link href={`/dashboard/leads/${lead.id}`}>Voir</Link>
-                    </td>
+        <div className="dashboard-card">
+          <div className="dashboard-card-header">Liste des leads</div>
+          <div className="leads-table-wrap">
+            {leads.length === 0 ? (
+              <div className="dashboard-empty">
+                <h2>Aucun lead</h2>
+                <p>
+                  Les leads issus des SMS Twilio apparaîtront ici. Vous pouvez
+                  utiliser le seed DEV pour des données de test.
+                </p>
+              </div>
+            ) : (
+              <table className="leads-table">
+                <thead>
+                  <tr>
+                    <th>Contact</th>
+                    <th>Téléphone</th>
+                    <th>Type / Délai</th>
+                    <th>Statut</th>
+                    <th>Score</th>
+                    <th>Relances</th>
+                    <th>Date</th>
+                    <th></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {leads.map((lead: Lead) => (
+                    <tr key={lead.id}>
+                      <td>
+                        {lead.full_name || (
+                          <span className="lead-cell-empty">—</span>
+                        )}
+                      </td>
+                      <td>{lead.client_phone || "—"}</td>
+                      <td>
+                        <span className="lead-job-type">
+                          {formatType(lead)}
+                        </span>
+                        <div className="lead-request-preview">
+                          {formatDelay(lead)}
+                        </div>
+                      </td>
+                      <td>
+                        <span
+                          className={`badge badge--${lead.status}`}
+                          title={lead.status}
+                        >
+                          {LEAD_STATUS_LABELS[lead.status]}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          className={`score-cell ${getScoreClass(
+                            lead.priority_score,
+                          )}`}
+                        >
+                          {lead.priority_score != null
+                            ? lead.priority_score
+                            : "—"}
+                        </span>
+                      </td>
+                      <td>
+                        {lead.relance_count && lead.relance_count > 0 ? (
+                          <span className="badge badge--warning">
+                            {lead.relance_count} relance
+                            {lead.relance_count > 1 ? "s" : ""}
+                          </span>
+                        ) : (
+                          <span className="lead-cell-empty">—</span>
+                        )}
+                      </td>
+                      <td>
+                        {lead.created_at
+                          ? new Date(lead.created_at).toLocaleDateString(
+                              "fr-FR",
+                              {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              },
+                            )
+                          : "—"}
+                      </td>
+                      <td>
+                        <Link href={`/dashboard/leads/${lead.id}`}>Voir</Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+          {pagination && pagination.total > 0 && (
+            <div className="pagination">
+              <span className="pagination-info">
+                {pagination.total} lead{pagination.total > 1 ? "s" : ""} • page{" "}
+                {pagination.page} / {pagination.totalPages}
+              </span>
+              <div className="pagination-buttons">
+                <button
+                  type="button"
+                  className="pagination-btn"
+                  disabled={!pagination.hasPrev}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  Précédent
+                </button>
+                <button
+                  type="button"
+                  className="pagination-btn"
+                  disabled={!pagination.hasNext}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Suivant
+                </button>
+              </div>
+            </div>
           )}
         </div>
-        {pagination && pagination.total > 0 && (
-          <div className="pagination">
-            <span className="pagination-info">
-              {pagination.total} lead{pagination.total > 1 ? "s" : ""} • page{" "}
-              {pagination.page} / {pagination.totalPages}
-            </span>
-            <div className="pagination-buttons">
-              <button
-                type="button"
-                className="pagination-btn"
-                disabled={!pagination.hasPrev}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                Précédent
-              </button>
-              <button
-                type="button"
-                className="pagination-btn"
-                disabled={!pagination.hasNext}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Suivant
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </>
+      </>
+    </div>
   );
 }

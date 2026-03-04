@@ -88,170 +88,172 @@ export default function LeadDetailPage() {
 
   if (error || !lead) {
     return (
-      <>
+      <div className="lead-detail-container max-w-2xl mx-auto">
         <Link href="/dashboard" className="lead-detail-back">
           ← Retour aux leads
         </Link>
         <div className="dashboard-error">
           {error || "Lead non trouvé"}
         </div>
-      </>
+      </div>
     );
   }
 
   return (
-    <div className="lead-detail">
-      <Link href="/dashboard" className="lead-detail-back">
-        ← Retour aux leads
-      </Link>
+    <div className="lead-detail-container max-w-2xl mx-auto">
+      <div className="lead-detail">
+        <Link href="/dashboard" className="lead-detail-back">
+          ← Retour aux leads
+        </Link>
 
-      <div className="dashboard-card">
-        <div className="lead-detail-section">
-          <div className="lead-detail-header">
-            <h2 className="lead-detail-title">
-              {lead.full_name || "Sans nom"}
-            </h2>
-            <span className={`badge badge--${lead.status}`}>
-              {LEAD_STATUS_LABELS[lead.status]}
-            </span>
-          </div>
-
-          <form onSubmit={handleSaveStatus} className="lead-status-form">
-            <label htmlFor="lead-status">Statut</label>
-            <select
-              id="lead-status"
-              value={status}
-              onChange={(e) => setStatus(e.target.value as LeadStatus)}
-              disabled={saving}
-            >
-              {(Object.keys(LEAD_STATUS_LABELS) as LeadStatus[]).map((s) => (
-                <option key={s} value={s}>
-                  {LEAD_STATUS_LABELS[s]}
-                </option>
-              ))}
-            </select>
-            <button type="submit" disabled={saving}>
-              {saving ? "Enregistrement…" : "Enregistrer"}
-            </button>
-            {saveMessage === "success" && (
-              <span style={{ color: "#059669", fontSize: "0.9rem" }}>
-                Enregistré
+        <div className="dashboard-card">
+          <div className="lead-detail-section">
+            <div className="lead-detail-header">
+              <h2 className="lead-detail-title">
+                {lead.full_name || "Sans nom"}
+              </h2>
+              <span className={`badge badge--${lead.status}`}>
+                {LEAD_STATUS_LABELS[lead.status]}
               </span>
-            )}
-            {saveMessage === "error" && (
-              <span style={{ color: "#dc2626", fontSize: "0.9rem" }}>
-                Erreur
-              </span>
-            )}
-          </form>
-        </div>
+            </div>
 
-        <div className="lead-detail-section">
-          <h3>Contact</h3>
-          <div className="lead-detail-field">
-            <div className="lead-detail-label">Téléphone</div>
-            <div
-              className={`lead-detail-value ${
-                !lead.client_phone ? "lead-detail-value--empty" : ""
-              }`}
-            >
-              {lead.client_phone || "Non renseigné"}
-            </div>
-          </div>
-          <div className="lead-detail-field">
-            <div className="lead-detail-label">Adresse</div>
-            <div
-              className={`lead-detail-value ${
-                !lead.address ? "lead-detail-value--empty" : ""
-              }`}
-            >
-              {lead.address || "Non renseignée"}
-            </div>
-          </div>
-        </div>
-
-        <div className="lead-detail-section">
-          <h3>Demande</h3>
-          <div className="lead-detail-field">
-            <div className="lead-detail-label">Type de prestation</div>
-            <div
-              className={`lead-detail-value ${
-                !lead.type_code ? "lead-detail-value--empty" : ""
-              }`}
-            >
-              {formatType(lead)}
-            </div>
-          </div>
-          <div className="lead-detail-field">
-            <div className="lead-detail-label">Délai souhaité</div>
-            <div className="lead-detail-value">{formatDelay(lead)}</div>
-          </div>
-          <div className="lead-detail-field">
-            <div className="lead-detail-label">Score de priorité</div>
-            <div className="lead-detail-value">
-              {lead.priority_score != null ? lead.priority_score : "—"}
-            </div>
-          </div>
-          <div className="lead-detail-field">
-            <div className="lead-detail-label">Valeur estimée</div>
-            <div className="lead-detail-value">
-              {lead.value_estimate === "high"
-                ? "Élevée"
-                : lead.value_estimate === "medium"
-                  ? "Moyenne"
-                  : lead.value_estimate === "low"
-                    ? "Faible"
-                    : "Non estimée"}
-            </div>
-          </div>
-          <div className="lead-detail-field">
-            <div className="lead-detail-label">Description / message</div>
-            <div
-              className={`lead-detail-value ${
-                !lead.description ? "lead-detail-value--empty" : ""
-              }`}
-              style={{ whiteSpace: "pre-wrap" }}
-            >
-              {lead.description || lead.raw_message || "Aucun message"}
-            </div>
-          </div>
-        </div>
-
-        <div className="lead-detail-section">
-          <h3>Relances</h3>
-          <div className="lead-detail-field">
-            <div className="lead-detail-label">Nombre de relances</div>
-            <div className="lead-detail-value">
-              {lead.relance_count && lead.relance_count > 0 ? (
-                <span className="badge badge--warning">
-                  {lead.relance_count} relance
-                  {lead.relance_count > 1 ? "s" : ""}
+            <form onSubmit={handleSaveStatus} className="lead-status-form">
+              <label htmlFor="lead-status">Statut</label>
+              <select
+                id="lead-status"
+                value={status}
+                onChange={(e) => setStatus(e.target.value as LeadStatus)}
+                disabled={saving}
+              >
+                {(Object.keys(LEAD_STATUS_LABELS) as LeadStatus[]).map((s) => (
+                  <option key={s} value={s}>
+                    {LEAD_STATUS_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+              <button type="submit" disabled={saving}>
+                {saving ? "Enregistrement…" : "Enregistrer"}
+              </button>
+              {saveMessage === "success" && (
+                <span style={{ color: "#059669", fontSize: "0.9rem" }}>
+                  Enregistré
                 </span>
-              ) : (
-                "Aucune"
               )}
-            </div>
+              {saveMessage === "error" && (
+                <span style={{ color: "#dc2626", fontSize: "0.9rem" }}>
+                  Erreur
+                </span>
+              )}
+            </form>
           </div>
-        </div>
 
-        <div className="lead-detail-section">
-          <h3>Dates</h3>
-          <div className="lead-detail-field">
-            <div className="lead-detail-label">Créé le</div>
-            <div className="lead-detail-value">
-              {lead.created_at
-                ? new Date(lead.created_at).toLocaleString("fr-FR")
-                : "—"}
-            </div>
-          </div>
-          {lead.updated_at && (
+          <div className="lead-detail-section">
+            <h3>Contact</h3>
             <div className="lead-detail-field">
-              <div className="lead-detail-label">Modifié le</div>
-              <div className="lead-detail-value">
-                {new Date(lead.updated_at).toLocaleString("fr-FR")}
+              <div className="lead-detail-label">Téléphone</div>
+              <div
+                className={`lead-detail-value ${
+                  !lead.client_phone ? "lead-detail-value--empty" : ""
+                }`}
+              >
+                {lead.client_phone || "Non renseigné"}
               </div>
             </div>
-          )}
+            <div className="lead-detail-field">
+              <div className="lead-detail-label">Adresse</div>
+              <div
+                className={`lead-detail-value ${
+                  !lead.address ? "lead-detail-value--empty" : ""
+                }`}
+              >
+                {lead.address || "Non renseignée"}
+              </div>
+            </div>
+          </div>
+
+          <div className="lead-detail-section">
+            <h3>Demande</h3>
+            <div className="lead-detail-field">
+              <div className="lead-detail-label">Type de prestation</div>
+              <div
+                className={`lead-detail-value ${
+                  !lead.type_code ? "lead-detail-value--empty" : ""
+                }`}
+              >
+                {formatType(lead)}
+              </div>
+            </div>
+            <div className="lead-detail-field">
+              <div className="lead-detail-label">Délai souhaité</div>
+              <div className="lead-detail-value">{formatDelay(lead)}</div>
+            </div>
+            <div className="lead-detail-field">
+              <div className="lead-detail-label">Score de priorité</div>
+              <div className="lead-detail-value">
+                {lead.priority_score != null ? lead.priority_score : "—"}
+              </div>
+            </div>
+            <div className="lead-detail-field">
+              <div className="lead-detail-label">Valeur estimée</div>
+              <div className="lead-detail-value">
+                {lead.value_estimate === "high"
+                  ? "Élevée"
+                  : lead.value_estimate === "medium"
+                    ? "Moyenne"
+                    : lead.value_estimate === "low"
+                      ? "Faible"
+                      : "Non estimée"}
+              </div>
+            </div>
+            <div className="lead-detail-field">
+              <div className="lead-detail-label">Description / message</div>
+              <div
+                className={`lead-detail-value ${
+                  !lead.description ? "lead-detail-value--empty" : ""
+                }`}
+                style={{ whiteSpace: "pre-wrap" }}
+              >
+                {lead.description || lead.raw_message || "Aucun message"}
+              </div>
+            </div>
+          </div>
+
+          <div className="lead-detail-section">
+            <h3>Relances</h3>
+            <div className="lead-detail-field">
+              <div className="lead-detail-label">Nombre de relances</div>
+              <div className="lead-detail-value">
+                {lead.relance_count && lead.relance_count > 0 ? (
+                  <span className="badge badge--warning">
+                    {lead.relance_count} relance
+                    {lead.relance_count > 1 ? "s" : ""}
+                  </span>
+                ) : (
+                  "Aucune"
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="lead-detail-section">
+            <h3>Dates</h3>
+            <div className="lead-detail-field">
+              <div className="lead-detail-label">Créé le</div>
+              <div className="lead-detail-value">
+                {lead.created_at
+                  ? new Date(lead.created_at).toLocaleString("fr-FR")
+                  : "—"}
+              </div>
+            </div>
+            {lead.updated_at && (
+              <div className="lead-detail-field">
+                <div className="lead-detail-label">Modifié le</div>
+                <div className="lead-detail-value">
+                  {new Date(lead.updated_at).toLocaleString("fr-FR")}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
