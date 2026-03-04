@@ -55,6 +55,7 @@ export async function POST(req: NextRequest) {
     const response = NextResponse.json({
       success: true,
       message: "Connecté",
+      access_token: data.session.access_token,
     });
 
     response.cookies.set("sb-access-token", token, {
