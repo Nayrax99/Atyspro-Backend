@@ -4,15 +4,14 @@ import { useState, type FormEvent } from "react";
 
 type AuthMode = "login" | "signup";
 
-// Texte de confirmation affiché après un envoi réussi
-const SUCCESS_MESSAGE =
-  "Un lien de connexion a été envoyé à votre adresse email. Vérifiez votre boîte de réception (et vos spams).";
-
 export default function AuthPage() {
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -31,29 +30,71 @@ export default function AuthPage() {
       return;
     }
 
+    if (!password.trim()) {
+      setError("Merci d’indiquer un mot de passe.");
+      return;
+    }
+
+    if (mode === "signup") {
+      if (password.length < 6) {
+        setError("Le mot de passe doit contenir au moins 6 caractères.");
+        return;
+      }
+
+      if (password !== passwordConfirm) {
+        setError("Les mots de passe ne correspondent pas.");
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
-      const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/signup";
-      const body =
-        mode === "login"
-          ? { email }
-          : {
-              email,
-              business_name: businessName,
-            };
+      if (mode === "login") {
+        const response = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email, password }),
+        });
 
-      const response = await fetch(endpoint, {
+        if (!response.ok) {
+          let message = "Impossible de vous connecter. Vérifiez vos identifiants.";
+          try {
+            const data = (await response.json()) as { message?: string; error?: string };
+            if (typeof data.message === "string" && data.message.trim().length > 0) {
+              message = data.message;
+            } else if (typeof data.error === "string" && data.error.trim().length > 0) {
+              message = data.error;
+            }
+          } catch {
+            // On garde le message générique
+          }
+          setError(message);
+          return;
+        }
+
+        // Redirection plein navigateur pour que le cookie soit pris en compte
+        window.location.href = "/dashboard";
+        return;
+      }
+
+      // Mode signup
+      const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          email,
+          password,
+          business_name: businessName,
+        }),
       });
 
       if (!response.ok) {
-        // On essaie de récupérer un message "humain", sinon message générique
-        let message = "Impossible d’envoyer le lien, veuillez réessayer.";
+        let message = "Impossible de créer le compte, veuillez réessayer.";
         try {
           const data = (await response.json()) as { message?: string; error?: string };
           if (typeof data.message === "string" && data.message.trim().length > 0) {
@@ -68,7 +109,10 @@ export default function AuthPage() {
         return;
       }
 
-      setSuccessMessage(SUCCESS_MESSAGE);
+      setSuccessMessage("Compte créé ! Vous pouvez maintenant vous connecter.");
+      setMode("login");
+      setPassword("");
+      setPasswordConfirm("");
     } catch {
       setError("Une erreur est survenue. Vérifiez votre connexion et réessayez.");
     } finally {
@@ -83,6 +127,55 @@ export default function AuthPage() {
   };
 
   const isSignup = mode === "signup";
+
+  const handleForgotPassword = async () => {
+    setError(null);
+    setSuccessMessage(null);
+
+    if (!email.trim()) {
+      setError(
+        "Merci d’indiquer votre adresse email pour recevoir le lien de réinitialisation."
+      );
+      return;
+    }
+
+    setForgotLoading(true);
+
+    try {
+      const response = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!response.ok) {
+        let message =
+          "Impossible d’envoyer l’email de réinitialisation. Veuillez réessayer.";
+        try {
+          const data = (await response.json()) as { message?: string; error?: string };
+          if (typeof data.message === "string" && data.message.trim().length > 0) {
+            message = data.message;
+          } else if (typeof data.error === "string" && data.error.trim().length > 0) {
+            message = data.error;
+          }
+        } catch {
+          // On garde le message générique
+        }
+        setError(message);
+        return;
+      }
+
+      setSuccessMessage(
+        "Un email de réinitialisation a été envoyé. Consultez votre boîte de réception."
+      );
+    } catch {
+      setError("Une erreur est survenue. Vérifiez votre connexion et réessayez.");
+    } finally {
+      setForgotLoading(false);
+    }
+  };
 
   return (
     <main className="w-full max-w-md">
@@ -126,10 +219,73 @@ export default function AuthPage() {
               required
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm shadow-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              className="w-full rounded-lg border border-slate-300 px-3 py-3 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
               placeholder="vous@exemple.com"
             />
           </div>
+
+          <div className="space-y-1.5">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-slate-700"
+            >
+              Mot de passe
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete={isSignup ? "new-password" : "current-password"}
+              required
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-3 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              placeholder={isSignup ? "••••••••" : "Votre mot de passe"}
+            />
+          </div>
+
+          {isSignup && (
+            <>
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="business-name"
+                  className="block text-sm font-medium text-slate-700"
+                >
+                  Nom de votre entreprise
+                </label>
+                <input
+                  id="business-name"
+                  name="business_name"
+                  type="text"
+                  autoComplete="organization"
+                  value={businessName}
+                  onChange={(event) => setBusinessName(event.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-3 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  placeholder="Ex : Plomberie Martin"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="password-confirm"
+                  className="block text-sm font-medium text-slate-700"
+                >
+                  Confirmer le mot de passe
+                </label>
+                <input
+                  id="password-confirm"
+                  name="password_confirm"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  value={passwordConfirm}
+                  onChange={(event) => setPasswordConfirm(event.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-3 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  placeholder="Répétez le mot de passe"
+                />
+              </div>
+            </>
+          )}
 
           {error && (
             <p className="text-sm text-red-600" role="alert">
@@ -146,15 +302,26 @@ export default function AuthPage() {
           <button
             type="submit"
             disabled={loading}
-            aria-label={isSignup ? "Créer mon compte" : "Recevoir le lien de connexion"}
+            aria-label={isSignup ? "Créer mon compte" : "Se connecter"}
             className="mt-2 inline-flex w-full items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
           >
             {loading
               ? "Envoi en cours..."
               : isSignup
               ? "Créer mon compte"
-              : "Recevoir le lien de connexion"}
+              : "Se connecter"}
           </button>
+
+          {!isSignup && (
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={forgotLoading}
+              className="mt-2 text-xs text-right text-slate-500 hover:text-blue-600 underline underline-offset-2"
+            >
+              {forgotLoading ? "Envoi du lien..." : "Mot de passe oublié ?"}
+            </button>
+          )}
         </form>
 
         <div className="mt-6 text-center text-sm">

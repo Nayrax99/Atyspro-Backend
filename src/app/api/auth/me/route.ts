@@ -19,14 +19,28 @@ export async function GET(req: NextRequest) {
 
     const { data: account } = await supabaseAdmin
       .from("accounts")
-      .select("id, name, email")
+      .select("id, name, email, onboarding_completed, owner_phone, city")
       .eq("id", account_id)
-      .single();
+      .maybeSingle();
 
     return NextResponse.json({
       success: true,
       user: { id: user.id, email: user.email },
-      account: account ?? { id: account_id, name: null, email: null },
+      account: account
+        ? {
+            id: account.id,
+            name: account.name,
+            onboarding_completed: account.onboarding_completed ?? false,
+            owner_phone: account.owner_phone ?? null,
+            city: account.city ?? null,
+          }
+        : {
+            id: account_id,
+            name: null,
+            onboarding_completed: false,
+            owner_phone: null,
+            city: null,
+          },
     });
   } catch (error) {
     if (error instanceof ApiError) {
@@ -45,3 +59,4 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+

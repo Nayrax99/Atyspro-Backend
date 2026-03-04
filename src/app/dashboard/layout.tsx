@@ -12,11 +12,29 @@ interface DashboardLayoutProps {
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 
-export default function DashboardLayout({ children }: Readonly<DashboardLayoutProps>) {
+interface MeResponse {
+  success: boolean;
+  user?: {
+    id: string;
+    email: string;
+  };
+  account?: {
+    id: string;
+    name: string | null;
+    onboarding_completed?: boolean;
+    owner_phone?: string | null;
+    city?: string | null;
+  };
+  error?: string;
+}
+
+export default function DashboardLayout({
+  children,
+}: Readonly<DashboardLayoutProps>) {
   const router = useRouter();
   const [status, setStatus] = useState<AuthStatus>("loading");
 
-  // Vérification de l'authentification côté client
+  // Vérification de l'authentification côté client + redirection onboarding
   useEffect(() => {
     let isMounted = true;
 
@@ -36,13 +54,24 @@ export default function DashboardLayout({ children }: Readonly<DashboardLayoutPr
 
         if (!response.ok) {
           if (!isMounted) return;
-          // On considère les autres erreurs comme non authentifié
           setStatus("unauthenticated");
           router.replace("/auth");
           return;
         }
 
+        const data = (await response.json()) as MeResponse;
+
         if (!isMounted) return;
+
+        const onboardingCompleted =
+          data.account?.onboarding_completed === true;
+
+        if (!onboardingCompleted) {
+          setStatus("authenticated");
+          router.replace("/onboarding");
+          return;
+        }
+
         setStatus("authenticated");
       } catch {
         if (!isMounted) return;
