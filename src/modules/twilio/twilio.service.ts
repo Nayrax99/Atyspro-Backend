@@ -263,10 +263,16 @@ export async function handleVoiceWebhook(
 
   const canPlayTwiML = !endedStatuses.includes(CallStatus);
   const isMissedCall = missedStatuses.includes(CallStatus);
+  // completed = TwiML <Hangup/> exécuté. Le webhook ringing aurait dû envoyer le SMS,
+  // mais si seul completed arrive (Status Callback sans Voice URL, ou ringing raté),
+  // on envoie le SMS ici. Le dedup 5 min évite le doublon si ringing a déjà tout fait.
+  const isCompleted = CallStatus === "completed";
 
-  if (canPlayTwiML || isMissedCall) {
+  if (canPlayTwiML || isMissedCall || isCompleted) {
     console.log(
-      isMissedCall ? "Appel manqué (status callback), lead + SMS" : "Answer URL, lead + SMS qualification"
+      isMissedCall ? "Appel manqué (status callback), lead + SMS"
+      : isCompleted ? "Appel terminé (completed), SMS qualification en fallback"
+      : "Answer URL, lead + SMS qualification"
     );
 
     const { data: existingLead } = await supabaseAdmin!
@@ -291,13 +297,16 @@ export async function handleVoiceWebhook(
       console.log("Lead existant trouvé, pas de doublon");
     }
 
-    // Éviter le double envoi si Twilio appelle answer URL puis status callback
+    // Éviter le double envoi si Twilio appelle answer URL puis status callback.
+    // On filtre sur le body exact pour ne pas bloquer une QUALIFICATION_SMS
+    // si une RELANCE_CORRECTION_SMS a été envoyée récemment.
     const { data: recentSms } = await supabaseAdmin!
       .from("sms_messages")
       .select("id")
       .eq("account_id", account_id)
       .eq("to_number", From)
       .eq("direction", "outbound")
+      .eq("body", QUALIFICATION_SMS)
       .gte("created_at", new Date(Date.now() - 5 * 60 * 1000).toISOString())
       .limit(1)
       .maybeSingle();
