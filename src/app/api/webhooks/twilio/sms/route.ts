@@ -5,10 +5,25 @@ import { validateTwilioSignature } from "@/lib/twilioClient";
 
 /**
  * POST /api/webhooks/twilio/sms - Twilio SMS webhook
+ * Twilio envoie application/x-www-form-urlencoded ; on lit le body une seule fois.
  */
 export async function POST(req: NextRequest) {
   try {
+    console.log("[SMS webhook] POST received");
     const formData = await req.formData();
+
+    // Une seule lecture du body : params pour signature + extraction des champs
+    const params: Record<string, string> = {};
+    for (const [key, value] of formData.entries()) {
+      if (typeof value === "string") params[key] = value;
+    }
+
+    const From = params["From"] ?? "";
+    const To = params["To"] ?? "";
+    const Body = params["Body"] ?? "";
+    const MessageSid = params["MessageSid"] ?? null;
+
+    console.log("[SMS webhook] From=%s To=%s Body=%s", From, To, Body?.slice(0, 80));
 
     // Validation de signature Twilio (sauf en dev)
     if (process.env.NODE_ENV !== "development") {
@@ -18,23 +33,14 @@ export async function POST(req: NextRequest) {
         ? `${baseUrl.replace(/\/$/, "")}/api/webhooks/twilio/sms`
         : req.url;
 
-      const params: Record<string, string> = {};
-      for (const [key, value] of formData.entries()) {
-        if (typeof value === "string") params[key] = value;
-      }
-
       if (!validateTwilioSignature(url, params, signature)) {
+        console.error("[SMS webhook] Signature Twilio invalide, url=%s", url);
         return NextResponse.json(
           { ok: false, error: "Signature Twilio invalide" },
           { status: 403 }
         );
       }
     }
-
-    const From = formData.get("From")?.toString() || "";
-    const To = formData.get("To")?.toString() || "";
-    const Body = formData.get("Body")?.toString() || "";
-    const MessageSid = formData.get("MessageSid")?.toString() || null;
 
     if (!From || !To || !Body) {
       return NextResponse.json(
@@ -44,7 +50,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await handleSmsWebhook({ From, To, Body, MessageSid });
-
+    console.log("[SMS webhook] handleSmsWebhook success");
     return NextResponse.json(body);
   } catch (error) {
     console.error("Erreur webhook Twilio SMS:", error);

@@ -55,29 +55,54 @@ async function sendQualificationSMS(
   }
 }
 
+/** Normalise E.164 pour lookup (Twilio envoie +33…, la DB peut avoir 33… ou +33…) */
+function normalizeE164(value: string): string[] {
+  const trimmed = value?.trim() || "";
+  if (!trimmed) return [];
+  const withPlus = trimmed.startsWith("+") ? trimmed : `+${trimmed}`;
+  const withoutPlus = withPlus.replace(/^\+/, "");
+  return [...new Set([trimmed, withPlus, withoutPlus])];
+}
+
 /** Handle incoming Twilio SMS webhook */
 export async function handleSmsWebhook(
   params: TwilioSmsWebhookParams
 ): Promise<Record<string, unknown>> {
   const { From, To, Body, MessageSid } = params;
 
-  console.log("Twilio SMS Webhook:", { From, To, Body });
+  console.log("[SMS webhook] handleSmsWebhook:", { From, To, Body: Body?.slice(0, 80) });
 
-  const { data: phoneNumber, error: phoneError } = await supabaseAdmin!
-    .from("phone_numbers")
-    .select("id, account_id")
-    .eq("e164", To)
-    .single();
+  if (!supabaseAdmin) {
+    console.error("[SMS webhook] supabaseAdmin non configuré (SUPABASE_SERVICE_ROLE_KEY)");
+    throw new ApiError("Service non configuré", 500);
+  }
 
-  if (phoneError || !phoneNumber) {
-    console.error("Numéro professionnel non trouvé:", To);
+  const e164Candidates = normalizeE164(To);
+  let phoneNumber: { id: string; account_id: string } | null = null;
+  let phoneError: unknown = null;
+
+  for (const e164 of e164Candidates) {
+    const result = await supabaseAdmin
+      .from("phone_numbers")
+      .select("id, account_id")
+      .eq("e164", e164)
+      .maybeSingle();
+    if (result.data) {
+      phoneNumber = result.data;
+      break;
+    }
+    phoneError = result.error;
+  }
+
+  if (!phoneNumber) {
+    console.error("[SMS webhook] Numéro professionnel non trouvé, To=%s, essayé: %s", To, e164Candidates.join(", "));
     throw new ApiError("Numéro professionnel non trouvé", 400);
   }
 
   const { account_id } = phoneNumber;
 
   try {
-    await supabaseAdmin!.from("sms_messages").insert({
+    await supabaseAdmin.from("sms_messages").insert({
       account_id,
       from_number: From,
       to_number: To,
@@ -86,16 +111,16 @@ export async function handleSmsWebhook(
       twilio_message_sid: MessageSid,
     });
   } catch (smsError) {
-    console.warn("Impossible d'enregistrer SMS inbound (sms_messages):", smsError);
+    console.warn("[SMS webhook] Impossible d'enregistrer SMS inbound (sms_messages):", smsError);
   }
 
   const parsed = parseSms(Body);
-  console.log("SMS parsé:", parsed);
+  console.log("[SMS webhook] SMS parsé:", parsed);
 
   const exploitable = isReponseExploitable(parsed);
   const scored = computeScore(parsed.type_code, parsed.delay_code);
 
-  const { data: existingLead } = await supabaseAdmin!
+  const { data: existingLead } = await supabaseAdmin
     .from("leads")
     .select("id, relance_count")
     .eq("account_id", account_id)
@@ -121,17 +146,17 @@ export async function handleSmsWebhook(
 
   if (exploitable) {
     if (existingLead) {
-      const { error: updateError } = await supabaseAdmin!
+      const { error: updateError } = await supabaseAdmin
         .from("leads")
         .update(leadData)
         .eq("id", existingLead.id);
       if (updateError) throw new Error(`Erreur update lead: ${updateError.message}`);
-      console.log("Lead mis à jour (réponse exploitable):", existingLead.id);
+      console.log("[SMS webhook] Lead mis à jour (réponse exploitable):", existingLead.id);
     } else {
       (leadData as Record<string, unknown>).relance_count = 0;
-      const { error: insertError } = await supabaseAdmin!.from("leads").insert(leadData);
+      const { error: insertError } = await supabaseAdmin.from("leads").insert(leadData);
       if (insertError) throw new Error(`Erreur création lead: ${insertError.message}`);
-      console.log("Nouveau lead créé (réponse exploitable):", From);
+      console.log("[SMS webhook] Nouveau lead créé (réponse exploitable):", From);
     }
     return { ok: true, parsed, scored, relance: false };
   }
@@ -160,16 +185,16 @@ export async function handleSmsWebhook(
     }
 
     if (existingLead) {
-      const { error: updateError } = await supabaseAdmin!
+      const { error: updateError } = await supabaseAdmin
         .from("leads")
         .update(leadData)
         .eq("id", existingLead.id);
       if (updateError) throw new Error(`Erreur update lead: ${updateError.message}`);
-      console.log("Lead mis à jour après relance correction:", existingLead.id);
+      console.log("[SMS webhook] Lead mis à jour après relance correction:", existingLead.id);
     } else {
-      const { error: insertError } = await supabaseAdmin!.from("leads").insert(leadData);
+      const { error: insertError } = await supabaseAdmin.from("leads").insert(leadData);
       if (insertError) throw new Error(`Erreur création lead: ${insertError.message}`);
-      console.log("Nouveau lead créé (réponse inexploitable, relance envoyée):", From);
+      console.log("[SMS webhook] Nouveau lead créé (réponse inexploitable, relance envoyée):", From);
     }
 
     return {
@@ -185,17 +210,17 @@ export async function handleSmsWebhook(
   leadData.raw_message = parsed.raw_message;
 
   if (existingLead) {
-    const { error: updateError } = await supabaseAdmin!
+    const { error: updateError } = await supabaseAdmin
       .from("leads")
       .update(leadData)
       .eq("id", existingLead.id);
     if (updateError) throw new Error(`Erreur update lead: ${updateError.message}`);
-    console.log("Lead mis à jour (needs_review, plus de relance):", existingLead.id);
+    console.log("[SMS webhook] Lead mis à jour (needs_review, plus de relance):", existingLead.id);
   } else {
     (leadData as Record<string, unknown>).relance_count = 2;
-    const { error: insertError } = await supabaseAdmin!.from("leads").insert(leadData);
+    const { error: insertError } = await supabaseAdmin.from("leads").insert(leadData);
     if (insertError) throw new Error(`Erreur création lead: ${insertError.message}`);
-    console.log("Nouveau lead créé (inexploitable, quota relances atteint):", From);
+    console.log("[SMS webhook] Nouveau lead créé (inexploitable, quota relances atteint):", From);
   }
 
   return {
