@@ -33,19 +33,49 @@ function buildVoiceTwiML(): string {
 </Response>`;
 }
 
+/**
+ * Normalise un numéro pour envoi Twilio (E.164).
+ * 06/07 → +336/+337, 33... → +33..., 00... → +..., supprime espaces/tirets/points.
+ */
+function toE164ForSending(phone: string): string {
+  const trimmed = phone?.trim() || "";
+  if (!trimmed) return trimmed;
+  let digits = trimmed.replace(/\D/g, "");
+  if (digits.startsWith("00")) {
+    digits = digits.slice(2);
+  }
+  if (!digits.length) return trimmed;
+
+  if (digits.startsWith("33") && digits.length === 11) {
+    return `+${digits}`;
+  }
+  if ((digits.startsWith("06") || digits.startsWith("07")) && digits.length === 10) {
+    return `+33${digits.slice(1)}`;
+  }
+  if ((digits.startsWith("6") || digits.startsWith("7")) && digits.length === 9) {
+    return `+33${digits}`;
+  }
+  if (trimmed.startsWith("+") && digits.length >= 10) {
+    return `+${digits}`;
+  }
+  return `+${digits}`;
+}
+
 async function sendQualificationSMS(
   clientPhone: string,
   ourNumber: string,
   accountId: string
 ): Promise<void> {
+  const toE164 = toE164ForSending(clientPhone);
+  console.log("[SMS webhook] Envoi qualification SMS, normalisé E.164: %s (original: %s)", toE164, clientPhone);
   const body = QUALIFICATION_SMS;
-  const result = await sendSMS(clientPhone, ourNumber, body);
+  const result = await sendSMS(toE164, ourNumber, body);
 
-  try {
-    await supabaseAdmin!.from("sms_messages").insert({
-      account_id: accountId,
-      from_number: ourNumber,
-      to_number: clientPhone,
+    try {
+      await supabaseAdmin!.from("sms_messages").insert({
+        account_id: accountId,
+        from_number: ourNumber,
+        to_number: toE164,
       direction: "outbound",
       body,
       twilio_message_sid: result.sid,
@@ -170,12 +200,14 @@ export async function handleSmsWebhook(
 
     console.log("Relance correction (immédiate), relance_count:", newRelanceCount);
 
-    const result = await sendSMS(From, To, RELANCE_CORRECTION_SMS);
+    const toE164 = toE164ForSending(From);
+    console.log("[SMS webhook] Envoi relance correction, normalisé E.164: %s (original: %s)", toE164, From);
+    const result = await sendSMS(toE164, To, RELANCE_CORRECTION_SMS);
     try {
       await supabaseAdmin!.from("sms_messages").insert({
         account_id,
         from_number: To,
-        to_number: From,
+        to_number: toE164,
         direction: "outbound",
         body: RELANCE_CORRECTION_SMS,
         twilio_message_sid: result.sid,
