@@ -26,11 +26,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Validation de signature Twilio (sauf en dev)
+    // IMPORTANT : Twilio signe l'URL complète incluant les query params
     if (process.env.NODE_ENV !== "development") {
       const signature = req.headers.get("x-twilio-signature") ?? "";
       const baseUrl = process.env.TWILIO_WEBHOOK_BASE_URL;
+      // Reconstruire l'URL complète avec query string (turn, account_id, call_sid, prev_transcripts)
       const webhookUrl = baseUrl
-        ? `${baseUrl.replace(/\/$/, "")}/api/webhooks/twilio/voice/gather`
+        ? `${baseUrl.replace(/\/$/, "")}/api/webhooks/twilio/voice/gather${url.search}`
         : req.url;
 
       const params: Record<string, string> = {};

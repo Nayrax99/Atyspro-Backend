@@ -117,22 +117,25 @@ export async function handleIncomingCall(
     return buildErrorTwiml();
   }
 
-  // Logger l'appel entrant
-  const { error: callError } = await supabaseAdmin.from("calls").insert({
-    account_id: accountId,
-    phone_number_id: phoneNumberId,
-    twilio_call_sid: callSid,
-    direction: "inbound",
-    from_number: from,
-    to_number: to,
-    status: callStatus || "in-progress",
-    started_at: new Date().toISOString(),
-    voice_agent_used: true,
-    voice_transcripts: [],
-  });
+  // Logger l'appel entrant — upsert pour éviter le doublon si Twilio rappelle le webhook
+  const { error: callError } = await supabaseAdmin.from("calls").upsert(
+    {
+      account_id: accountId,
+      phone_number_id: phoneNumberId,
+      twilio_call_sid: callSid,
+      direction: "inbound",
+      from_number: from,
+      to_number: to,
+      status: callStatus || "in-progress",
+      started_at: new Date().toISOString(),
+      voice_agent_used: true,
+      voice_transcripts: [],
+    },
+    { onConflict: "twilio_call_sid", ignoreDuplicates: false }
+  );
 
   if (callError) {
-    console.warn("[voice.service] Erreur insert call (non bloquant):", callError.message);
+    console.warn("[voice.service] Erreur upsert call (non bloquant):", callError.message);
   }
 
   console.log("[voice.service] Appel entrant — artisan:", artisan.name, "call_sid:", callSid);

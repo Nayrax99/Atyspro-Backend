@@ -3,7 +3,9 @@
  * Toutes les fonctions retournent du XML valide prêt à être envoyé à Twilio
  */
 
-const VOICE = "Polly.Lea";
+// Polly.Lea-Generative : voix Amazon Polly Generative AI, naturelle et expressive
+// Disponible nativement dans Twilio <Say> sans configuration supplémentaire
+const VOICE = "Polly.Lea-Generative";
 const LANGUAGE = "fr-FR";
 
 /** Construit l'URL de base pour les webhooks Gather */
