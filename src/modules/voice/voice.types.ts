@@ -2,6 +2,9 @@
  * Types pour le module agent vocal AtysPro
  */
 
+/** Nombre maximum de tours de conversation avant clôture forcée */
+export const MAX_VOICE_TURNS = 6;
+
 /** Paramètres reçus lors d'un appel entrant Twilio */
 export interface IncomingCallParams {
   callSid: string;

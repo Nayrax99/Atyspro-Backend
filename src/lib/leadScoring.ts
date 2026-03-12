@@ -1,7 +1,7 @@
 /**
  * Lead Scoring V2
  * Fonctions pures pour calculer le score de priorité et l'estimation de valeur.
- * V2 : ajout du dangerBonus et de l'upgrade estimated_scope sur value_estimate.
+ * V2 : ajout du dangerBonus, upgrade estimated_scope, et upgrade danger sur value_estimate.
  */
 
 /**
@@ -13,10 +13,10 @@
  *   is_dangerous === true  → +15
  *   is_dangerous === false → 0
  *
- * estimated_scope upgrade sur value_estimate :
- *   Si scope === 'large', value_estimate monte d'un cran (low→medium, medium→high)
- *   type_code 1 (dépannage) + scope 'large' → 'high'
- *   type_code 3 (devis) + scope 'large'     → reste 'high' (déjà max)
+ * Upgrades value_estimate (appliqués dans cet ordre) :
+ *   1. estimated_scope === 'large' → monte d'un cran (low→medium, medium→high)
+ *   2. is_dangerous === true → au minimum 'medium' ; si déjà 'medium' → 'high'
+ *      Un dépannage urgent dangereux = client prêt à payer le prix fort.
  */
 export function computeScore(
   type_code: number | null,
@@ -41,7 +41,7 @@ export function computeScore(
   else if (type_code === 3) typePoints = 15;
   else if (type_code === 4) typePoints = 10;
 
-  // Bonus danger (V2)
+  // Bonus danger
   const dangerBonus = is_dangerous === true ? 15 : 0;
 
   // Score total plafonné à 100
@@ -57,10 +57,20 @@ export function computeScore(
     value_estimate = "low";
   }
 
-  // Upgrade value_estimate si estimated_scope === 'large' (V2)
+  // Upgrade 1 : estimated_scope === 'large' → monte d'un cran
   if (estimated_scope === "large" && value_estimate !== null) {
     if (value_estimate === "low") value_estimate = "medium";
     else if (value_estimate === "medium") value_estimate = "high";
+    // 'high' reste 'high'
+  }
+
+  // Upgrade 2 : is_dangerous === true → minimum 'medium', et 'medium' → 'high'
+  if (is_dangerous === true) {
+    if (value_estimate === null || value_estimate === "low") {
+      value_estimate = "medium";
+    } else if (value_estimate === "medium") {
+      value_estimate = "high";
+    }
     // 'high' reste 'high'
   }
 

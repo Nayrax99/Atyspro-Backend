@@ -4,7 +4,7 @@ import { validateTwilioSignature } from "@/lib/twilioClient";
 import { buildErrorTwiml } from "@/lib/voiceTemplates";
 
 /**
- * POST /api/webhooks/twilio/voice/gather - Réception des résultats Gather (tours 1-3)
+ * POST /api/webhooks/twilio/voice/gather - Réception des résultats Gather (jusqu'à MAX_VOICE_TURNS tours)
  */
 export async function POST(req: NextRequest) {
   try {

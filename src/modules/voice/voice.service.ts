@@ -22,8 +22,7 @@ import type {
   ArtisanContext,
   VoiceAIAnalysis,
 } from "./voice.types";
-
-const MAX_TURNS = 3;
+import { MAX_VOICE_TURNS } from "./voice.types";
 
 // ---------------------------------------------------------------------------
 // Helpers internes
@@ -137,7 +136,7 @@ export async function handleIncomingCall(
       voice_agent_used: true,
       voice_transcripts: [],
     },
-    { onConflict: "twilio_call_sid", ignoreDuplicates: false }
+    { onConflict: "twilio_call_sid", ignoreDuplicates: true }
   );
 
   if (callError) {
@@ -152,7 +151,7 @@ export async function handleIncomingCall(
 /**
  * Gère un résultat de Gather (transcript STT reçu de Twilio).
  * Retourne le TwiML de la prochaine étape :
- * - question de suivi si needsFollowUp
+ * - question de suivi si needsFollowUp et tours restants
  * - récapitulatif pour confirmation si toutes les infos sont collectées
  */
 export async function handleGatherResult(
@@ -165,13 +164,19 @@ export async function handleGatherResult(
     return buildErrorTwiml();
   }
 
-  const allTranscripts = [...prevTranscripts, speechResult];
+  // Garantir que allTranscripts est bien un tableau de strings
+  const allTranscripts: string[] = [
+    ...prevTranscripts.filter((t): t is string => typeof t === "string"),
+    speechResult,
+  ];
 
   console.log(
-    "[voice.service] Gather tour %d, call_sid: %s, transcripts: %d",
+    "[voice.service] Gather tour %d/%d — call_sid: %s — transcripts: %d — types: %s",
     turn,
+    MAX_VOICE_TURNS,
     callSid,
-    allTranscripts.length
+    allTranscripts.length,
+    allTranscripts.map((t) => typeof t).join(",")
   );
 
   const artisan = await loadArtisanContext(accountId);
@@ -183,7 +188,7 @@ export async function handleGatherResult(
   const analysis = await analyzeVoiceTranscripts(
     allTranscripts,
     turn,
-    MAX_TURNS,
+    MAX_VOICE_TURNS,
     artisan
   );
 
@@ -195,18 +200,36 @@ export async function handleGatherResult(
   });
 
   // Mise à jour progressive des transcripts en DB à chaque tour
-  // Garantit que voice_transcripts est toujours à jour même si le flow confirm échoue
-  const { error: transcriptError } = await supabaseAdmin
+  // Utilise .select() pour confirmer que le UPDATE a bien touché des rows
+  const { data: updateData, error: transcriptError } = await supabaseAdmin
     .from("calls")
     .update({ voice_transcripts: allTranscripts })
-    .eq("twilio_call_sid", callSid);
+    .eq("twilio_call_sid", callSid)
+    .select("twilio_call_sid, voice_transcripts");
 
   if (transcriptError) {
-    console.warn("[voice.service] Erreur mise à jour transcripts tour %d:", turn, transcriptError.message);
+    console.error(
+      "[voice.service] Erreur écriture transcripts tour %d: %s",
+      turn,
+      transcriptError.message,
+      transcriptError
+    );
+  } else if (!updateData || updateData.length === 0) {
+    console.error(
+      "[voice.service] AUCUN call trouvé pour twilio_call_sid=%s — transcripts non sauvegardés",
+      callSid
+    );
+  } else {
+    console.log(
+      "[voice.service] Transcripts écrits tour %d — rows: %d — saved: %j",
+      turn,
+      updateData.length,
+      updateData[0].voice_transcripts
+    );
   }
 
-  // Suite de la qualification si des infos manquent
-  if (analysis.needsFollowUp && turn < MAX_TURNS && analysis.followUpQuestion) {
+  // Continue la qualification tant que les 4 infos ne sont pas obtenues
+  if (analysis.needsFollowUp && turn < MAX_VOICE_TURNS && analysis.followUpQuestion) {
     return buildFollowUpTwiml(
       analysis.followUpQuestion,
       turn + 1,
@@ -274,15 +297,17 @@ export async function handleConfirmation(
   const atysProPhone = (callRow?.to_number as string) || null;
 
   // Utiliser les transcripts depuis la DB (mis à jour à chaque tour dans handleGatherResult)
-  // Fallback sur les params URL si la DB ne les a pas (ex. premier appel sans gather)
-  const allTranscripts = Array.isArray(callRow?.voice_transcripts) && (callRow.voice_transcripts as string[]).length > 0
+  // Fallback sur les params URL si la DB ne les a pas
+  const dbTranscripts = Array.isArray(callRow?.voice_transcripts)
     ? (callRow.voice_transcripts as string[])
-    : fallbackTranscripts;
+    : [];
+  const allTranscripts = dbTranscripts.length > 0 ? dbTranscripts : fallbackTranscripts;
 
   console.log(
-    "[voice.service] Confirmation — transcripts depuis DB: %d, fallback: %d",
-    Array.isArray(callRow?.voice_transcripts) ? (callRow.voice_transcripts as string[]).length : 0,
-    fallbackTranscripts.length
+    "[voice.service] Confirmation — DB transcripts: %d, fallback: %d, using: %d",
+    dbTranscripts.length,
+    fallbackTranscripts.length,
+    allTranscripts.length
   );
 
   // Créer le lead avec scoring V2
@@ -293,6 +318,7 @@ export async function handleConfirmation(
     type_code: parsedData.type_code,
     delay_code: parsedData.delay_code,
     full_name: parsedData.full_name,
+    contact_name: parsedData.full_name,
     address: parsedData.address,
     description: parsedData.description,
     is_dangerous: parsedData.is_dangerous,
@@ -315,7 +341,7 @@ export async function handleConfirmation(
     );
   }
 
-  // Mettre à jour l'appel
+  // Mettre à jour l'appel avec le statut final
   const { error: updateError } = await supabaseAdmin
     .from("calls")
     .update({
@@ -386,6 +412,7 @@ async function finalizeLead(
     type_code: parsedData.type_code,
     delay_code: parsedData.delay_code,
     full_name: parsedData.full_name,
+    contact_name: parsedData.full_name,
     address: parsedData.address,
     description: parsedData.description,
     is_dangerous: parsedData.is_dangerous,
