@@ -194,6 +194,17 @@ export async function handleGatherResult(
     recap: analysis.recap,
   });
 
+  // Mise à jour progressive des transcripts en DB à chaque tour
+  // Garantit que voice_transcripts est toujours à jour même si le flow confirm échoue
+  const { error: transcriptError } = await supabaseAdmin
+    .from("calls")
+    .update({ voice_transcripts: allTranscripts })
+    .eq("twilio_call_sid", callSid);
+
+  if (transcriptError) {
+    console.warn("[voice.service] Erreur mise à jour transcripts tour %d:", turn, transcriptError.message);
+  }
+
   // Suite de la qualification si des infos manquent
   if (analysis.needsFollowUp && turn < MAX_TURNS && analysis.followUpQuestion) {
     return buildFollowUpTwiml(
@@ -230,7 +241,7 @@ export async function handleGatherResult(
 export async function handleConfirmation(
   params: ConfirmationParams
 ): Promise<string> {
-  const { accountId, callSid, allTranscripts, parsedData } = params;
+  const { accountId, callSid, allTranscripts: fallbackTranscripts, parsedData } = params;
 
   if (!supabaseAdmin) {
     console.error("[voice.service] supabaseAdmin non configuré");
@@ -251,15 +262,28 @@ export async function handleConfirmation(
     parsedData.estimated_scope
   );
 
-  // Récupérer les numéros depuis l'appel en base
+  // Récupérer les numéros ET les transcripts depuis l'appel en base
+  // Les transcripts en DB sont plus fiables que ceux passés via URL params
   const { data: callRow } = await supabaseAdmin
     .from("calls")
-    .select("from_number, to_number")
+    .select("from_number, to_number, voice_transcripts")
     .eq("twilio_call_sid", callSid)
     .maybeSingle();
 
   const clientPhone = (callRow?.from_number as string) || null;
   const atysProPhone = (callRow?.to_number as string) || null;
+
+  // Utiliser les transcripts depuis la DB (mis à jour à chaque tour dans handleGatherResult)
+  // Fallback sur les params URL si la DB ne les a pas (ex. premier appel sans gather)
+  const allTranscripts = Array.isArray(callRow?.voice_transcripts) && (callRow.voice_transcripts as string[]).length > 0
+    ? (callRow.voice_transcripts as string[])
+    : fallbackTranscripts;
+
+  console.log(
+    "[voice.service] Confirmation — transcripts depuis DB: %d, fallback: %d",
+    Array.isArray(callRow?.voice_transcripts) ? (callRow.voice_transcripts as string[]).length : 0,
+    fallbackTranscripts.length
+  );
 
   // Créer le lead avec scoring V2
   const { error: leadError } = await supabaseAdmin.from("leads").insert({

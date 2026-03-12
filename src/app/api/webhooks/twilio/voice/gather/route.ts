@@ -53,9 +53,10 @@ export async function POST(req: NextRequest) {
     const confidence = parseFloat(formData.get("Confidence")?.toString() || "0");
 
     // Décoder les transcripts précédents
+    // Note : url.searchParams.get() décode déjà les valeurs percent-encodées
     let prevTranscripts: string[] = [];
     try {
-      prevTranscripts = JSON.parse(decodeURIComponent(rawPrevTranscripts));
+      prevTranscripts = JSON.parse(rawPrevTranscripts);
       if (!Array.isArray(prevTranscripts)) prevTranscripts = [];
     } catch {
       prevTranscripts = [];

@@ -48,9 +48,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Décoder les transcripts précédents
+    // Note : url.searchParams.get() décode déjà les valeurs percent-encodées
     let allTranscripts: string[] = [];
     try {
-      const decoded = JSON.parse(decodeURIComponent(rawPrevTranscripts));
+      const decoded = JSON.parse(rawPrevTranscripts);
       if (Array.isArray(decoded)) allTranscripts = decoded;
     } catch {
       allTranscripts = [];
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
       callback_delay: "today",
     };
     try {
-      const decoded = JSON.parse(decodeURIComponent(rawParsedData)) as VoiceAIAnalysis["parsedData"];
+      const decoded = JSON.parse(rawParsedData) as VoiceAIAnalysis["parsedData"];
       if (decoded && typeof decoded === "object") parsedData = decoded;
     } catch {
       // parsedData reste aux valeurs par défaut
