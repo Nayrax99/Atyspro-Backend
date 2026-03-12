@@ -75,10 +75,14 @@ export async function POST(req: NextRequest) {
       // parsedData reste aux valeurs par défaut
     }
 
+    // Réponse de confirmation du prospect (vide si timeout → Redirect)
+    const speechResult = formData.get("SpeechResult")?.toString() || "";
+
     const twiml = await handleConfirmation({
       accountId,
       callSid,
       allTranscripts,
+      speechResult,
       parsedData,
     });
 

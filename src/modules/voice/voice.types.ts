@@ -52,10 +52,21 @@ export interface ArtisanContext {
   specialty: string;
 }
 
+/** Entrée d'une conversation vocale — inclut messages IA et prospect */
+export interface VoiceTranscriptEntry {
+  role: "assistant" | "user";
+  text: string;
+  turn: number;
+  timestamp: string;
+}
+
 /** Paramètres pour la finalisation après confirmation client */
 export interface ConfirmationParams {
   accountId: string;
   callSid: string;
+  /** Textes user uniquement — fallback raw_message si DB vide */
   allTranscripts: string[];
+  /** Réponse de confirmation du prospect (SpeechResult Twilio) */
+  speechResult: string;
   parsedData: VoiceAIAnalysis["parsedData"];
 }

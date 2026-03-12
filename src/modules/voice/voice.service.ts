@@ -1,6 +1,9 @@
 /**
  * Service agent vocal AtysPro — orchestration complète de la conversation vocale.
  * Toute la logique métier est ici ; les routes sont de simples délégués.
+ *
+ * voice_transcripts (DB) : VoiceTranscriptEntry[] — échange complet IA + prospect
+ * allTranscripts (mémoire) : string[] (user only) — utilisé par le LLM pour analyser
  */
 
 import { supabaseAdmin } from "@/lib/supabase";
@@ -21,6 +24,7 @@ import type {
   ConfirmationParams,
   ArtisanContext,
   VoiceAIAnalysis,
+  VoiceTranscriptEntry,
 } from "./voice.types";
 import { MAX_VOICE_TURNS } from "./voice.types";
 
@@ -90,13 +94,39 @@ function determineLeadStatus(
   return "needs_review";
 }
 
+/**
+ * Parse le champ voice_transcripts depuis la DB en VoiceTranscriptEntry[].
+ * Filtre les entrées malformées pour robustesse.
+ */
+function parseTranscriptEntries(raw: unknown): VoiceTranscriptEntry[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (e): e is VoiceTranscriptEntry =>
+      e !== null &&
+      typeof e === "object" &&
+      (e.role === "assistant" || e.role === "user") &&
+      typeof e.text === "string"
+  );
+}
+
+/** Texte naturel du délai de rappel (sans encoding XML) */
+function delayTextPlain(callbackDelay: string): string {
+  const map: Record<string, string> = {
+    asap: "dès que possible, c'est noté en priorité",
+    within_hour: "dans l'heure",
+    today: "dans la journée",
+    no_rush: "rapidement",
+  };
+  return map[callbackDelay] ?? "dès que possible";
+}
+
 // ---------------------------------------------------------------------------
 // Fonctions publiques du service
 // ---------------------------------------------------------------------------
 
 /**
  * Gère le décroché initial d'un appel entrant.
- * Retourne le TwiML d'accueil personnalisé avec Gather tour 1.
+ * Initialise voice_transcripts avec le message d'accueil de l'IA (tour 0).
  */
 export async function handleIncomingCall(
   params: IncomingCallParams
@@ -122,7 +152,17 @@ export async function handleIncomingCall(
     return buildErrorTwiml();
   }
 
-  // Logger l'appel entrant — upsert pour éviter le doublon si Twilio rappelle le webhook
+  // Texte brut du message d'accueil (sans SSML/XML) — stocké en premier dans voice_transcripts
+  const welcomeText = `Bonjour, vous êtes bien chez ${artisan.name}, électricien. Il est actuellement en intervention. Je suis son assistant, et je prends votre demande pour qu'il vous rappelle rapidement. Pouvez-vous me décrire votre problème, et me dire si c'est urgent ?`;
+
+  const welcomeEntry: VoiceTranscriptEntry = {
+    role: "assistant",
+    text: welcomeText,
+    turn: 0,
+    timestamp: new Date().toISOString(),
+  };
+
+  // Upsert avec ignoreDuplicates: true — n'écrase pas si l'appel existe déjà
   const { error: callError } = await supabaseAdmin.from("calls").upsert(
     {
       account_id: accountId,
@@ -134,7 +174,7 @@ export async function handleIncomingCall(
       status: callStatus || "in-progress",
       started_at: new Date().toISOString(),
       voice_agent_used: true,
-      voice_transcripts: [],
+      voice_transcripts: [welcomeEntry],
     },
     { onConflict: "twilio_call_sid", ignoreDuplicates: true }
   );
@@ -150,9 +190,7 @@ export async function handleIncomingCall(
 
 /**
  * Gère un résultat de Gather (transcript STT reçu de Twilio).
- * Retourne le TwiML de la prochaine étape :
- * - question de suivi si needsFollowUp et tours restants
- * - récapitulatif pour confirmation si toutes les infos sont collectées
+ * Met à jour voice_transcripts avec l'entrée user + la réponse IA.
  */
 export async function handleGatherResult(
   params: GatherResultParams
@@ -164,26 +202,36 @@ export async function handleGatherResult(
     return buildErrorTwiml();
   }
 
-  // Garantir que allTranscripts est bien un tableau de strings
+  // Textes user uniquement — utilisés par le LLM pour analyser la conversation
   const allTranscripts: string[] = [
     ...prevTranscripts.filter((t): t is string => typeof t === "string"),
     speechResult,
   ];
 
   console.log(
-    "[voice.service] Gather tour %d/%d — call_sid: %s — transcripts: %d — types: %s",
+    "[voice.service] Gather tour %d/%d — call_sid: %s — transcripts user: %d",
     turn,
     MAX_VOICE_TURNS,
     callSid,
-    allTranscripts.length,
-    allTranscripts.map((t) => typeof t).join(",")
+    allTranscripts.length
   );
 
-  const artisan = await loadArtisanContext(accountId);
+  // Fetch parallèle : artisan + entrées existantes de la conversation
+  const [artisan, callResult] = await Promise.all([
+    loadArtisanContext(accountId),
+    supabaseAdmin
+      .from("calls")
+      .select("voice_transcripts")
+      .eq("twilio_call_sid", callSid)
+      .maybeSingle(),
+  ]);
+
   if (!artisan) {
     console.error("[voice.service] Compte artisan non trouvé pour gather:", accountId);
     return buildErrorTwiml();
   }
+
+  const existingEntries = parseTranscriptEntries(callResult.data?.voice_transcripts);
 
   const analysis = await analyzeVoiceTranscripts(
     allTranscripts,
@@ -199,11 +247,27 @@ export async function handleGatherResult(
     recap: analysis.recap,
   });
 
-  // Mise à jour progressive des transcripts en DB à chaque tour
-  // Utilise .select() pour confirmer que le UPDATE a bien touché des rows
+  // Texte de la réponse IA pour cette étape
+  let assistantText: string;
+  if (analysis.needsFollowUp && analysis.followUpQuestion) {
+    assistantText = analysis.followUpQuestion;
+  } else if (analysis.recap) {
+    assistantText = `Parfait, je récapitule. Vous avez besoin de ${analysis.recap}. ${artisan.name} vous rappelle ${delayTextPlain(analysis.parsedData.callback_delay)}. Est-ce que c'est correct ?`;
+  } else {
+    assistantText = `Merci beaucoup. ${artisan.name} vous rappelle ${delayTextPlain(analysis.parsedData.callback_delay)}. Bonne journée !`;
+  }
+
+  const now = new Date().toISOString();
+  const updatedEntries: VoiceTranscriptEntry[] = [
+    ...existingEntries,
+    { role: "user", text: speechResult, turn, timestamp: now },
+    { role: "assistant", text: assistantText, turn, timestamp: now },
+  ];
+
+  // Mise à jour progressive des entries en DB
   const { data: updateData, error: transcriptError } = await supabaseAdmin
     .from("calls")
-    .update({ voice_transcripts: allTranscripts })
+    .update({ voice_transcripts: updatedEntries })
     .eq("twilio_call_sid", callSid)
     .select("twilio_call_sid, voice_transcripts");
 
@@ -211,8 +275,7 @@ export async function handleGatherResult(
     console.error(
       "[voice.service] Erreur écriture transcripts tour %d: %s",
       turn,
-      transcriptError.message,
-      transcriptError
+      transcriptError.message
     );
   } else if (!updateData || updateData.length === 0) {
     console.error(
@@ -221,10 +284,9 @@ export async function handleGatherResult(
     );
   } else {
     console.log(
-      "[voice.service] Transcripts écrits tour %d — rows: %d — saved: %j",
+      "[voice.service] Transcripts écrits tour %d — entries: %d",
       turn,
-      updateData.length,
-      updateData[0].voice_transcripts
+      updatedEntries.length
     );
   }
 
@@ -253,18 +315,24 @@ export async function handleGatherResult(
   }
 
   // Fallback : pas de récap (ex. LLM timeout) → finaliser directement
-  await finalizeLead(accountId, callSid, allTranscripts, analysis, artisan);
+  await finalizeLead(accountId, callSid, allTranscripts, updatedEntries, analysis, artisan);
   return buildGoodbyeTwiml(artisan.name, analysis.parsedData.callback_delay);
 }
 
 /**
  * Gère la confirmation client après le récapitulatif.
- * Crée le lead, met à jour l'appel, envoie le SMS de confirmation et retourne le TwiML de fin.
+ * Ajoute l'entrée de confirmation user + le message de fin IA, puis crée le lead.
  */
 export async function handleConfirmation(
   params: ConfirmationParams
 ): Promise<string> {
-  const { accountId, callSid, allTranscripts: fallbackTranscripts, parsedData } = params;
+  const {
+    accountId,
+    callSid,
+    allTranscripts: fallbackTranscripts,
+    speechResult,
+    parsedData,
+  } = params;
 
   if (!supabaseAdmin) {
     console.error("[voice.service] supabaseAdmin non configuré");
@@ -285,8 +353,7 @@ export async function handleConfirmation(
     parsedData.estimated_scope
   );
 
-  // Récupérer les numéros ET les transcripts depuis l'appel en base
-  // Les transcripts en DB sont plus fiables que ceux passés via URL params
+  // Récupérer les numéros ET la conversation complète depuis la DB
   const { data: callRow } = await supabaseAdmin
     .from("calls")
     .select("from_number, to_number, voice_transcripts")
@@ -296,18 +363,29 @@ export async function handleConfirmation(
   const clientPhone = (callRow?.from_number as string) || null;
   const atysProPhone = (callRow?.to_number as string) || null;
 
-  // Utiliser les transcripts depuis la DB (mis à jour à chaque tour dans handleGatherResult)
-  // Fallback sur les params URL si la DB ne les a pas
-  const dbTranscripts = Array.isArray(callRow?.voice_transcripts)
-    ? (callRow.voice_transcripts as string[])
-    : [];
-  const allTranscripts = dbTranscripts.length > 0 ? dbTranscripts : fallbackTranscripts;
+  const existingEntries = parseTranscriptEntries(callRow?.voice_transcripts);
+
+  // Ajouter la confirmation du prospect + le message de fin de l'IA
+  const goodbyeText = `Merci beaucoup. ${artisan.name} vous rappelle ${delayTextPlain(parsedData.callback_delay)}. Bonne journée !`;
+  const confirmTurn = existingEntries.filter((e) => e.role === "user").length + 1;
+  const now = new Date().toISOString();
+
+  const finalEntries: VoiceTranscriptEntry[] = [
+    ...existingEntries,
+    { role: "user", text: speechResult || "confirmé", turn: confirmTurn, timestamp: now },
+    { role: "assistant", text: goodbyeText, turn: confirmTurn, timestamp: now },
+  ];
+
+  // raw_message = textes user uniquement (compatibilité parsing existant)
+  const userTexts = existingEntries.filter((e) => e.role === "user").map((e) => e.text);
+  const rawMessage =
+    userTexts.length > 0 ? userTexts.join(" | ") : fallbackTranscripts.join(" | ");
 
   console.log(
-    "[voice.service] Confirmation — DB transcripts: %d, fallback: %d, using: %d",
-    dbTranscripts.length,
-    fallbackTranscripts.length,
-    allTranscripts.length
+    "[voice.service] Confirmation — entries DB: %d, user texts: %d, raw_message: %s",
+    existingEntries.length,
+    userTexts.length,
+    rawMessage.slice(0, 60)
   );
 
   // Créer le lead avec scoring V2
@@ -326,7 +404,7 @@ export async function handleConfirmation(
     callback_delay: parsedData.callback_delay,
     priority_score: scored.priority_score,
     value_estimate: scored.value_estimate,
-    raw_message: allTranscripts.join(" | "),
+    raw_message: rawMessage,
   });
 
   if (leadError) {
@@ -341,13 +419,13 @@ export async function handleConfirmation(
     );
   }
 
-  // Mettre à jour l'appel avec le statut final
+  // Mettre à jour l'appel avec la conversation complète et le statut final
   const { error: updateError } = await supabaseAdmin
     .from("calls")
     .update({
       status: "completed",
       ended_at: new Date().toISOString(),
-      voice_transcripts: allTranscripts,
+      voice_transcripts: finalEntries,
     })
     .eq("twilio_call_sid", callSid);
 
@@ -378,11 +456,15 @@ export async function handleConfirmation(
 // Finalisation directe (fallback sans récapitulatif)
 // ---------------------------------------------------------------------------
 
-/** Crée le lead Supabase et met à jour le statut de l'appel (fallback sans confirmation) */
+/**
+ * Crée le lead et met à jour l'appel — utilisé quand le LLM ne génère pas de récap.
+ * Reçoit les entries déjà mises à jour (incluant le message de fin IA).
+ */
 async function finalizeLead(
   accountId: string,
   callSid: string,
   allTranscripts: string[],
+  updatedEntries: VoiceTranscriptEntry[],
   analysis: VoiceAIAnalysis,
   artisan: ArtisanContext
 ): Promise<void> {
@@ -405,6 +487,10 @@ async function finalizeLead(
 
   const clientPhone = (callRow?.from_number as string) || null;
 
+  // raw_message = textes user uniquement
+  const userTexts = updatedEntries.filter((e) => e.role === "user").map((e) => e.text);
+  const rawMessage = userTexts.length > 0 ? userTexts.join(" | ") : allTranscripts.join(" | ");
+
   const { error: leadError } = await supabaseAdmin.from("leads").insert({
     account_id: accountId,
     client_phone: clientPhone,
@@ -420,7 +506,7 @@ async function finalizeLead(
     callback_delay: parsedData.callback_delay,
     priority_score: scored.priority_score,
     value_estimate: scored.value_estimate,
-    raw_message: allTranscripts.join(" | "),
+    raw_message: rawMessage,
   });
 
   if (leadError) {
@@ -439,7 +525,7 @@ async function finalizeLead(
     .update({
       status: "completed",
       ended_at: new Date().toISOString(),
-      voice_transcripts: allTranscripts,
+      voice_transcripts: updatedEntries,
     })
     .eq("twilio_call_sid", callSid);
 
