@@ -49,3 +49,19 @@ Type (1 à 4) / Délai (1 à 4) / Adresse.
 
 Exemple :
 1 / 2 / 44 rue de la Paix 75012 Paris`;
+
+/**
+ * SMS de confirmation envoyé au prospect après qualification vocale complète.
+ * Confirme la prise en charge et le délai de rappel de l'artisan.
+ */
+export const VOICE_CONFIRMATION_SMS = (artisanName: string, callbackDelay: string): string => {
+  const delayMap: Record<string, string> = {
+    asap: "dans les plus brefs délais",
+    within_hour: "dans l'heure",
+    today: "dans la journée",
+    no_rush: "rapidement",
+  };
+  const delayText = delayMap[callbackDelay] ?? "rapidement";
+
+  return `Votre demande a bien été prise en compte. ${artisanName} vous rappellera ${delayText}.\n\nAtysPro - L'assistant des artisans`;
+};

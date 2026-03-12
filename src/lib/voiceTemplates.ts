@@ -13,6 +13,17 @@ function getBaseUrl(): string {
   return (process.env.TWILIO_WEBHOOK_BASE_URL || "").replace(/\/$/, "");
 }
 
+/** Mappe callback_delay vers un texte naturel pour la voix */
+function callbackDelayText(callbackDelay: string): string {
+  const map: Record<string, string> = {
+    asap: "dès que possible, c'est noté en priorité",
+    within_hour: "dans l'heure",
+    today: "dans la journée",
+    no_rush: "rapidement",
+  };
+  return map[callbackDelay] ?? "dès que possible";
+}
+
 /**
  * Génère le TwiML d'accueil avec question ouverte et Gather tour 1
  */
@@ -25,7 +36,7 @@ export function buildWelcomeTwiml(
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="${VOICE}" language="${LANGUAGE}">Bonjour, vous êtes bien chez ${escapeXml(artisanName)}. Il est actuellement en intervention. Je suis son assistant, je peux prendre votre demande. Quel est votre besoin ?</Say>
+  <Say voice="${VOICE}" language="${LANGUAGE}">Bonjour, vous êtes bien chez ${escapeXml(artisanName)}, électricien. Il est actuellement en intervention. Je suis son assistant et je prends votre demande pour qu'il vous rappelle rapidement. Pouvez-vous me décrire votre problème et me dire si c'est urgent ?</Say>
   <Gather input="speech" language="${LANGUAGE}" speechTimeout="auto" timeout="10" action="${escapeXml(gatherAction)}">
   </Gather>
   <Say voice="${VOICE}" language="${LANGUAGE}">Je n'ai pas entendu votre réponse. Au revoir.</Say>
@@ -55,12 +66,42 @@ export function buildFollowUpTwiml(
 }
 
 /**
- * Génère le TwiML de fin de conversation (remerciement + raccrochage)
+ * Génère le TwiML de récapitulatif avec demande de confirmation client.
+ * Le Gather écoute un "oui" ou "c'est bon" du client.
+ * En cas de timeout (pas de réponse), la route confirm considère la demande comme confirmée.
  */
-export function buildGoodbyeTwiml(artisanName: string): string {
+export function buildRecapTwiml(
+  recap: string,
+  artisanName: string,
+  callbackDelay: string,
+  accountId: string,
+  callSid: string,
+  prevTranscripts: string[],
+  parsedData: Record<string, unknown>
+): string {
+  const encodedTranscripts = encodeURIComponent(JSON.stringify(prevTranscripts));
+  const encodedParsedData = encodeURIComponent(JSON.stringify(parsedData));
+  const confirmAction = `${getBaseUrl()}/api/webhooks/twilio/voice/confirm?account_id=${encodeURIComponent(accountId)}&call_sid=${encodeURIComponent(callSid)}&prev_transcripts=${encodedTranscripts}&parsed_data=${encodedParsedData}`;
+  const delayText = callbackDelayText(callbackDelay);
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="${VOICE}" language="${LANGUAGE}">Merci pour votre appel. ${escapeXml(artisanName)} vous rappellera dès que possible. Bonne journée !</Say>
+  <Gather input="speech" language="${LANGUAGE}" speechTimeout="3" timeout="5" action="${escapeXml(confirmAction)}">
+    <Say voice="${VOICE}" language="${LANGUAGE}">Parfait, je récapitule : vous avez besoin de ${escapeXml(recap)}. ${escapeXml(artisanName)} vous rappelle ${escapeXml(delayText)}. Est-ce que c'est correct ?</Say>
+  </Gather>
+  <Redirect method="POST">${escapeXml(confirmAction)}</Redirect>
+</Response>`;
+}
+
+/**
+ * Génère le TwiML de fin de conversation (remerciement + raccrochage)
+ */
+export function buildGoodbyeTwiml(artisanName: string, callbackDelay?: string): string {
+  const delayText = callbackDelay ? callbackDelayText(callbackDelay) : "dès que possible";
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say voice="${VOICE}" language="${LANGUAGE}">Merci pour votre appel. ${escapeXml(artisanName)} vous rappelle ${escapeXml(delayText)}. Bonne journée !</Say>
   <Hangup/>
 </Response>`;
 }

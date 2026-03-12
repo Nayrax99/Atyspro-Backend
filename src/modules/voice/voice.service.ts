@@ -6,13 +6,22 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { analyzeVoiceTranscripts } from "@/lib/voiceAI";
 import { computeScore } from "@/lib/leadScoring";
+import { sendSMS } from "@/lib/twilioClient";
+import { VOICE_CONFIRMATION_SMS } from "@/lib/smsTemplates";
 import {
   buildWelcomeTwiml,
   buildFollowUpTwiml,
+  buildRecapTwiml,
   buildGoodbyeTwiml,
   buildErrorTwiml,
 } from "@/lib/voiceTemplates";
-import type { IncomingCallParams, GatherResultParams, ArtisanContext, VoiceAIAnalysis } from "./voice.types";
+import type {
+  IncomingCallParams,
+  GatherResultParams,
+  ConfirmationParams,
+  ArtisanContext,
+  VoiceAIAnalysis,
+} from "./voice.types";
 
 const MAX_TURNS = 3;
 
@@ -26,7 +35,6 @@ async function resolveAccountFromPhone(
 ): Promise<{ accountId: string; phoneNumberId: string } | null> {
   if (!supabaseAdmin) return null;
 
-  // Twilio envoie +33…, la DB peut stocker +33… ou 33…
   const candidates = buildE164Candidates(phoneE164);
 
   for (const candidate of candidates) {
@@ -77,8 +85,8 @@ function buildE164Candidates(value: string): string[] {
 function determineLeadStatus(
   parsedData: VoiceAIAnalysis["parsedData"]
 ): "complete" | "incomplete" | "needs_review" {
-  const { type_code, delay_code, address } = parsedData;
-  if (type_code && delay_code && address) return "complete";
+  const { type_code, delay_code, full_name } = parsedData;
+  if (type_code && delay_code && full_name) return "complete";
   if (type_code || delay_code) return "incomplete";
   return "needs_review";
 }
@@ -101,7 +109,6 @@ export async function handleIncomingCall(
     return buildErrorTwiml();
   }
 
-  // Résoudre le compte depuis le numéro appelé
   const resolved = await resolveAccountFromPhone(to);
   if (!resolved) {
     console.error("[voice.service] Numéro professionnel non trouvé:", to);
@@ -110,7 +117,6 @@ export async function handleIncomingCall(
 
   const { accountId, phoneNumberId } = resolved;
 
-  // Charger le contexte artisan
   const artisan = await loadArtisanContext(accountId);
   if (!artisan) {
     console.error("[voice.service] Compte artisan non trouvé:", accountId);
@@ -145,7 +151,9 @@ export async function handleIncomingCall(
 
 /**
  * Gère un résultat de Gather (transcript STT reçu de Twilio).
- * Retourne le TwiML de la prochaine étape (question de suivi ou fin + création lead).
+ * Retourne le TwiML de la prochaine étape :
+ * - question de suivi si needsFollowUp
+ * - récapitulatif pour confirmation si toutes les infos sont collectées
  */
 export async function handleGatherResult(
   params: GatherResultParams
@@ -157,7 +165,6 @@ export async function handleGatherResult(
     return buildErrorTwiml();
   }
 
-  // Accumuler le transcript du tour courant
   const allTranscripts = [...prevTranscripts, speechResult];
 
   console.log(
@@ -167,14 +174,12 @@ export async function handleGatherResult(
     allTranscripts.length
   );
 
-  // Charger le contexte artisan
   const artisan = await loadArtisanContext(accountId);
   if (!artisan) {
     console.error("[voice.service] Compte artisan non trouvé pour gather:", accountId);
     return buildErrorTwiml();
   }
 
-  // Analyser les transcripts avec le LLM
   const analysis = await analyzeVoiceTranscripts(
     allTranscripts,
     turn,
@@ -186,9 +191,10 @@ export async function handleGatherResult(
     needsFollowUp: analysis.needsFollowUp,
     confidence: analysis.confidence,
     parsedData: analysis.parsedData,
+    recap: analysis.recap,
   });
 
-  // Si un suivi est nécessaire et qu'il reste des tours disponibles
+  // Suite de la qualification si des infos manquent
   if (analysis.needsFollowUp && turn < MAX_TURNS && analysis.followUpQuestion) {
     return buildFollowUpTwiml(
       analysis.followUpQuestion,
@@ -199,40 +205,63 @@ export async function handleGatherResult(
     );
   }
 
-  // Parsing final — créer le lead
-  await finalizeLead(accountId, callSid, allTranscripts, analysis, artisan);
+  // Qualification terminée — récapitulatif si disponible, sinon finalisation directe
+  if (analysis.recap) {
+    return buildRecapTwiml(
+      analysis.recap,
+      artisan.name,
+      analysis.parsedData.callback_delay,
+      accountId,
+      callSid,
+      allTranscripts,
+      analysis.parsedData as unknown as Record<string, unknown>
+    );
+  }
 
-  return buildGoodbyeTwiml(artisan.name);
+  // Fallback : pas de récap (ex. LLM timeout) → finaliser directement
+  await finalizeLead(accountId, callSid, allTranscripts, analysis, artisan);
+  return buildGoodbyeTwiml(artisan.name, analysis.parsedData.callback_delay);
 }
 
-// ---------------------------------------------------------------------------
-// Finalisation (création lead + mise à jour call)
-// ---------------------------------------------------------------------------
+/**
+ * Gère la confirmation client après le récapitulatif.
+ * Crée le lead, met à jour l'appel, envoie le SMS de confirmation et retourne le TwiML de fin.
+ */
+export async function handleConfirmation(
+  params: ConfirmationParams
+): Promise<string> {
+  const { accountId, callSid, allTranscripts, parsedData } = params;
 
-/** Crée le lead Supabase et met à jour le statut de l'appel */
-async function finalizeLead(
-  accountId: string,
-  callSid: string,
-  allTranscripts: string[],
-  analysis: VoiceAIAnalysis,
-  artisan: ArtisanContext
-): Promise<void> {
-  if (!supabaseAdmin) return;
+  if (!supabaseAdmin) {
+    console.error("[voice.service] supabaseAdmin non configuré");
+    return buildErrorTwiml();
+  }
 
-  const { parsedData } = analysis;
+  const artisan = await loadArtisanContext(accountId);
+  if (!artisan) {
+    console.error("[voice.service] Compte artisan non trouvé pour confirmation:", accountId);
+    return buildErrorTwiml();
+  }
+
   const status = determineLeadStatus(parsedData);
-  const scored = computeScore(parsedData.type_code, parsedData.delay_code);
+  const scored = computeScore(
+    parsedData.type_code,
+    parsedData.delay_code,
+    parsedData.is_dangerous,
+    parsedData.estimated_scope
+  );
 
-  // Récupérer le from_number depuis l'appel en base
+  // Récupérer les numéros depuis l'appel en base
   const { data: callRow } = await supabaseAdmin
     .from("calls")
-    .select("from_number")
+    .select("from_number, to_number")
     .eq("twilio_call_sid", callSid)
     .maybeSingle();
 
   const clientPhone = (callRow?.from_number as string) || null;
+  const atysProPhone = (callRow?.to_number as string) || null;
 
-  // Créer le lead
+  // Créer le lead avec scoring V2
   const { error: leadError } = await supabaseAdmin.from("leads").insert({
     account_id: accountId,
     client_phone: clientPhone,
@@ -242,19 +271,23 @@ async function finalizeLead(
     full_name: parsedData.full_name,
     address: parsedData.address,
     description: parsedData.description,
+    is_dangerous: parsedData.is_dangerous,
+    estimated_scope: parsedData.estimated_scope,
+    callback_delay: parsedData.callback_delay,
     priority_score: scored.priority_score,
     value_estimate: scored.value_estimate,
     raw_message: allTranscripts.join(" | "),
   });
 
   if (leadError) {
-    console.error("[voice.service] Erreur création lead:", leadError.message);
+    console.error("[voice.service] Erreur création lead (confirmation):", leadError.message);
   } else {
     console.log(
-      "[voice.service] Lead créé — artisan: %s, status: %s, score: %d",
+      "[voice.service] Lead confirmé — artisan: %s, status: %s, score: %d, danger: %s",
       artisan.name,
       status,
-      scored.priority_score
+      scored.priority_score,
+      parsedData.is_dangerous
     );
   }
 
@@ -269,6 +302,97 @@ async function finalizeLead(
     .eq("twilio_call_sid", callSid);
 
   if (updateError) {
-    console.warn("[voice.service] Erreur update call:", updateError.message);
+    console.warn("[voice.service] Erreur update call (confirmation):", updateError.message);
+  }
+
+  // Envoyer SMS de confirmation au prospect (non bloquant)
+  if (clientPhone && atysProPhone) {
+    try {
+      const smsResult = await sendSMS(
+        clientPhone,
+        atysProPhone,
+        VOICE_CONFIRMATION_SMS(artisan.name, parsedData.callback_delay)
+      );
+      if (!smsResult.success) {
+        console.error("[voice.service] Échec SMS confirmation (non bloquant):", smsResult.error);
+      }
+    } catch (err) {
+      console.error("[voice.service] Exception SMS confirmation (non bloquant):", err);
+    }
+  }
+
+  return buildGoodbyeTwiml(artisan.name, parsedData.callback_delay);
+}
+
+// ---------------------------------------------------------------------------
+// Finalisation directe (fallback sans récapitulatif)
+// ---------------------------------------------------------------------------
+
+/** Crée le lead Supabase et met à jour le statut de l'appel (fallback sans confirmation) */
+async function finalizeLead(
+  accountId: string,
+  callSid: string,
+  allTranscripts: string[],
+  analysis: VoiceAIAnalysis,
+  artisan: ArtisanContext
+): Promise<void> {
+  if (!supabaseAdmin) return;
+
+  const { parsedData } = analysis;
+  const status = determineLeadStatus(parsedData);
+  const scored = computeScore(
+    parsedData.type_code,
+    parsedData.delay_code,
+    parsedData.is_dangerous,
+    parsedData.estimated_scope
+  );
+
+  const { data: callRow } = await supabaseAdmin
+    .from("calls")
+    .select("from_number")
+    .eq("twilio_call_sid", callSid)
+    .maybeSingle();
+
+  const clientPhone = (callRow?.from_number as string) || null;
+
+  const { error: leadError } = await supabaseAdmin.from("leads").insert({
+    account_id: accountId,
+    client_phone: clientPhone,
+    status,
+    type_code: parsedData.type_code,
+    delay_code: parsedData.delay_code,
+    full_name: parsedData.full_name,
+    address: parsedData.address,
+    description: parsedData.description,
+    is_dangerous: parsedData.is_dangerous,
+    estimated_scope: parsedData.estimated_scope,
+    callback_delay: parsedData.callback_delay,
+    priority_score: scored.priority_score,
+    value_estimate: scored.value_estimate,
+    raw_message: allTranscripts.join(" | "),
+  });
+
+  if (leadError) {
+    console.error("[voice.service] Erreur création lead (fallback):", leadError.message);
+  } else {
+    console.log(
+      "[voice.service] Lead créé (fallback) — artisan: %s, status: %s, score: %d",
+      artisan.name,
+      status,
+      scored.priority_score
+    );
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from("calls")
+    .update({
+      status: "completed",
+      ended_at: new Date().toISOString(),
+      voice_transcripts: allTranscripts,
+    })
+    .eq("twilio_call_sid", callSid);
+
+  if (updateError) {
+    console.warn("[voice.service] Erreur update call (fallback):", updateError.message);
   }
 }
