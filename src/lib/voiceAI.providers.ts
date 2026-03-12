@@ -1,6 +1,7 @@
 /**
  * Fournisseurs LLM pour l'agent vocal
  * Swappable via la variable d'env LLM_PROVIDER
+ * Modèle configurable via ANTHROPIC_MODEL (défaut : claude-haiku-4-5-20251001)
  */
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -10,7 +11,7 @@ export interface LLMProvider {
   complete(systemPrompt: string, userMessage: string): Promise<string>;
 }
 
-/** Implémentation Anthropic (défaut) — Claude Sonnet */
+/** Implémentation Anthropic — Haiku par défaut (3-5x plus rapide que Sonnet) */
 export class AnthropicProvider implements LLMProvider {
   private client: Anthropic;
 
@@ -21,9 +22,11 @@ export class AnthropicProvider implements LLMProvider {
   }
 
   async complete(systemPrompt: string, userMessage: string): Promise<string> {
+    const model = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
+
     const response = await this.client.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1024,
+      model,
+      max_tokens: 512,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
     });

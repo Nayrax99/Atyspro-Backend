@@ -1,10 +1,12 @@
 /**
  * Générateurs de TwiML XML pour l'agent vocal
  * Toutes les fonctions retournent du XML valide prêt à être envoyé à Twilio
+ *
+ * Voix : Polly.Lea-Generative (Amazon Polly Generative AI, naturelle et expressive)
+ * SSML : supporté nativement dans <Say> pour les voix Polly
+ * speechTimeout="2" : Twilio détecte la fin de parole après 2s de silence (réduit la latence)
  */
 
-// Polly.Lea-Generative : voix Amazon Polly Generative AI, naturelle et expressive
-// Disponible nativement dans Twilio <Say> sans configuration supplémentaire
 const VOICE = "Polly.Lea-Generative";
 const LANGUAGE = "fr-FR";
 
@@ -13,7 +15,10 @@ function getBaseUrl(): string {
   return (process.env.TWILIO_WEBHOOK_BASE_URL || "").replace(/\/$/, "");
 }
 
-/** Mappe callback_delay vers un texte naturel pour la voix */
+/**
+ * Mappe callback_delay vers un texte naturel pour la voix.
+ * Retourne du texte brut (les apostrophes sont sûres dans le contenu XML).
+ */
 function callbackDelayText(callbackDelay: string): string {
   const map: Record<string, string> = {
     asap: "dès que possible, c'est noté en priorité",
@@ -25,7 +30,9 @@ function callbackDelayText(callbackDelay: string): string {
 }
 
 /**
- * Génère le TwiML d'accueil avec question ouverte et Gather tour 1
+ * Génère le TwiML d'accueil avec SSML (pauses naturelles, débit légèrement ralenti).
+ * Le <Say> est à l'intérieur du <Gather> pour permettre l'interruption dès que le prospect parle.
+ * speechTimeout="2" réduit le blanc entre la réponse du prospect et la prochaine question.
  */
 export function buildWelcomeTwiml(
   artisanName: string,
@@ -36,15 +43,26 @@ export function buildWelcomeTwiml(
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="${VOICE}" language="${LANGUAGE}">Bonjour, vous êtes bien chez ${escapeXml(artisanName)}, électricien. Il est actuellement en intervention. Je suis son assistant et je prends votre demande pour qu'il vous rappelle rapidement. Pouvez-vous me décrire votre problème et me dire si c'est urgent ?</Say>
-  <Gather input="speech" language="${LANGUAGE}" speechTimeout="auto" timeout="10" action="${escapeXml(gatherAction)}">
+  <Gather input="speech" language="${LANGUAGE}" speechTimeout="2" timeout="10" action="${escapeXml(gatherAction)}">
+    <Say voice="${VOICE}" language="${LANGUAGE}">
+      <prosody rate="95%">
+        Bonjour, vous êtes bien chez ${escapeXml(artisanName)}, électricien.
+        <break time="400ms"/>
+        Il est actuellement en intervention.
+        <break time="300ms"/>
+        Je suis son assistant, et je prends votre demande pour qu&apos;il vous rappelle rapidement.
+        <break time="500ms"/>
+        Pouvez-vous me décrire votre problème, et me dire si c&apos;est urgent ?
+      </prosody>
+    </Say>
   </Gather>
-  <Say voice="${VOICE}" language="${LANGUAGE}">Je n'ai pas entendu votre réponse. Au revoir.</Say>
+  <Say voice="${VOICE}" language="${LANGUAGE}">Je n&apos;ai pas entendu votre réponse. Au revoir.</Say>
 </Response>`;
 }
 
 /**
- * Génère le TwiML d'une question de suivi avec Gather pour le tour suivant
+ * Génère le TwiML d'une question de suivi avec Gather pour le tour suivant.
+ * Pas de SSML complexe : les voix Generative adaptent déjà la prosodie au texte de Claude.
  */
 export function buildFollowUpTwiml(
   question: string,
@@ -58,16 +76,15 @@ export function buildFollowUpTwiml(
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="${VOICE}" language="${LANGUAGE}">${escapeXml(question)}</Say>
-  <Gather input="speech" language="${LANGUAGE}" speechTimeout="auto" timeout="10" action="${escapeXml(gatherAction)}">
+  <Gather input="speech" language="${LANGUAGE}" speechTimeout="2" timeout="10" action="${escapeXml(gatherAction)}">
+    <Say voice="${VOICE}" language="${LANGUAGE}">${escapeXml(question)}</Say>
   </Gather>
-  <Say voice="${VOICE}" language="${LANGUAGE}">Je n'ai pas entendu votre réponse. Je vais transmettre votre demande à l'artisan.</Say>
+  <Say voice="${VOICE}" language="${LANGUAGE}">Je n&apos;ai pas entendu votre réponse. Je vais transmettre votre demande à l&apos;artisan.</Say>
 </Response>`;
 }
 
 /**
- * Génère le TwiML de récapitulatif avec demande de confirmation client.
- * Le Gather écoute un "oui" ou "c'est bon" du client.
+ * Génère le TwiML de récapitulatif avec SSML (pauses entre les phrases pour clarté).
  * En cas de timeout (pas de réponse), la route confirm considère la demande comme confirmée.
  */
 export function buildRecapTwiml(
@@ -86,22 +103,34 @@ export function buildRecapTwiml(
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather input="speech" language="${LANGUAGE}" speechTimeout="3" timeout="5" action="${escapeXml(confirmAction)}">
-    <Say voice="${VOICE}" language="${LANGUAGE}">Parfait, je récapitule : vous avez besoin de ${escapeXml(recap)}. ${escapeXml(artisanName)} vous rappelle ${escapeXml(delayText)}. Est-ce que c'est correct ?</Say>
+  <Gather input="speech" language="${LANGUAGE}" speechTimeout="2" timeout="5" action="${escapeXml(confirmAction)}">
+    <Say voice="${VOICE}" language="${LANGUAGE}">
+      Parfait, je récapitule.
+      <break time="400ms"/>
+      Vous avez besoin de ${escapeXml(recap)}.
+      <break time="300ms"/>
+      ${escapeXml(artisanName)} vous rappelle ${escapeXml(delayText)}.
+      <break time="300ms"/>
+      Est-ce que c&apos;est correct ?
+    </Say>
   </Gather>
   <Redirect method="POST">${escapeXml(confirmAction)}</Redirect>
 </Response>`;
 }
 
 /**
- * Génère le TwiML de fin de conversation (remerciement + raccrochage)
+ * Génère le TwiML de fin de conversation avec pause naturelle avant "Bonne journée".
  */
 export function buildGoodbyeTwiml(artisanName: string, callbackDelay?: string): string {
   const delayText = callbackDelay ? callbackDelayText(callbackDelay) : "dès que possible";
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="${VOICE}" language="${LANGUAGE}">Merci pour votre appel. ${escapeXml(artisanName)} vous rappelle ${escapeXml(delayText)}. Bonne journée !</Say>
+  <Say voice="${VOICE}" language="${LANGUAGE}">
+    Merci beaucoup. ${escapeXml(artisanName)} vous rappelle ${escapeXml(delayText)}.
+    <break time="300ms"/>
+    Bonne journée !
+  </Say>
   <Hangup/>
 </Response>`;
 }
@@ -112,7 +141,7 @@ export function buildGoodbyeTwiml(artisanName: string, callbackDelay?: string): 
 export function buildErrorTwiml(): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="${VOICE}" language="${LANGUAGE}">Une erreur est survenue. Veuillez rappeler directement l'artisan. Au revoir.</Say>
+  <Say voice="${VOICE}" language="${LANGUAGE}">Une erreur est survenue. Veuillez rappeler directement l&apos;artisan. Au revoir.</Say>
   <Hangup/>
 </Response>`;
 }
