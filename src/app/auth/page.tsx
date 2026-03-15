@@ -4,6 +4,40 @@ import { useState, type FormEvent } from "react";
 
 type AuthMode = "login" | "signup";
 
+const FONT = "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif";
+
+const LABEL_STYLE: React.CSSProperties = {
+  display: "block",
+  fontSize: "13px",
+  fontWeight: "600",
+  color: "#374151",
+  letterSpacing: "0.01em",
+  textTransform: "uppercase",
+  marginBottom: "6px",
+};
+const INPUT_BASE: React.CSSProperties = {
+  width: "100%",
+  border: "1px solid #cbd5e1",
+  borderRadius: "8px",
+  padding: "12px 16px",
+  fontSize: "15px",
+  outline: "none",
+  backgroundColor: "white",
+  color: "#0f172a",
+  boxSizing: "border-box",
+  appearance: "none" as const,
+  transition: "border-color 0.2s ease",
+  fontFamily: FONT,
+};
+const CARD_STYLE: React.CSSProperties = {
+  backgroundColor: "white",
+  borderRadius: "20px",
+  padding: "40px",
+  boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
+  border: "1px solid #e2e8f0",
+};
+const FIELD_GROUP: React.CSSProperties = { marginBottom: "24px" };
+
 export default function AuthPage() {
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
@@ -14,37 +48,19 @@ export default function AuthPage() {
   const [forgotLoading, setForgotLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [btnHover, setBtnHover] = useState(false);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     setSuccessMessage(null);
 
-    // Validation minimale côté client
-    if (!email.trim()) {
-      setError("Merci d’indiquer une adresse email.");
-      return;
-    }
-    if (mode === "signup" && !businessName.trim()) {
-      setError("Merci d’indiquer le nom de votre entreprise.");
-      return;
-    }
-
-    if (!password.trim()) {
-      setError("Merci d’indiquer un mot de passe.");
-      return;
-    }
-
+    if (!email.trim()) { setError("Merci d'indiquer une adresse email."); return; }
+    if (mode === "signup" && !businessName.trim()) { setError("Merci d'indiquer le nom de votre entreprise."); return; }
+    if (!password.trim()) { setError("Merci d'indiquer un mot de passe."); return; }
     if (mode === "signup") {
-      if (password.length < 6) {
-        setError("Le mot de passe doit contenir au moins 6 caractères.");
-        return;
-      }
-
-      if (password !== passwordConfirm) {
-        setError("Les mots de passe ne correspondent pas.");
-        return;
-      }
+      if (password.length < 6) { setError("Le mot de passe doit contenir au moins 6 caractères."); return; }
+      if (password !== passwordConfirm) { setError("Les mots de passe ne correspondent pas."); return; }
     }
 
     setLoading(true);
@@ -53,62 +69,38 @@ export default function AuthPage() {
       if (mode === "login") {
         const response = await fetch("/api/auth/login", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password }),
         });
-
         if (!response.ok) {
           let message = "Impossible de vous connecter. Vérifiez vos identifiants.";
           try {
             const data = (await response.json()) as { message?: string; error?: string };
-            if (typeof data.message === "string" && data.message.trim().length > 0) {
-              message = data.message;
-            } else if (typeof data.error === "string" && data.error.trim().length > 0) {
-              message = data.error;
-            }
-          } catch {
-            // On garde le message générique
-          }
+            if (typeof data.message === "string" && data.message.trim()) message = data.message;
+            else if (typeof data.error === "string" && data.error.trim()) message = data.error;
+          } catch { /* On garde le message générique */ }
           setError(message);
           return;
         }
-
-        // Redirection plein navigateur pour que le cookie soit pris en compte
         window.location.href = "/dashboard";
         return;
       }
 
-      // Mode signup
       const response = await fetch("/api/auth/signup", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          business_name: businessName,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, business_name: businessName }),
       });
-
       if (!response.ok) {
         let message = "Impossible de créer le compte, veuillez réessayer.";
         try {
           const data = (await response.json()) as { message?: string; error?: string };
-          if (typeof data.message === "string" && data.message.trim().length > 0) {
-            message = data.message;
-          } else if (typeof data.error === "string" && data.error.trim().length > 0) {
-            message = data.error;
-          }
-        } catch {
-          // On garde le message générique
-        }
+          if (typeof data.message === "string" && data.message.trim()) message = data.message;
+          else if (typeof data.error === "string" && data.error.trim()) message = data.error;
+        } catch { /* On garde le message générique */ }
         setError(message);
         return;
       }
-
       setSuccessMessage("Compte créé ! Vous pouvez maintenant vous connecter.");
       setMode("login");
       setPassword("");
@@ -131,45 +123,25 @@ export default function AuthPage() {
   const handleForgotPassword = async () => {
     setError(null);
     setSuccessMessage(null);
-
-    if (!email.trim()) {
-      setError(
-        "Merci d’indiquer votre adresse email pour recevoir le lien de réinitialisation."
-      );
-      return;
-    }
-
+    if (!email.trim()) { setError("Merci d'indiquer votre adresse email pour recevoir le lien de réinitialisation."); return; }
     setForgotLoading(true);
-
     try {
       const response = await fetch("/api/auth/forgot-password", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-
       if (!response.ok) {
-        let message =
-          "Impossible d’envoyer l’email de réinitialisation. Veuillez réessayer.";
+        let message = "Impossible d'envoyer l'email de réinitialisation. Veuillez réessayer.";
         try {
           const data = (await response.json()) as { message?: string; error?: string };
-          if (typeof data.message === "string" && data.message.trim().length > 0) {
-            message = data.message;
-          } else if (typeof data.error === "string" && data.error.trim().length > 0) {
-            message = data.error;
-          }
-        } catch {
-          // On garde le message générique
-        }
+          if (typeof data.message === "string" && data.message.trim()) message = data.message;
+          else if (typeof data.error === "string" && data.error.trim()) message = data.error;
+        } catch { /* On garde le message générique */ }
         setError(message);
         return;
       }
-
-      setSuccessMessage(
-        "Un email de réinitialisation a été envoyé. Consultez votre boîte de réception."
-      );
+      setSuccessMessage("Un email de réinitialisation a été envoyé. Consultez votre boîte de réception.");
     } catch {
       setError("Une erreur est survenue. Vérifiez votre connexion et réessayez.");
     } finally {
@@ -178,78 +150,110 @@ export default function AuthPage() {
   };
 
   return (
-    <main className="w-full max-w-md">
-      <section className="bg-white shadow-lg rounded-2xl px-8 py-10">
-        <div className="mb-8 text-center">
-          <div className="text-2xl font-bold text-blue-600">⚡ AtysPro</div>
-          <p className="mt-2 text-sm text-slate-500">Votre assistant de leads intelligent</p>
+    <>
+      {/* Hover styles pour inputs — inline styles ne peuvent pas gérer :hover */}
+      <style>{`
+        .atys-input:hover { border-color: #94a3b8 !important; }
+        .atys-input:focus { border-color: #2563eb !important; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+      `}</style>
+
+      <main style={{ width: "100%", maxWidth: "440px", fontFamily: FONT }}>
+        {/* Logo en haut du panneau droit */}
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "32px" }}>
+          <span
+            style={{
+              display: "flex",
+              width: "32px",
+              height: "32px",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: "8px",
+              backgroundColor: "#2563eb",
+              fontSize: "16px",
+              fontWeight: "700",
+              color: "white",
+            }}
+          >
+            ⚡
+          </span>
+          <span style={{ fontSize: "20px", fontWeight: "700", color: "#0f172a", letterSpacing: "-0.02em" }}>
+            AtysPro
+          </span>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-          {isSignup && (
-            <div className="space-y-1.5">
-              <label
-                htmlFor="business-name"
-                className="block text-sm font-medium text-slate-700"
-              >
-                Nom de votre entreprise
+        {/* Titre et sous-titre au-dessus de la card */}
+        <div style={{ marginBottom: "24px" }}>
+          <h2 style={{ fontSize: "24px", fontWeight: "700", color: "#0f172a", marginBottom: "6px", letterSpacing: "-0.01em" }}>
+            {isSignup ? "Créer un compte" : "Bon retour !"}
+          </h2>
+          <p style={{ fontSize: "14px", color: "#64748b" }}>
+            {isSignup
+              ? "Commencez gratuitement — sans carte bancaire."
+              : "Connectez-vous à votre espace AtysPro."}
+          </p>
+        </div>
+
+        {/* Card form */}
+        <div style={CARD_STYLE}>
+          <form onSubmit={handleSubmit} noValidate>
+            {isSignup && (
+              <div style={FIELD_GROUP}>
+                <label htmlFor="business-name" style={LABEL_STYLE}>
+                  Nom de votre entreprise
+                </label>
+                <input
+                  id="business-name"
+                  name="business_name"
+                  type="text"
+                  autoComplete="organization"
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                  style={INPUT_BASE}
+                  className="atys-input"
+                  placeholder="Ex : Plomberie Martin"
+                />
+              </div>
+            )}
+
+            <div style={FIELD_GROUP}>
+              <label htmlFor="email" style={LABEL_STYLE}>
+                Adresse email
               </label>
               <input
-                id="business-name"
-                name="business_name"
-                type="text"
-                autoComplete="organization"
-                value={businessName}
-                onChange={(event) => setBusinessName(event.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm shadow-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                placeholder="Ex : Plomberie Martin"
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={INPUT_BASE}
+                className="atys-input"
+                placeholder="vous@exemple.com"
               />
             </div>
-          )}
 
-          <div className="space-y-1.5">
-            <label htmlFor="email" className="block text-sm font-medium text-slate-700">
-              Adresse email
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-3 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
-              placeholder="vous@exemple.com"
-            />
-          </div>
+            <div style={FIELD_GROUP}>
+              <label htmlFor="password" style={LABEL_STYLE}>
+                Mot de passe
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete={isSignup ? "new-password" : "current-password"}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={INPUT_BASE}
+                className="atys-input"
+                placeholder={isSignup ? "Minimum 6 caractères" : "Votre mot de passe"}
+              />
+            </div>
 
-          <div className="space-y-1.5">
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-slate-700"
-            >
-              Mot de passe
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete={isSignup ? "new-password" : "current-password"}
-              required
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-3 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
-              placeholder={isSignup ? "••••••••" : "Votre mot de passe"}
-            />
-          </div>
-
-          {isSignup && (
-            <div className="space-y-1.5">
-                <label
-                  htmlFor="password-confirm"
-                  className="block text-sm font-medium text-slate-700"
-                >
+            {isSignup && (
+              <div style={FIELD_GROUP}>
+                <label htmlFor="password-confirm" style={LABEL_STYLE}>
                   Confirmer le mot de passe
                 </label>
                 <input
@@ -259,71 +263,144 @@ export default function AuthPage() {
                   autoComplete="new-password"
                   required
                   value={passwordConfirm}
-                  onChange={(event) => setPasswordConfirm(event.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-3 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  onChange={(e) => setPasswordConfirm(e.target.value)}
+                  style={INPUT_BASE}
+                  className="atys-input"
                   placeholder="Répétez le mot de passe"
                 />
               </div>
-          )}
+            )}
 
-          {error && (
-            <p className="text-sm text-red-600" role="alert">
-              {error}
-            </p>
-          )}
+            {error && (
+              <div
+                style={{
+                  borderRadius: "8px",
+                  border: "1px solid #fecaca",
+                  backgroundColor: "#fef2f2",
+                  padding: "12px 16px",
+                  fontSize: "14px",
+                  color: "#dc2626",
+                  marginBottom: "20px",
+                }}
+                role="alert"
+              >
+                {error}
+              </div>
+            )}
 
-          {successMessage && (
-            <p className="text-sm text-emerald-600" role="status">
-              {successMessage}
-            </p>
-          )}
+            {successMessage && (
+              <div
+                style={{
+                  borderRadius: "8px",
+                  border: "1px solid #a7f3d0",
+                  backgroundColor: "#ecfdf5",
+                  padding: "12px 16px",
+                  fontSize: "14px",
+                  color: "#059669",
+                  marginBottom: "20px",
+                }}
+                role="status"
+              >
+                {successMessage}
+              </div>
+            )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            aria-label={isSignup ? "Créer mon compte" : "Se connecter"}
-            className="mt-2 inline-flex w-full items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
-          >
-            {loading
-              ? "Envoi en cours..."
-              : isSignup
-              ? "Créer mon compte"
-              : "Se connecter"}
-          </button>
+            <button
+              type="submit"
+              disabled={loading}
+              aria-label={isSignup ? "Créer mon compte" : "Se connecter"}
+              onMouseEnter={() => setBtnHover(true)}
+              onMouseLeave={() => setBtnHover(false)}
+              style={{
+                width: "100%",
+                height: "48px",
+                backgroundColor: loading ? "#93c5fd" : btnHover ? "#1d4ed8" : "#2563eb",
+                color: "white",
+                borderRadius: "12px",
+                fontWeight: "600",
+                fontSize: "16px",
+                border: "none",
+                cursor: loading ? "not-allowed" : "pointer",
+                marginTop: "8px",
+                transition: "background-color 0.2s ease",
+                fontFamily: FONT,
+              }}
+            >
+              {loading
+                ? "Envoi en cours..."
+                : isSignup
+                ? "Créer mon compte"
+                : "Se connecter"}
+            </button>
+          </form>
 
           {!isSignup && (
-            <button
-              type="button"
-              onClick={handleForgotPassword}
-              disabled={forgotLoading}
-              className="mt-2 text-xs text-right text-slate-500 hover:text-blue-600 underline underline-offset-2"
-            >
-              {forgotLoading ? "Envoi du lien..." : "Mot de passe oublié ?"}
-            </button>
-          )}
-        </form>
-
-        <div className="mt-6 text-center text-sm">
-          {isSignup ? (
-            <button
-              type="button"
-              onClick={toggleMode}
-              className="text-blue-600 hover:text-blue-700"
-            >
-              Déjà un compte ? Se connecter
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={toggleMode}
-              className="text-blue-600 hover:text-blue-700"
-            >
-              Pas encore de compte ? Créer un compte
-            </button>
+            <div style={{ marginTop: "12px", textAlign: "right" }}>
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={forgotLoading}
+                style={{
+                  fontSize: "13px",
+                  color: "#94a3b8",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: FONT,
+                }}
+              >
+                {forgotLoading ? "Envoi du lien..." : "Mot de passe oublié ?"}
+              </button>
+            </div>
           )}
         </div>
-      </section>
-    </main>
+
+        <p style={{ marginTop: "24px", textAlign: "center", fontSize: "14px", color: "#64748b", fontFamily: FONT }}>
+          {isSignup ? (
+            <>
+              Déjà un compte ?{" "}
+              <button
+                type="button"
+                onClick={toggleMode}
+                style={{
+                  fontWeight: "600",
+                  color: "#2563eb",
+                  background: "none",
+                  border: "none",
+                  borderBottom: "1px solid #2563eb",
+                  cursor: "pointer",
+                  paddingBottom: "1px",
+                  fontFamily: FONT,
+                  textDecoration: "none",
+                }}
+              >
+                Se connecter
+              </button>
+            </>
+          ) : (
+            <>
+              Pas encore de compte ?{" "}
+              <button
+                type="button"
+                onClick={toggleMode}
+                style={{
+                  fontWeight: "600",
+                  color: "#2563eb",
+                  background: "none",
+                  border: "none",
+                  borderBottom: "1px solid #2563eb",
+                  cursor: "pointer",
+                  paddingBottom: "1px",
+                  fontFamily: FONT,
+                  textDecoration: "none",
+                }}
+              >
+                Créer un compte
+              </button>
+            </>
+          )}
+        </p>
+      </main>
+    </>
   );
 }
-

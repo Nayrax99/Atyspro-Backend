@@ -3,8 +3,55 @@
 import { useState, type FormEvent } from "react";
 
 type OnboardingStep = 1 | 2 | 3;
-
 type SpecialtyOption = "electricien" | "plombier" | "serrurier" | "autre";
+
+const FONT = "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif";
+
+const LABEL_STYLE: React.CSSProperties = {
+  display: "block",
+  fontSize: "13px",
+  fontWeight: "600",
+  color: "#374151",
+  letterSpacing: "0.01em",
+  textTransform: "uppercase",
+  marginBottom: "6px",
+};
+const INPUT_BASE: React.CSSProperties = {
+  width: "100%",
+  border: "1px solid #cbd5e1",
+  borderRadius: "8px",
+  padding: "12px 16px",
+  fontSize: "15px",
+  outline: "none",
+  backgroundColor: "white",
+  color: "#0f172a",
+  boxSizing: "border-box",
+  appearance: "none" as const,
+  transition: "border-color 0.2s ease",
+  fontFamily: FONT,
+};
+const FIELD_GROUP: React.CSSProperties = { marginBottom: "24px" };
+const CARD_STYLE: React.CSSProperties = {
+  backgroundColor: "white",
+  borderRadius: "20px",
+  padding: "40px",
+  boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
+  border: "1px solid #e2e8f0",
+};
+const BTN_BASE: React.CSSProperties = {
+  width: "100%",
+  height: "48px",
+  backgroundColor: "#2563eb",
+  color: "white",
+  borderRadius: "12px",
+  fontWeight: "600",
+  fontSize: "16px",
+  border: "none",
+  cursor: "pointer",
+  marginTop: "24px",
+  transition: "background-color 0.2s ease",
+  fontFamily: FONT,
+};
 
 export default function OnboardingPage() {
   const [step, setStep] = useState<OnboardingStep>(1);
@@ -13,6 +60,8 @@ export default function OnboardingPage() {
   const [specialty, setSpecialty] = useState<SpecialtyOption>("electricien");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [btnHover, setBtnHover] = useState(false);
+  const [hoveredCard, setHoveredCard] = useState<number | null>(null);
 
   const goToNextStep = () => {
     setStep((current) => (current < 3 ? ((current + 1) as OnboardingStep) : current));
@@ -21,55 +70,31 @@ export default function OnboardingPage() {
   const handleSubmitStep1 = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
-
-    if (!ownerPhone.trim()) {
-      setError("Merci d’indiquer votre numéro mobile.");
-      return;
-    }
-
-    if (!city.trim()) {
-      setError("Merci d’indiquer votre ville.");
-      return;
-    }
-
+    if (!ownerPhone.trim()) { setError("Merci d'indiquer votre numéro mobile."); return; }
+    if (!city.trim()) { setError("Merci d'indiquer votre ville."); return; }
     goToNextStep();
   };
 
   const handleFinishOnboarding = async () => {
     setError(null);
     setLoading(true);
-
     try {
       const response = await fetch("/api/auth/onboarding", {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          owner_phone: ownerPhone,
-          city,
-          specialty,
-        }),
+        body: JSON.stringify({ owner_phone: ownerPhone, city, specialty }),
       });
-
       if (!response.ok) {
-        let message = "Impossible de terminer l’onboarding. Veuillez réessayer.";
+        let message = "Impossible de terminer l'onboarding. Veuillez réessayer.";
         try {
           const data = (await response.json()) as { error?: string; message?: string };
-          if (typeof data.message === "string" && data.message.trim().length > 0) {
-            message = data.message;
-          } else if (typeof data.error === "string" && data.error.trim().length > 0) {
-            message = data.error;
-          }
-        } catch {
-          // On garde le message générique
-        }
+          if (typeof data.message === "string" && data.message.trim()) message = data.message;
+          else if (typeof data.error === "string" && data.error.trim()) message = data.error;
+        } catch { /* On garde le message générique */ }
         setError(message);
         return;
       }
-
-      // Redirection plein navigateur vers le dashboard
       window.location.href = "/dashboard";
     } catch {
       setError("Une erreur est survenue. Vérifiez votre connexion et réessayez.");
@@ -78,262 +103,425 @@ export default function OnboardingPage() {
     }
   };
 
-  const isActiveStep = (value: OnboardingStep): boolean => step === value;
+  const STEP_LABELS = ["Vos infos", "Votre numéro", "Comment ça marche"];
+
+  const HOW_IT_WORKS = [
+    {
+      emoji: "📞",
+      title: "Un client vous appelle",
+      text: "Quand un client appelle votre numéro pro, vous êtes notifié. Si vous ne répondez pas, notre assistant vocal prend l'appel et qualifie le besoin du client.",
+    },
+    {
+      emoji: "📱",
+      title: "Le client échange avec l'assistant",
+      text: "Le client explique son besoin à notre assistant vocal. La demande est analysée et qualifiée automatiquement.",
+    },
+    {
+      emoji: "⚡",
+      title: "Vous recevez un lead qualifié",
+      text: "Le lead apparaît dans votre dashboard avec un score de priorité. Vous rappelez le client quand vous êtes disponible.",
+    },
+  ];
 
   return (
-    <main className="w-full max-w-xl">
-      <section className="bg-white shadow-lg rounded-2xl px-6 py-8 sm:px-10 sm:py-10">
-        {/* Stepper visuel */}
-        <div className="flex items-center justify-between mb-8" aria-label="Progression de l’onboarding">
-          {[1, 2, 3].map((value) => {
-            const stepValue = value as OnboardingStep;
-            const active = isActiveStep(stepValue);
-            const completed = step > stepValue;
+    <>
+      <style>{`
+        .atys-input:hover { border-color: #94a3b8 !important; }
+        .atys-input:focus { border-color: #2563eb !important; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+      `}</style>
 
-            const circleColor = active
-              ? "bg-blue-600 text-white"
-              : completed
-              ? "bg-blue-100 text-blue-600"
-              : "bg-slate-100 text-slate-500";
-
-            const borderColor = active
-              ? "border-blue-600"
-              : completed
-              ? "border-blue-200"
-              : "border-slate-200";
-
-            return (
-              <div key={stepValue} className="flex-1 flex items-center">
-                <div
-                  className={`flex h-9 w-9 items-center justify-center rounded-full border text-xs font-semibold ${circleColor} ${borderColor}`}
-                  aria-current={active ? "step" : undefined}
-                  aria-label={`Étape ${stepValue}`}
-                >
-                  {stepValue}
-                </div>
-                {stepValue < 3 && (
-                  <div
-                    className={`h-px flex-1 mx-2 sm:mx-4 ${
-                      completed ? "bg-blue-500" : "bg-slate-200"
-                    }`}
-                    aria-hidden="true"
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Contenu des étapes */}
-        {step === 1 && (
-          <div>
-            <header className="mb-6">
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-                Vos informations
-              </h1>
-              <p className="mt-2 text-sm text-slate-500">
-                Quelques détails pour personnaliser AtysPro à votre activité.
-              </p>
-            </header>
-
-            <form onSubmit={handleSubmitStep1} className="space-y-5" noValidate>
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="owner-phone"
-                  className="block text-sm font-medium text-slate-700"
-                >
-                  Votre numéro mobile
-                </label>
-                <input
-                  id="owner-phone"
-                  name="owner_phone"
-                  type="tel"
-                  autoComplete="tel"
-                  required
-                  value={ownerPhone}
-                  onChange={(event) => setOwnerPhone(event.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm shadow-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                  placeholder="06 12 34 56 78"
-                  aria-describedby="owner-phone-help"
-                />
-                <p id="owner-phone-help" className="text-xs text-slate-500">
-                  Numéro utilisé pour vous notifier des nouveaux leads.
-                </p>
-              </div>
-
-              <div className="space-y-1.5">
-                <label htmlFor="city" className="block text-sm font-medium text-slate-700">
-                  Votre ville
-                </label>
-                <input
-                  id="city"
-                  name="city"
-                  type="text"
-                  autoComplete="address-level2"
-                  required
-                  value={city}
-                  onChange={(event) => setCity(event.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm shadow-sm focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                  placeholder="Paris, Lyon, Marseille..."
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="specialty"
-                  className="block text-sm font-medium text-slate-700"
-                >
-                  Spécialité
-                </label>
-                <select
-                  id="specialty"
-                  name="specialty"
-                  value={specialty}
-                  onChange={(event) =>
-                    setSpecialty(event.target.value as SpecialtyOption)
-                  }
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm shadow-sm bg-white focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                  aria-label="Sélectionnez votre spécialité"
-                >
-                  <option value="electricien">Électricien</option>
-                  <option value="plombier">Plombier</option>
-                  <option value="serrurier">Serrurier</option>
-                  <option value="autre">Autre</option>
-                </select>
-              </div>
-
-              {error && (
-                <p className="text-sm text-red-600" role="alert">
-                  {error}
-                </p>
-              )}
-
-              <button
-                type="submit"
-                className="mt-2 inline-flex w-full items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+      <main
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#f8fafc",
+          padding: "2.5rem 1rem",
+          fontFamily: FONT,
+        }}
+      >
+        <div style={{ width: "100%", maxWidth: "520px" }}>
+          {/* Header */}
+          <div style={{ marginBottom: "32px", textAlign: "center" }}>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: "12px" }}>
+              <span
+                style={{
+                  display: "flex",
+                  width: "40px",
+                  height: "40px",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: "10px",
+                  backgroundColor: "#2563eb",
+                  fontSize: "20px",
+                  fontWeight: "700",
+                  color: "white",
+                }}
               >
-                Continuer
-              </button>
-            </form>
+                ⚡
+              </span>
+            </div>
+            <h1 style={{ fontSize: "22px", fontWeight: "700", color: "#0f172a", letterSpacing: "-0.01em" }}>
+              Bienvenue sur AtysPro
+            </h1>
+            <p style={{ marginTop: "6px", fontSize: "14px", color: "#64748b" }}>
+              Configuration en {STEP_LABELS.length} étapes — moins de 2 minutes.
+            </p>
           </div>
-        )}
 
-        {step === 2 && (
-          <div>
-            <header className="mb-6">
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-                Votre numéro professionnel
-              </h1>
-              <p className="mt-2 text-sm text-slate-500">
-                AtysPro vous attribue un numéro dédié pour centraliser vos appels
-                clients.
-              </p>
-            </header>
-
-            <div className="space-y-4">
-              <p className="text-sm text-slate-600">
-                Un numéro professionnel dédié vous sera attribué. Ce numéro recevra vos
-                appels clients et notre assistant vocal qualifiera automatiquement vos appels manqués.
-              </p>
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 flex gap-3">
-                <div className="text-lg" aria-hidden="true">
-                  🔜
+          {/* Stepper */}
+          <div
+            style={{ display: "flex", alignItems: "flex-start", marginBottom: "32px" }}
+            aria-label="Progression de l'onboarding"
+          >
+            {([1, 2, 3] as OnboardingStep[]).map((value) => {
+              const active = step === value;
+              const completed = step > value;
+              return (
+                <div key={value} style={{ display: "flex", flex: 1, alignItems: "center" }}>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        width: "40px",
+                        height: "40px",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderRadius: "50%",
+                        border: `2px solid ${active || completed ? "#2563eb" : "#e2e8f0"}`,
+                        backgroundColor: active || completed ? "#2563eb" : "white",
+                        color: active || completed ? "white" : "#94a3b8",
+                        fontSize: "13px",
+                        fontWeight: "700",
+                        transition: "all 0.2s ease",
+                      }}
+                      aria-current={active ? "step" : undefined}
+                      aria-label={`Étape ${value}`}
+                    >
+                      {completed ? "✓" : value}
+                    </div>
+                    <span
+                      style={{
+                        fontSize: "12px",
+                        fontWeight: "600",
+                        color: active || completed ? "#2563eb" : "#94a3b8",
+                      }}
+                    >
+                      {STEP_LABELS[value - 1]}
+                    </span>
+                  </div>
+                  {value < 3 && (
+                    <div
+                      style={{
+                        flex: 1,
+                        height: "1px",
+                        backgroundColor: completed ? "#2563eb" : "#e2e8f0",
+                        margin: "0 12px",
+                        marginBottom: "20px",
+                        transition: "background-color 0.2s ease",
+                      }}
+                      aria-hidden="true"
+                    />
+                  )}
                 </div>
-                <div>
-                  <p className="font-semibold">
-                    Attribution automatique du numéro à l&apos;activation de votre
-                    compte
+              );
+            })}
+          </div>
+
+          {/* Step card */}
+          <div style={CARD_STYLE}>
+
+            {/* ── Étape 1 : Informations ── */}
+            {step === 1 && (
+              <div>
+                <header style={{ marginBottom: "28px" }}>
+                  <h2 style={{ fontSize: "20px", fontWeight: "700", color: "#0f172a", letterSpacing: "-0.01em" }}>
+                    Vos informations
+                  </h2>
+                  <p style={{ marginTop: "6px", fontSize: "14px", color: "#64748b" }}>
+                    Quelques détails pour personnaliser AtysPro à votre activité.
                   </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Dès que votre compte est activé, votre numéro AtysPro est
-                    provisionné et relié à votre dashboard.
-                  </p>
-                </div>
+                </header>
+
+                <form onSubmit={handleSubmitStep1} noValidate>
+                  <div style={FIELD_GROUP}>
+                    <label htmlFor="owner-phone" style={LABEL_STYLE}>
+                      Votre numéro mobile
+                    </label>
+                    <input
+                      id="owner-phone"
+                      name="owner_phone"
+                      type="tel"
+                      autoComplete="tel"
+                      required
+                      value={ownerPhone}
+                      onChange={(e) => setOwnerPhone(e.target.value)}
+                      style={INPUT_BASE}
+                      className="atys-input"
+                      placeholder="06 12 34 56 78"
+                      aria-describedby="owner-phone-help"
+                    />
+                    <p id="owner-phone-help" style={{ fontSize: "12px", color: "#94a3b8", marginTop: "4px" }}>
+                      Utilisé pour vous notifier des nouveaux leads.
+                    </p>
+                  </div>
+
+                  <div style={FIELD_GROUP}>
+                    <label htmlFor="city" style={LABEL_STYLE}>
+                      Votre ville
+                    </label>
+                    <input
+                      id="city"
+                      name="city"
+                      type="text"
+                      autoComplete="address-level2"
+                      required
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      style={INPUT_BASE}
+                      className="atys-input"
+                      placeholder="Paris, Lyon, Marseille…"
+                    />
+                  </div>
+
+                  <div style={FIELD_GROUP}>
+                    <label htmlFor="specialty" style={LABEL_STYLE}>
+                      Spécialité
+                    </label>
+                    <select
+                      id="specialty"
+                      name="specialty"
+                      value={specialty}
+                      onChange={(e) => setSpecialty(e.target.value as SpecialtyOption)}
+                      style={INPUT_BASE}
+                      className="atys-input"
+                      aria-label="Sélectionnez votre spécialité"
+                    >
+                      <option value="electricien">Électricien</option>
+                      <option value="plombier">Plombier</option>
+                      <option value="serrurier">Serrurier</option>
+                      <option value="autre">Autre</option>
+                    </select>
+                  </div>
+
+                  {error && (
+                    <div
+                      style={{
+                        borderRadius: "8px",
+                        border: "1px solid #fecaca",
+                        backgroundColor: "#fef2f2",
+                        padding: "12px 16px",
+                        fontSize: "14px",
+                        color: "#dc2626",
+                        marginBottom: "16px",
+                      }}
+                      role="alert"
+                    >
+                      {error}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    onMouseEnter={() => setBtnHover(true)}
+                    onMouseLeave={() => setBtnHover(false)}
+                    style={{ ...BTN_BASE, backgroundColor: btnHover ? "#1d4ed8" : "#2563eb" }}
+                  >
+                    Continuer
+                  </button>
+                </form>
               </div>
-            </div>
-
-            {error && (
-              <p className="mt-4 text-sm text-red-600" role="alert">
-                {error}
-              </p>
             )}
 
-            <button
-              type="button"
-              onClick={goToNextStep}
-              className="mt-6 inline-flex w-full items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
-            >
-              Continuer
-            </button>
-          </div>
-        )}
+            {/* ── Étape 2 : Numéro professionnel ── */}
+            {step === 2 && (
+              <div>
+                <header style={{ marginBottom: "24px" }}>
+                  <h2 style={{ fontSize: "20px", fontWeight: "700", color: "#0f172a", letterSpacing: "-0.01em" }}>
+                    Votre numéro professionnel
+                  </h2>
+                  <p style={{ marginTop: "6px", fontSize: "14px", color: "#64748b" }}>
+                    AtysPro vous attribue un numéro dédié pour centraliser vos appels clients.
+                  </p>
+                </header>
 
-        {step === 3 && (
-          <div>
-            <header className="mb-6">
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-                Comment ça marche ?
-              </h1>
-              <p className="mt-2 text-sm text-slate-500">
-                En trois étapes simples, vos appels deviennent des leads qualifiés.
-              </p>
-            </header>
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  {/* Info card avec border-left et fond bleu */}
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "16px",
+                      borderRadius: "12px",
+                      border: "1px solid #bfdbfe",
+                      borderLeft: "3px solid #2563eb",
+                      backgroundColor: "#eff6ff",
+                      padding: "16px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        width: "40px",
+                        height: "40px",
+                        flexShrink: 0,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderRadius: "8px",
+                        backgroundColor: "#dbeafe",
+                        fontSize: "20px",
+                      }}
+                      aria-hidden="true"
+                    >
+                      📞
+                    </div>
+                    <div>
+                      <p style={{ fontSize: "14px", fontWeight: "600", color: "#0f172a" }}>
+                        Attribution automatique à l&apos;activation
+                      </p>
+                      <p style={{ marginTop: "4px", fontSize: "13px", color: "#64748b", lineHeight: "1.55" }}>
+                        Dès que votre compte est activé, votre numéro AtysPro est
+                        provisionné et relié à votre dashboard. Tous vos appels clients
+                        passeront par ce numéro.
+                      </p>
+                    </div>
+                  </div>
 
-            <div className="grid gap-4">
-              <article className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                  <span aria-hidden="true">📞</span>
-                  <span>Un client vous appelle</span>
-                </h2>
-                <p className="mt-1.5 text-xs text-slate-600">
-                  Quand un client appelle votre numéro pro, vous êtes notifié. Si vous ne
-                  répondez pas, notre assistant vocal prend l&apos;appel et qualifie le besoin du client.
-                </p>
-              </article>
+                  <p style={{ fontSize: "14px", color: "#475569", lineHeight: "1.6" }}>
+                    Ce numéro recevra vos appels clients. Notre assistant vocal qualifiera
+                    automatiquement vos appels manqués pour ne perdre aucun lead.
+                  </p>
+                </div>
 
-              <article className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                  <span aria-hidden="true">📱</span>
-                  <span>Le client échange avec l&apos;assistant</span>
-                </h2>
-                <p className="mt-1.5 text-xs text-slate-600">
-                  Le client explique son besoin à notre assistant vocal. La demande est
-                  analysée et qualifiée automatiquement.
-                </p>
-              </article>
+                {error && (
+                  <div
+                    style={{
+                      borderRadius: "8px",
+                      border: "1px solid #fecaca",
+                      backgroundColor: "#fef2f2",
+                      padding: "12px 16px",
+                      fontSize: "14px",
+                      color: "#dc2626",
+                      marginTop: "16px",
+                    }}
+                    role="alert"
+                  >
+                    {error}
+                  </div>
+                )}
 
-              <article className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                  <span aria-hidden="true">⚡</span>
-                  <span>Vous recevez un lead qualifié</span>
-                </h2>
-                <p className="mt-1.5 text-xs text-slate-600">
-                  Le lead apparaît dans votre dashboard avec un score de priorité. Vous
-                  rappelez le client quand vous êtes disponible.
-                </p>
-              </article>
-            </div>
-
-            {error && (
-              <p className="mt-4 text-sm text-red-600" role="alert">
-                {error}
-              </p>
+                <button
+                  type="button"
+                  onClick={goToNextStep}
+                  onMouseEnter={() => setBtnHover(true)}
+                  onMouseLeave={() => setBtnHover(false)}
+                  style={{ ...BTN_BASE, backgroundColor: btnHover ? "#1d4ed8" : "#2563eb" }}
+                >
+                  Continuer
+                </button>
+              </div>
             )}
 
-            <button
-              type="button"
-              onClick={handleFinishOnboarding}
-              disabled={loading}
-              className="mt-6 inline-flex w-full items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
-              aria-label="Commencer à utiliser AtysPro"
-            >
-              {loading ? "Finalisation en cours..." : "Commencer à utiliser AtysPro"}
-            </button>
+            {/* ── Étape 3 : Comment ça marche ── */}
+            {step === 3 && (
+              <div>
+                <header style={{ marginBottom: "24px" }}>
+                  <h2 style={{ fontSize: "20px", fontWeight: "700", color: "#0f172a", letterSpacing: "-0.01em" }}>
+                    Comment ça marche ?
+                  </h2>
+                  <p style={{ marginTop: "6px", fontSize: "14px", color: "#64748b" }}>
+                    En trois étapes simples, vos appels deviennent des leads qualifiés.
+                  </p>
+                </header>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  {HOW_IT_WORKS.map((item, i) => (
+                    <article
+                      key={item.title}
+                      onMouseEnter={() => setHoveredCard(i)}
+                      onMouseLeave={() => setHoveredCard(null)}
+                      style={{
+                        display: "flex",
+                        gap: "16px",
+                        borderRadius: "12px",
+                        border: "1px solid #e2e8f0",
+                        backgroundColor: "#f8fafc",
+                        padding: "16px",
+                        transition: "transform 0.2s ease, box-shadow 0.2s ease",
+                        transform: hoveredCard === i ? "translateY(-2px)" : "translateY(0)",
+                        boxShadow: hoveredCard === i
+                          ? "0 6px 20px rgba(0,0,0,0.08)"
+                          : "0 1px 2px rgba(0,0,0,0.04)",
+                        cursor: "default",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          width: "36px",
+                          height: "36px",
+                          flexShrink: 0,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderRadius: "8px",
+                          backgroundColor: "white",
+                          fontSize: "18px",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                          border: "1px solid #e2e8f0",
+                        }}
+                        aria-hidden="true"
+                      >
+                        {item.emoji}
+                      </div>
+                      <div>
+                        <h3 style={{ fontSize: "14px", fontWeight: "600", color: "#0f172a" }}>
+                          {item.title}
+                        </h3>
+                        <p style={{ marginTop: "4px", fontSize: "13px", color: "#64748b", lineHeight: "1.55" }}>
+                          {item.text}
+                        </p>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+
+                {error && (
+                  <div
+                    style={{
+                      borderRadius: "8px",
+                      border: "1px solid #fecaca",
+                      backgroundColor: "#fef2f2",
+                      padding: "12px 16px",
+                      fontSize: "14px",
+                      color: "#dc2626",
+                      marginTop: "16px",
+                    }}
+                    role="alert"
+                  >
+                    {error}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleFinishOnboarding}
+                  disabled={loading}
+                  onMouseEnter={() => !loading && setBtnHover(true)}
+                  onMouseLeave={() => setBtnHover(false)}
+                  style={{
+                    ...BTN_BASE,
+                    backgroundColor: loading ? "#93c5fd" : btnHover ? "#1d4ed8" : "#2563eb",
+                    cursor: loading ? "not-allowed" : "pointer",
+                  }}
+                  aria-label="Commencer à utiliser AtysPro"
+                >
+                  {loading ? "Finalisation en cours…" : "Commencer à utiliser AtysPro"}
+                </button>
+              </div>
+            )}
           </div>
-        )}
-      </section>
-    </main>
+        </div>
+      </main>
+    </>
   );
 }
-
