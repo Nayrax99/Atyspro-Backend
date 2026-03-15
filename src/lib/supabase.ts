@@ -17,7 +17,10 @@ export const supabase = createClient(url, anonKey);
 /** Client service_role - bypass RLS, pour webhooks Twilio et opérations admin */
 export const supabaseAdmin =
   serviceRoleKey != null && serviceRoleKey !== ""
-    ? createClient(url, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } })
+    ? createClient(url, serviceRoleKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+        global: { headers: { Authorization: `Bearer ${serviceRoleKey}` } },
+      })
     : (null as SupabaseClient | null);
 
 /**
