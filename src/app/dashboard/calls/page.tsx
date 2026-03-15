@@ -139,7 +139,7 @@ export default function CallsPage() {
 
   return (
     <div>
-      <h1 className="dashboard-page-title">Appels IA</h1>
+      <h1 className="dashboard-page-title">Appels</h1>
 
       <div className="dashboard-card">
         <div className="dashboard-card-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>

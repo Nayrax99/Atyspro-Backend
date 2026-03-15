@@ -214,7 +214,7 @@ export default function AccountPage() {
           {tab === "parametres" && (
             <div>
               <div className="account-form-group">
-                <label className="account-form-label">Numéro Twilio assigné</label>
+                <label className="account-form-label">Numéro professionnel</label>
                 <input
                   type="text"
                   className="account-form-input"

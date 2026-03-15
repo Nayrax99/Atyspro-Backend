@@ -171,7 +171,7 @@ export default function DashboardPage() {
               <p>
                 {statusFilter || search
                   ? "Aucun résultat pour ces critères."
-                  : "Les leads issus des SMS Twilio apparaîtront ici."}
+                  : "Les leads issus de l'assistant vocal apparaîtront ici."}
               </p>
             </div>
           ) : (

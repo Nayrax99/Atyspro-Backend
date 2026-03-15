@@ -233,7 +233,7 @@ export default function OnboardingPage() {
             <div className="space-y-4">
               <p className="text-sm text-slate-600">
                 Un numéro professionnel dédié vous sera attribué. Ce numéro recevra vos
-                appels clients et enverra automatiquement les SMS de qualification.
+                appels clients et notre assistant vocal qualifiera automatiquement vos appels manqués.
               </p>
 
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 flex gap-3">
@@ -288,18 +288,18 @@ export default function OnboardingPage() {
                 </h2>
                 <p className="mt-1.5 text-xs text-slate-600">
                   Quand un client appelle votre numéro pro, vous êtes notifié. Si vous ne
-                  répondez pas, un SMS de qualification est envoyé automatiquement.
+                  répondez pas, notre assistant vocal prend l&apos;appel et qualifie le besoin du client.
                 </p>
               </article>
 
               <article className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                 <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
                   <span aria-hidden="true">📱</span>
-                  <span>Le client répond au SMS</span>
+                  <span>Le client échange avec l&apos;assistant</span>
                 </h2>
                 <p className="mt-1.5 text-xs text-slate-600">
-                  Le client indique son besoin, son urgence et son adresse. L&apos;information
-                  est analysée automatiquement.
+                  Le client explique son besoin à notre assistant vocal. La demande est
+                  analysée et qualifiée automatiquement.
                 </p>
               </article>
 

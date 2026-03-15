@@ -15,7 +15,7 @@ interface SidebarProps {
 const NAV_ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/dashboard", label: "Leads", icon: Users },
   { href: "/dashboard/stats", label: "Statistiques", icon: BarChart3 },
-  { href: "/dashboard/calls", label: "Appels IA", icon: Phone },
+  { href: "/dashboard/calls", label: "Appels", icon: Phone },
   { href: "/dashboard/notifs", label: "Notifications", icon: Bell },
   { href: "/dashboard/account", label: "Compte", icon: Settings },
 ];
