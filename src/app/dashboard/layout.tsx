@@ -14,16 +14,15 @@ type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 
 interface MeResponse {
   success: boolean;
-  user?: {
-    id: string;
-    email: string;
-  };
+  user?: { id: string; email: string };
   account?: {
     id: string;
     name: string | null;
     onboarding_completed?: boolean;
     owner_phone?: string | null;
     city?: string | null;
+    is_admin?: boolean;
+    pending_leads?: number;
   };
   error?: string;
 }
@@ -34,6 +33,8 @@ export default function DashboardLayout({
   const router = useRouter();
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [accountName, setAccountName] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [pendingLeads, setPendingLeads] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -53,7 +54,6 @@ export default function DashboardLayout({
         }
 
         const data = (await response.json()) as MeResponse;
-
         if (!isMounted) return;
 
         if (!data.account?.onboarding_completed) {
@@ -63,6 +63,8 @@ export default function DashboardLayout({
         }
 
         setAccountName(data.account?.name ?? null);
+        setIsAdmin(data.account?.is_admin ?? false);
+        setPendingLeads(data.account?.pending_leads ?? 0);
         setStatus("authenticated");
       } catch {
         if (!isMounted) return;
@@ -72,18 +74,12 @@ export default function DashboardLayout({
     };
 
     void checkAuth();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, [router]);
 
   const handleLogout = async () => {
     try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      });
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
     } finally {
       router.replace("/auth");
     }
@@ -99,7 +95,12 @@ export default function DashboardLayout({
 
   return (
     <div className="dashboard-shell">
-      <Sidebar accountName={accountName} onLogout={handleLogout} />
+      <Sidebar
+        accountName={accountName}
+        onLogout={handleLogout}
+        isAdmin={isAdmin}
+        pendingLeads={pendingLeads}
+      />
       <main className="dashboard-content">{children}</main>
     </div>
   );

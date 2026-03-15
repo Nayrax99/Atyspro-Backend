@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { formatPhone } from "@/lib/utils";
+import LoadingSpinner from "@/components/dashboard/LoadingSpinner";
 
 interface Call {
   id: string;
@@ -60,23 +61,15 @@ function callStatusClass(status: string | null): string {
 
 function callStatusLabel(status: string | null): string {
   switch (status) {
-    case "completed":
-      return "Terminé";
-    case "no-answer":
-      return "Sans réponse";
-    case "busy":
-      return "Occupé";
-    case "failed":
-      return "Échoué";
-    case "canceled":
-      return "Annulé";
-    case "ringing":
-      return "Sonnerie";
+    case "completed":   return "Terminé";
+    case "no-answer":   return "Sans réponse";
+    case "busy":        return "Occupé";
+    case "failed":      return "Échoué";
+    case "canceled":    return "Annulé";
+    case "ringing":     return "Sonnerie";
     case "in-progress":
-    case "initiated":
-      return "En cours";
-    default:
-      return status ?? "—";
+    case "initiated":   return "En cours";
+    default:            return status ?? "—";
   }
 }
 
@@ -90,12 +83,24 @@ function directionLabel(dir: string | null): string {
   return dir === "outbound" ? "Sortant" : "Entrant";
 }
 
+const STATUS_OPTIONS = [
+  { value: "",            label: "Tous les statuts" },
+  { value: "completed",   label: "Terminé" },
+  { value: "no-answer",   label: "Sans réponse" },
+  { value: "busy",        label: "Occupé" },
+  { value: "ringing",     label: "Sonnerie" },
+  { value: "in-progress", label: "En cours" },
+  { value: "failed",      label: "Échoué" },
+  { value: "canceled",    label: "Annulé" },
+];
+
 export default function CallsPage() {
   const [calls, setCalls] = useState<Call[]>([]);
   const [pagination, setPagination] = useState<CallsResponse["pagination"] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState("");
   const limit = 20;
 
   useEffect(() => {
@@ -121,30 +126,58 @@ export default function CallsPage() {
         if (!cancelled) setLoading(false);
       });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [page]);
+
+  const filteredCalls = useMemo(
+    () =>
+      statusFilter
+        ? calls.filter((c) => c.status === statusFilter)
+        : calls,
+    [calls, statusFilter]
+  );
 
   return (
     <div>
       <h1 className="dashboard-page-title">Appels IA</h1>
 
       <div className="dashboard-card">
-        <div className="dashboard-card-header">Journal des appels</div>
+        <div className="dashboard-card-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
+          <span>Journal des appels</span>
+          <select
+            className="leads-filter-select"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            {STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
 
         <div className="leads-table-wrap">
           {loading ? (
-            <div className="dashboard-loading">Chargement des appels…</div>
+            <LoadingSpinner text="Chargement des appels…" />
           ) : error ? (
             <div className="dashboard-error">Erreur : {error}</div>
-          ) : calls.length === 0 ? (
+          ) : filteredCalls.length === 0 ? (
             <div className="page-empty-state">
-              <h2>Aucun appel enregistré</h2>
-              <p>
-                Les appels entrants traités par l&apos;assistant vocal AtysPro
-                apparaîtront ici avec leur durée et statut.
-              </p>
+              {statusFilter ? (
+                <>
+                  <h2>Aucun appel</h2>
+                  <p>Aucun appel avec ce statut.</p>
+                </>
+              ) : (
+                <>
+                  <h2>Aucun appel enregistré</h2>
+                  <p>
+                    Les appels entrants traités par l&apos;assistant vocal AtysPro
+                    apparaîtront ici avec leur durée et statut.
+                  </p>
+                </>
+              )}
             </div>
           ) : (
             <table className="leads-table">
@@ -160,7 +193,7 @@ export default function CallsPage() {
                 </tr>
               </thead>
               <tbody>
-                {calls.map((call) => (
+                {filteredCalls.map((call) => (
                   <tr key={call.id}>
                     <td>
                       {call.started_at
@@ -191,7 +224,9 @@ export default function CallsPage() {
                           href={`/dashboard/leads/${call.lead.id}`}
                           style={{ color: "#2563eb", fontWeight: 500, fontSize: "0.875rem" }}
                         >
-                          {call.lead.full_name || <em style={{ color: "#9ca3af" }}>Inconnu</em>}
+                          {call.lead.full_name || (
+                            <em style={{ color: "#9ca3af" }}>Inconnu</em>
+                          )}
                         </Link>
                       ) : (
                         <span className="lead-cell-empty">—</span>

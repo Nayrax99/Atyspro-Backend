@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import LoadingSpinner from "@/components/dashboard/LoadingSpinner";
 
 interface StatsResult {
   total: number;
@@ -94,7 +95,7 @@ export default function StatsPage() {
   if (loading) {
     return (
       <div className="dashboard-card">
-        <div className="dashboard-loading">Chargement des statistiques…</div>
+        <LoadingSpinner text="Chargement des statistiques…" />
       </div>
     );
   }

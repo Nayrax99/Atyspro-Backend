@@ -73,3 +73,27 @@ export async function requireAuth(req: NextRequest): Promise<AuthContext> {
   }
   return ctx;
 }
+
+/**
+ * Exige que l'utilisateur soit admin (is_admin = true dans la table accounts).
+ * Throw ApiError 403 si pas admin, 401 si non authentifié.
+ */
+export async function requireAdmin(req: NextRequest): Promise<AuthContext> {
+  const ctx = await requireAuth(req);
+
+  if (!supabaseAdmin) {
+    throw new ApiError("Admin Supabase non configuré", 500);
+  }
+
+  const { data: account } = await supabaseAdmin
+    .from("accounts")
+    .select("is_admin")
+    .eq("id", ctx.account_id)
+    .maybeSingle();
+
+  if (!account?.is_admin) {
+    throw new ApiError("Accès réservé aux administrateurs", 403);
+  }
+
+  return ctx;
+}

@@ -8,6 +8,8 @@ import type { LucideIcon } from "lucide-react";
 interface SidebarProps {
   accountName: string | null;
   onLogout: () => void;
+  isAdmin?: boolean;
+  pendingLeads?: number;
 }
 
 const NAV_ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
@@ -20,13 +22,17 @@ const NAV_ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
 
 function isNavActive(href: string, pathname: string): boolean {
   if (href === "/dashboard") {
-    // Actif sur /dashboard et /dashboard/leads/[id]
     return pathname === "/dashboard" || pathname.startsWith("/dashboard/leads");
   }
   return pathname.startsWith(href);
 }
 
-export default function Sidebar({ accountName, onLogout }: SidebarProps) {
+export default function Sidebar({
+  accountName,
+  onLogout,
+  isAdmin = false,
+  pendingLeads = 0,
+}: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -38,6 +44,8 @@ export default function Sidebar({ accountName, onLogout }: SidebarProps) {
       <nav className="dashboard-sidebar-nav">
         {NAV_ITEMS.map((item) => {
           const isActive = isNavActive(item.href, pathname);
+          const showBadge = item.href === "/dashboard" && pendingLeads > 0;
+
           return (
             <Link
               key={item.href}
@@ -46,19 +54,27 @@ export default function Sidebar({ accountName, onLogout }: SidebarProps) {
             >
               <item.icon size={16} strokeWidth={1.75} />
               {item.label}
+              {showBadge && (
+                <span className="sidebar-badge">
+                  {pendingLeads > 99 ? "99+" : pendingLeads}
+                </span>
+              )}
             </Link>
           );
         })}
 
-        <div className="dashboard-sidebar-divider" />
-
-        <Link
-          href="/admin"
-          className={`dashboard-sidebar-link${pathname.startsWith("/admin") ? " dashboard-sidebar-link--active" : ""}`}
-        >
-          <Shield size={16} strokeWidth={1.75} />
-          Administration
-        </Link>
+        {isAdmin && (
+          <>
+            <div className="dashboard-sidebar-divider" />
+            <Link
+              href="/admin"
+              className={`dashboard-sidebar-link${pathname.startsWith("/admin") ? " dashboard-sidebar-link--active" : ""}`}
+            >
+              <Shield size={16} strokeWidth={1.75} />
+              Administration
+            </Link>
+          </>
+        )}
       </nav>
 
       <div className="dashboard-sidebar-footer">

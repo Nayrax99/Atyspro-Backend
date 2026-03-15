@@ -7,6 +7,18 @@ import type { Lead, LeadDetailResponse, LeadStatus } from "@/types/lead";
 import { LEAD_STATUS_LABELS, formatDelay, formatType } from "@/types/lead";
 import { formatPhone } from "@/lib/utils";
 import { Phone, MessageCircle } from "lucide-react";
+import LoadingSpinner from "@/components/dashboard/LoadingSpinner";
+
+const API_BASE = "";
+
+interface SmsMessage {
+  id: string;
+  from_number: string | null;
+  to_number: string | null;
+  direction: string | null;
+  body: string | null;
+  created_at: string;
+}
 
 function getScoreBarClass(score: number | null): string {
   if (score == null) return "lead-score-bar-fill--low";
@@ -22,8 +34,6 @@ function getScoreTextClass(score: number | null): string {
   return "score-cell--critical";
 }
 
-const API_BASE = "";
-
 export default function LeadDetailPage() {
   const params = useParams();
   const id = typeof params.id === "string" ? params.id : "";
@@ -32,9 +42,10 @@ export default function LeadDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<LeadStatus | "">("");
   const [saving, setSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState<"success" | "error" | null>(
-    null,
-  );
+  const [saveMessage, setSaveMessage] = useState<"success" | "error" | null>(null);
+
+  const [smsMessages, setSmsMessages] = useState<SmsMessage[]>([]);
+  const [smsLoading, setSmsLoading] = useState(false);
 
   // Auto-efface le message de confirmation après 3s
   useEffect(() => {
@@ -72,9 +83,25 @@ export default function LeadDetailPage() {
         if (!cancelled) setLoading(false);
       });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
+  }, [id]);
+
+  // Fetch SMS history
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    setSmsLoading(true);
+
+    fetch(`${API_BASE}/api/leads/${id}/sms`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((json: { success: boolean; data?: SmsMessage[] }) => {
+        if (cancelled) return;
+        if (json.success) setSmsMessages(json.data ?? []);
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setSmsLoading(false); });
+
+    return () => { cancelled = true; };
   }, [id]);
 
   const handleSaveStatus = (e: React.FormEvent) => {
@@ -104,7 +131,7 @@ export default function LeadDetailPage() {
   if (loading && !lead) {
     return (
       <div className="dashboard-card">
-        <div className="dashboard-loading">Chargement du lead…</div>
+        <LoadingSpinner text="Chargement du lead…" />
       </div>
     );
   }
@@ -115,9 +142,7 @@ export default function LeadDetailPage() {
         <Link href="/dashboard" className="lead-detail-back">
           ← Retour aux leads
         </Link>
-        <div className="dashboard-error">
-          {error || "Lead non trouvé"}
-        </div>
+        <div className="dashboard-error">{error || "Lead non trouvé"}</div>
       </div>
     );
   }
@@ -130,10 +155,13 @@ export default function LeadDetailPage() {
         </Link>
 
         <div className="dashboard-card">
+          {/* Header : nom + badge statut */}
           <div className="lead-detail-section">
             <div className="lead-detail-header">
               <h2 className="lead-detail-title">
-                {lead.full_name || <span style={{ color: "#9ca3af", fontStyle: "italic" }}>Inconnu</span>}
+                {lead.full_name || (
+                  <span style={{ color: "#9ca3af", fontStyle: "italic" }}>Inconnu</span>
+                )}
               </h2>
               <span className={`badge badge--${lead.status}`}>
                 {LEAD_STATUS_LABELS[lead.status]}
@@ -179,51 +207,37 @@ export default function LeadDetailPage() {
                 {saving ? "Enregistrement…" : "Enregistrer"}
               </button>
               {saveMessage === "success" && (
-                <span style={{ color: "#059669", fontSize: "0.9rem" }}>
-                  Enregistré
-                </span>
+                <span style={{ color: "#059669", fontSize: "0.9rem" }}>Enregistré</span>
               )}
               {saveMessage === "error" && (
-                <span style={{ color: "#dc2626", fontSize: "0.9rem" }}>
-                  Erreur
-                </span>
+                <span style={{ color: "#dc2626", fontSize: "0.9rem" }}>Erreur</span>
               )}
             </form>
           </div>
 
+          {/* Contact */}
           <div className="lead-detail-section">
             <h3>Contact</h3>
             <div className="lead-detail-field">
               <div className="lead-detail-label">Téléphone</div>
-              <div
-                className={`lead-detail-value ${
-                  !lead.client_phone ? "lead-detail-value--empty" : ""
-                }`}
-              >
+              <div className={`lead-detail-value ${!lead.client_phone ? "lead-detail-value--empty" : ""}`}>
                 {lead.client_phone ? formatPhone(lead.client_phone) : "Non renseigné"}
               </div>
             </div>
             <div className="lead-detail-field">
               <div className="lead-detail-label">Adresse</div>
-              <div
-                className={`lead-detail-value ${
-                  !lead.address ? "lead-detail-value--empty" : ""
-                }`}
-              >
+              <div className={`lead-detail-value ${!lead.address ? "lead-detail-value--empty" : ""}`}>
                 {lead.address || "Non renseignée"}
               </div>
             </div>
           </div>
 
+          {/* Demande */}
           <div className="lead-detail-section">
             <h3>Demande</h3>
             <div className="lead-detail-field">
               <div className="lead-detail-label">Type de prestation</div>
-              <div
-                className={`lead-detail-value ${
-                  !lead.type_code ? "lead-detail-value--empty" : ""
-                }`}
-              >
+              <div className={`lead-detail-value ${!lead.type_code ? "lead-detail-value--empty" : ""}`}>
                 {formatType(lead)}
               </div>
             </div>
@@ -260,9 +274,7 @@ export default function LeadDetailPage() {
             <div className="lead-detail-field">
               <div className="lead-detail-label">Description / message</div>
               <div
-                className={`lead-detail-value ${
-                  !lead.description ? "lead-detail-value--empty" : ""
-                }`}
+                className={`lead-detail-value ${!lead.description ? "lead-detail-value--empty" : ""}`}
                 style={{ whiteSpace: "pre-wrap" }}
               >
                 {lead.description || lead.raw_message || "Aucun message"}
@@ -270,6 +282,7 @@ export default function LeadDetailPage() {
             </div>
           </div>
 
+          {/* Relances */}
           <div className="lead-detail-section">
             <h3>Relances</h3>
             <div className="lead-detail-field">
@@ -277,8 +290,7 @@ export default function LeadDetailPage() {
               <div className="lead-detail-value">
                 {lead.relance_count && lead.relance_count > 0 ? (
                   <span className="badge badge--warning">
-                    {lead.relance_count} relance
-                    {lead.relance_count > 1 ? "s" : ""}
+                    {lead.relance_count} relance{lead.relance_count > 1 ? "s" : ""}
                   </span>
                 ) : (
                   "Aucune"
@@ -287,14 +299,52 @@ export default function LeadDetailPage() {
             </div>
           </div>
 
+          {/* Messages SMS */}
+          <div className="lead-detail-section">
+            <h3>Messages</h3>
+            {smsLoading ? (
+              <LoadingSpinner text="Chargement des messages…" padded={false} />
+            ) : smsMessages.length === 0 ? (
+              <p className="lead-detail-value--empty" style={{ fontSize: "0.875rem" }}>
+                Aucun message
+              </p>
+            ) : (
+              <div className="sms-history">
+                {smsMessages.map((msg) => (
+                  <div key={msg.id} className="sms-message-row">
+                    <div className="sms-message-meta">
+                      <span
+                        className={`badge ${
+                          msg.direction === "outbound"
+                            ? "badge--sms-outbound"
+                            : "badge--sms-inbound"
+                        }`}
+                      >
+                        {msg.direction === "outbound" ? "Envoyé" : "Reçu"}
+                      </span>
+                      <span className="sms-message-date">
+                        {new Date(msg.created_at).toLocaleString("fr-FR", {
+                          day: "2-digit",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                    <p className="sms-message-body">{msg.body || <em>— vide —</em>}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Dates */}
           <div className="lead-detail-section">
             <h3>Dates</h3>
             <div className="lead-detail-field">
               <div className="lead-detail-label">Créé le</div>
               <div className="lead-detail-value">
-                {lead.created_at
-                  ? new Date(lead.created_at).toLocaleString("fr-FR")
-                  : "—"}
+                {lead.created_at ? new Date(lead.created_at).toLocaleString("fr-FR") : "—"}
               </div>
             </div>
             {lead.updated_at && (

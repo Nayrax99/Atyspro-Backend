@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { ApiError } from "@/lib/utils";
 
@@ -23,8 +23,8 @@ interface LeadCountRow {
  */
 export async function GET(req: NextRequest) {
   try {
-    // Auth requise (tout utilisateur connecté pour l'instant)
-    await requireAuth(req);
+    // Admin requis
+    await requireAdmin(req);
 
     if (!supabaseAdmin) {
       return NextResponse.json(

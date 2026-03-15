@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import LoadingSpinner from "@/components/dashboard/LoadingSpinner";
 
 interface AccountWithLeads {
   id: string;
@@ -58,7 +59,7 @@ export default function AdminPage() {
 
       {loading ? (
         <div className="dashboard-card">
-          <div className="dashboard-loading">Chargement…</div>
+          <LoadingSpinner text="Chargement des données admin…" />
         </div>
       ) : error ? (
         <div className="dashboard-error">Erreur : {error}</div>

@@ -19,9 +19,16 @@ export async function GET(req: NextRequest) {
 
     const { data: account } = await supabaseAdmin
       .from("accounts")
-      .select("id, name, email, onboarding_completed, owner_phone, city")
+      .select("id, name, email, onboarding_completed, owner_phone, city, is_admin")
       .eq("id", account_id)
       .maybeSingle();
+
+    // Count pending leads (incomplete + needs_review) for sidebar badge
+    const { count: pendingLeads } = await supabaseAdmin
+      .from("leads")
+      .select("*", { count: "exact", head: true })
+      .eq("account_id", account_id)
+      .neq("status", "complete");
 
     return NextResponse.json({
       success: true,
@@ -33,6 +40,8 @@ export async function GET(req: NextRequest) {
             onboarding_completed: account.onboarding_completed ?? false,
             owner_phone: account.owner_phone ?? null,
             city: account.city ?? null,
+            is_admin: account.is_admin ?? false,
+            pending_leads: pendingLeads ?? 0,
           }
         : {
             id: account_id,
@@ -40,6 +49,8 @@ export async function GET(req: NextRequest) {
             onboarding_completed: false,
             owner_phone: null,
             city: null,
+            is_admin: false,
+            pending_leads: 0,
           },
     });
   } catch (error) {

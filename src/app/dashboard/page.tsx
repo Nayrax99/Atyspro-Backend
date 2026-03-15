@@ -1,19 +1,41 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import type { Lead, LeadsResponse, LeadStatus } from "@/types/lead";
 import { LEAD_STATUS_LABELS, formatDelay, formatType } from "@/types/lead";
 import { formatPhone } from "@/lib/utils";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import LoadingSpinner from "@/components/dashboard/LoadingSpinner";
 
 const API_BASE = "";
+
+type SortField = "priority_score" | "created_at";
+type SortDir = "asc" | "desc";
 
 function getScoreClass(score: number | null): string {
   if (score == null) return "score-cell--low";
   if (score >= 70) return "score-cell--high";
   if (score >= 40) return "score-cell--medium";
   return "score-cell--critical";
+}
+
+function SortIcon({
+  field,
+  sortField,
+  sortDir,
+}: {
+  field: SortField;
+  sortField: SortField | null;
+  sortDir: SortDir;
+}) {
+  if (sortField !== field)
+    return <ArrowUpDown size={12} className="th-sort-icon" />;
+  return sortDir === "asc" ? (
+    <ArrowUp size={12} className="th-sort-icon th-sort-icon--active" />
+  ) : (
+    <ArrowDown size={12} className="th-sort-icon th-sort-icon--active" />
+  );
 }
 
 export default function DashboardPage() {
@@ -24,6 +46,8 @@ export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState<LeadStatus | "">("");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const limit = 20;
 
   // Debounce de la recherche (400ms)
@@ -68,9 +92,7 @@ export default function DashboardPage() {
         if (!cancelled) setLoading(false);
       });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [page, statusFilter, search]);
 
   useEffect(() => {
@@ -78,8 +100,31 @@ export default function DashboardPage() {
     return cancel;
   }, [fetchLeads]);
 
-  const leads = data?.data ?? [];
+  function handleSort(field: SortField) {
+    if (sortField === field) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDir("desc");
+    }
+  }
+
+  const leads = useMemo(() => data?.data ?? [], [data]);
   const pagination = data?.pagination;
+
+  const sortedLeads = useMemo(() => {
+    if (!sortField) return leads;
+    return [...leads].sort((a, b) => {
+      if (sortField === "priority_score") {
+        const aVal = a.priority_score ?? -1;
+        const bVal = b.priority_score ?? -1;
+        return sortDir === "asc" ? aVal - bVal : bVal - aVal;
+      }
+      const aDate = new Date(a.created_at).getTime();
+      const bDate = new Date(b.created_at).getTime();
+      return sortDir === "asc" ? aDate - bDate : bDate - aDate;
+    });
+  }, [leads, sortField, sortDir]);
 
   return (
     <div>
@@ -114,7 +159,7 @@ export default function DashboardPage() {
 
         <div className="leads-table-wrap">
           {loading && !data ? (
-            <div className="dashboard-loading">Chargement des leads…</div>
+            <LoadingSpinner text="Chargement des leads…" />
           ) : error ? (
             <div className="dashboard-error">
               Erreur : {error}. Vérifiez que l&apos;API et Supabase sont
@@ -137,18 +182,43 @@ export default function DashboardPage() {
                   <th>Téléphone</th>
                   <th>Type / Délai</th>
                   <th>Statut</th>
-                  <th>Score</th>
+                  <th
+                    className="th-sortable"
+                    onClick={() => handleSort("priority_score")}
+                  >
+                    Score{" "}
+                    <SortIcon
+                      field="priority_score"
+                      sortField={sortField}
+                      sortDir={sortDir}
+                    />
+                  </th>
                   <th>Relances</th>
-                  <th>Date</th>
+                  <th
+                    className="th-sortable"
+                    onClick={() => handleSort("created_at")}
+                  >
+                    Date{" "}
+                    <SortIcon
+                      field="created_at"
+                      sortField={sortField}
+                      sortDir={sortDir}
+                    />
+                  </th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {leads.map((lead: Lead) => (
+                {sortedLeads.map((lead: Lead) => (
                   <tr key={lead.id}>
                     <td>
                       {lead.full_name || (
-                        <span className="lead-cell-empty" style={{ fontStyle: "italic" }}>Inconnu</span>
+                        <span
+                          className="lead-cell-empty"
+                          style={{ fontStyle: "italic" }}
+                        >
+                          Inconnu
+                        </span>
                       )}
                     </td>
                     <td>{formatPhone(lead.client_phone)}</td>
@@ -193,12 +263,15 @@ export default function DashboardPage() {
                               day: "2-digit",
                               month: "short",
                               year: "numeric",
-                            },
+                            }
                           )
                         : "—"}
                     </td>
                     <td>
-                      <Link href={`/dashboard/leads/${lead.id}`} className="lead-table-action">
+                      <Link
+                        href={`/dashboard/leads/${lead.id}`}
+                        className="lead-table-action"
+                      >
                         <ChevronRight size={15} />
                       </Link>
                     </td>
