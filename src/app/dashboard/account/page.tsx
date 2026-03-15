@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { formatPhone } from "@/lib/utils";
 
 type Tab = "profil" | "parametres" | "abonnement";
 
@@ -50,7 +51,8 @@ export default function AccountPage() {
         setAccount(json.data);
         setName(json.data.name ?? "");
         setCity(json.data.city ?? "");
-        setSpecialty(json.data.specialty ?? "");
+        const raw = json.data.specialty ?? "";
+        setSpecialty(raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : "");
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
@@ -86,7 +88,7 @@ export default function AccountPage() {
 
   if (loading) {
     return (
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-3xl mx-auto">
         <h1 className="dashboard-page-title">Compte</h1>
         <div className="dashboard-card">
           <div className="dashboard-loading">Chargement…</div>
@@ -97,7 +99,7 @@ export default function AccountPage() {
 
   if (error) {
     return (
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-3xl mx-auto">
         <h1 className="dashboard-page-title">Compte</h1>
         <div className="dashboard-error">Erreur : {error}</div>
       </div>
@@ -157,7 +159,7 @@ export default function AccountPage() {
                 <input
                   type="tel"
                   className="account-form-input"
-                  value={account?.owner_phone ?? ""}
+                  value={account?.owner_phone ? formatPhone(account.owner_phone) : ""}
                   disabled
                 />
                 <p style={{ fontSize: "0.775rem", color: "#9ca3af", marginTop: "0.3rem" }}>

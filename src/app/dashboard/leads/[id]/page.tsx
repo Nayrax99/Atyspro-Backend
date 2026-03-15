@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { Lead, LeadDetailResponse, LeadStatus } from "@/types/lead";
 import { LEAD_STATUS_LABELS, formatDelay, formatType } from "@/types/lead";
+import { formatPhone } from "@/lib/utils";
 
 const API_BASE = "";
 
@@ -95,7 +96,7 @@ export default function LeadDetailPage() {
 
   if (error || !lead) {
     return (
-      <div className="lead-detail-container max-w-2xl mx-auto">
+      <div className="max-w-3xl mx-auto">
         <Link href="/dashboard" className="lead-detail-back">
           ← Retour aux leads
         </Link>
@@ -107,7 +108,7 @@ export default function LeadDetailPage() {
   }
 
   return (
-    <div className="lead-detail-container max-w-2xl mx-auto">
+    <div className="max-w-3xl mx-auto">
       <div className="lead-detail">
         <Link href="/dashboard" className="lead-detail-back">
           ← Retour aux leads
@@ -163,7 +164,7 @@ export default function LeadDetailPage() {
                   !lead.client_phone ? "lead-detail-value--empty" : ""
                 }`}
               >
-                {lead.client_phone || "Non renseigné"}
+                {lead.client_phone ? formatPhone(lead.client_phone) : "Non renseigné"}
               </div>
             </div>
             <div className="lead-detail-field">

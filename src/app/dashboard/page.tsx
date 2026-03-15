@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import type { Lead, LeadsResponse, LeadStatus } from "@/types/lead";
 import { LEAD_STATUS_LABELS, formatDelay, formatType } from "@/types/lead";
+import { formatPhone } from "@/lib/utils";
 
 const API_BASE = "";
 
@@ -11,7 +12,7 @@ function getScoreClass(score: number | null): string {
   if (score == null) return "score-cell--low";
   if (score >= 70) return "score-cell--high";
   if (score >= 40) return "score-cell--medium";
-  return "score-cell--low";
+  return "score-cell--critical";
 }
 
 export default function DashboardPage() {
@@ -80,7 +81,7 @@ export default function DashboardPage() {
   const pagination = data?.pagination;
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div>
       <h1 className="dashboard-page-title">Leads</h1>
 
       <div className="dashboard-card">
@@ -146,10 +147,10 @@ export default function DashboardPage() {
                   <tr key={lead.id}>
                     <td>
                       {lead.full_name || (
-                        <span className="lead-cell-empty">—</span>
+                        <span className="lead-cell-empty" style={{ fontStyle: "italic" }}>Inconnu</span>
                       )}
                     </td>
-                    <td>{lead.client_phone || "—"}</td>
+                    <td>{formatPhone(lead.client_phone)}</td>
                     <td>
                       <span className="lead-job-type">{formatType(lead)}</span>
                       <div className="lead-request-preview">
@@ -174,13 +175,13 @@ export default function DashboardPage() {
                       </span>
                     </td>
                     <td>
-                      {lead.relance_count && lead.relance_count > 0 ? (
+                      {lead.relance_count != null && lead.relance_count > 0 ? (
                         <span className="badge badge--warning">
                           {lead.relance_count} relance
                           {lead.relance_count > 1 ? "s" : ""}
                         </span>
                       ) : (
-                        <span className="lead-cell-empty">—</span>
+                        <span>0</span>
                       )}
                     </td>
                     <td>

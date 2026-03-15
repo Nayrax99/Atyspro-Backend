@@ -2,7 +2,7 @@
 
 export default function NotifsPage() {
   return (
-    <div className="max-w-4xl mx-auto">
+    <div>
       <h1 className="dashboard-page-title">Notifications</h1>
 
       <div className="dashboard-card">

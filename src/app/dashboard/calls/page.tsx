@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatPhone } from "@/lib/utils";
 
 interface Call {
   id: string;
@@ -67,6 +68,11 @@ function callStatusLabel(status: string | null): string {
       return "Échoué";
     case "canceled":
       return "Annulé";
+    case "ringing":
+      return "Sonnerie";
+    case "in-progress":
+    case "initiated":
+      return "En cours";
     default:
       return status ?? "—";
   }
@@ -119,7 +125,7 @@ export default function CallsPage() {
   }, [page]);
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div>
       <h1 className="dashboard-page-title">Appels IA</h1>
 
       <div className="dashboard-card">
@@ -163,8 +169,8 @@ export default function CallsPage() {
                           })
                         : "—"}
                     </td>
-                    <td>{call.from_number ?? "—"}</td>
-                    <td>{call.to_number ?? "—"}</td>
+                    <td>{formatPhone(call.from_number)}</td>
+                    <td>{formatPhone(call.to_number)}</td>
                     <td>
                       <span className={directionClass(call.direction)}>
                         {directionLabel(call.direction)}
