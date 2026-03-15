@@ -20,6 +20,13 @@ export default function LeadDetailPage() {
     null,
   );
 
+  // Auto-efface le message de confirmation après 3s
+  useEffect(() => {
+    if (!saveMessage) return;
+    const t = setTimeout(() => setSaveMessage(null), 3000);
+    return () => clearTimeout(t);
+  }, [saveMessage]);
+
   useEffect(() => {
     if (!id) return;
     let cancelled = false;

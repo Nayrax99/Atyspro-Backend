@@ -4,9 +4,9 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/dashboard/Sidebar";
-import "./dashboard.css";
+import "../dashboard/dashboard.css";
 
-interface DashboardLayoutProps {
+interface AdminLayoutProps {
   children: ReactNode;
 }
 
@@ -14,23 +14,11 @@ type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 
 interface MeResponse {
   success: boolean;
-  user?: {
-    id: string;
-    email: string;
-  };
-  account?: {
-    id: string;
-    name: string | null;
-    onboarding_completed?: boolean;
-    owner_phone?: string | null;
-    city?: string | null;
-  };
+  account?: { name: string | null; onboarding_completed?: boolean };
   error?: string;
 }
 
-export default function DashboardLayout({
-  children,
-}: Readonly<DashboardLayoutProps>) {
+export default function AdminLayout({ children }: Readonly<AdminLayoutProps>) {
   const router = useRouter();
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [accountName, setAccountName] = useState<string | null>(null);
@@ -53,14 +41,7 @@ export default function DashboardLayout({
         }
 
         const data = (await response.json()) as MeResponse;
-
         if (!isMounted) return;
-
-        if (!data.account?.onboarding_completed) {
-          setStatus("authenticated");
-          router.replace("/onboarding");
-          return;
-        }
 
         setAccountName(data.account?.name ?? null);
         setStatus("authenticated");
@@ -72,7 +53,6 @@ export default function DashboardLayout({
     };
 
     void checkAuth();
-
     return () => {
       isMounted = false;
     };
@@ -80,10 +60,7 @@ export default function DashboardLayout({
 
   const handleLogout = async () => {
     try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      });
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
     } finally {
       router.replace("/auth");
     }

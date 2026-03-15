@@ -245,27 +245,7 @@ export default function AuthPage() {
           </div>
 
           {isSignup && (
-            <>
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="business-name"
-                  className="block text-sm font-medium text-slate-700"
-                >
-                  Nom de votre entreprise
-                </label>
-                <input
-                  id="business-name"
-                  name="business_name"
-                  type="text"
-                  autoComplete="organization"
-                  value={businessName}
-                  onChange={(event) => setBusinessName(event.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-3 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                  placeholder="Ex : Plomberie Martin"
-                />
-              </div>
-
-              <div className="space-y-1.5">
+            <div className="space-y-1.5">
                 <label
                   htmlFor="password-confirm"
                   className="block text-sm font-medium text-slate-700"
@@ -284,7 +264,6 @@ export default function AuthPage() {
                   placeholder="Répétez le mot de passe"
                 />
               </div>
-            </>
           )}
 
           {error && (

@@ -14,10 +14,21 @@ export async function listLeads(
   const { account_id, page, limit } = params;
   const offset = (page - 1) * limit;
 
-  const { data: leads, error, count } = await client
+  let query = client
     .from("leads")
     .select("*", { count: "exact" })
-    .eq("account_id", account_id)
+    .eq("account_id", account_id);
+
+  if (params.status) {
+    query = query.eq("status", params.status);
+  }
+
+  if (params.search?.trim()) {
+    const s = `%${params.search.trim()}%`;
+    query = query.or(`full_name.ilike.${s},client_phone.ilike.${s},address.ilike.${s}`);
+  }
+
+  const { data: leads, error, count } = await query
     .order("score", { ascending: false })
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
