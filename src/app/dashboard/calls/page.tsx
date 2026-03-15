@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { formatPhone } from "@/lib/utils";
 
 interface Call {
@@ -13,6 +14,7 @@ interface Call {
   status: string | null;
   started_at: string | null;
   ended_at: string | null;
+  lead: { id: string; full_name: string | null } | null;
 }
 
 interface CallsResponse {
@@ -154,6 +156,7 @@ export default function CallsPage() {
                   <th>Direction</th>
                   <th>Durée</th>
                   <th>Statut</th>
+                  <th>Lead</th>
                 </tr>
               </thead>
               <tbody>
@@ -181,6 +184,18 @@ export default function CallsPage() {
                       <span className={callStatusClass(call.status)}>
                         {callStatusLabel(call.status)}
                       </span>
+                    </td>
+                    <td>
+                      {call.lead ? (
+                        <Link
+                          href={`/dashboard/leads/${call.lead.id}`}
+                          style={{ color: "#2563eb", fontWeight: 500, fontSize: "0.875rem" }}
+                        >
+                          {call.lead.full_name || <em style={{ color: "#9ca3af" }}>Inconnu</em>}
+                        </Link>
+                      ) : (
+                        <span className="lead-cell-empty">—</span>
+                      )}
                     </td>
                   </tr>
                 ))}

@@ -6,6 +6,21 @@ import { useParams } from "next/navigation";
 import type { Lead, LeadDetailResponse, LeadStatus } from "@/types/lead";
 import { LEAD_STATUS_LABELS, formatDelay, formatType } from "@/types/lead";
 import { formatPhone } from "@/lib/utils";
+import { Phone, MessageCircle } from "lucide-react";
+
+function getScoreBarClass(score: number | null): string {
+  if (score == null) return "lead-score-bar-fill--low";
+  if (score >= 70) return "lead-score-bar-fill--high";
+  if (score >= 40) return "lead-score-bar-fill--medium";
+  return "lead-score-bar-fill--critical";
+}
+
+function getScoreTextClass(score: number | null): string {
+  if (score == null) return "score-cell--low";
+  if (score >= 70) return "score-cell--high";
+  if (score >= 40) return "score-cell--medium";
+  return "score-cell--critical";
+}
 
 const API_BASE = "";
 
@@ -118,14 +133,35 @@ export default function LeadDetailPage() {
           <div className="lead-detail-section">
             <div className="lead-detail-header">
               <h2 className="lead-detail-title">
-                {lead.full_name || "Sans nom"}
+                {lead.full_name || <span style={{ color: "#9ca3af", fontStyle: "italic" }}>Inconnu</span>}
               </h2>
               <span className={`badge badge--${lead.status}`}>
                 {LEAD_STATUS_LABELS[lead.status]}
               </span>
             </div>
 
-            <form onSubmit={handleSaveStatus} className="lead-status-form">
+            {lead.client_phone && (
+              <div className="lead-action-buttons">
+                <a
+                  href={`tel:${lead.client_phone}`}
+                  className="lead-action-btn lead-action-btn--call"
+                >
+                  <Phone size={15} />
+                  Appeler
+                </a>
+                <a
+                  href={`https://wa.me/${lead.client_phone.replace("+", "")}`}
+                  className="lead-action-btn lead-action-btn--whatsapp"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <MessageCircle size={15} />
+                  WhatsApp
+                </a>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveStatus} className="lead-status-form" style={{ marginTop: "1rem" }}>
               <label htmlFor="lead-status">Statut</label>
               <select
                 id="lead-status"
@@ -197,8 +233,16 @@ export default function LeadDetailPage() {
             </div>
             <div className="lead-detail-field">
               <div className="lead-detail-label">Score de priorité</div>
-              <div className="lead-detail-value">
-                {lead.priority_score != null ? lead.priority_score : "—"}
+              <div className="lead-detail-value lead-score-bar-wrap">
+                <div className="lead-score-bar">
+                  <div
+                    className={`lead-score-bar-fill ${getScoreBarClass(lead.priority_score)}`}
+                    style={{ width: `${lead.priority_score ?? 0}%` }}
+                  />
+                </div>
+                <span className={`score-cell ${getScoreTextClass(lead.priority_score)}`}>
+                  {lead.priority_score != null ? lead.priority_score : "—"}
+                </span>
               </div>
             </div>
             <div className="lead-detail-field">

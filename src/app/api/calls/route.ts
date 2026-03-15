@@ -34,12 +34,47 @@ export async function GET(request: NextRequest) {
 
     if (error) throw new Error(error.message);
 
+    // Lookup associated leads by from_number → leads.client_phone
+    const fromNumbers = [
+      ...new Set(
+        (calls ?? [])
+          .map((c) => c.from_number)
+          .filter((n): n is string => n != null)
+      ),
+    ];
+
+    const leadsByPhone: Record<string, { id: string; full_name: string | null }> = {};
+
+    if (fromNumbers.length > 0) {
+      const { data: matchedLeads } = await client
+        .from("leads")
+        .select("id, full_name, client_phone")
+        .eq("account_id", account_id)
+        .in("client_phone", fromNumbers)
+        .order("created_at", { ascending: false });
+
+      for (const lead of matchedLeads ?? []) {
+        const phone = lead.client_phone as string | null;
+        if (phone && !(phone in leadsByPhone)) {
+          leadsByPhone[phone] = {
+            id: lead.id as string,
+            full_name: lead.full_name as string | null,
+          };
+        }
+      }
+    }
+
+    const enrichedCalls = (calls ?? []).map((call) => ({
+      ...call,
+      lead: call.from_number ? (leadsByPhone[call.from_number] ?? null) : null,
+    }));
+
     const total = count ?? 0;
     const totalPages = total > 0 ? Math.ceil(total / limit) : 0;
 
     return NextResponse.json({
       success: true,
-      data: calls ?? [],
+      data: enrichedCalls,
       pagination: {
         page,
         limit,

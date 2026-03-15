@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Lead, LeadsResponse, LeadStatus } from "@/types/lead";
 import { LEAD_STATUS_LABELS, formatDelay, formatType } from "@/types/lead";
 import { formatPhone } from "@/lib/utils";
+import { ChevronRight } from "lucide-react";
 
 const API_BASE = "";
 
@@ -197,7 +198,9 @@ export default function DashboardPage() {
                         : "—"}
                     </td>
                     <td>
-                      <Link href={`/dashboard/leads/${lead.id}`}>Voir</Link>
+                      <Link href={`/dashboard/leads/${lead.id}`} className="lead-table-action">
+                        <ChevronRight size={15} />
+                      </Link>
                     </td>
                   </tr>
                 ))}

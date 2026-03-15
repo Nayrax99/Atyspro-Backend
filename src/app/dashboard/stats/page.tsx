@@ -56,7 +56,14 @@ function BreakdownRow({
           style={{ width: `${width}%` }}
         />
       </div>
-      <span className="stats-breakdown-count">{count}</span>
+      <span className="stats-breakdown-count">
+        {count}
+        {total > 0 && (
+          <span style={{ fontWeight: 400, color: "#9ca3af", marginLeft: "0.25rem" }}>
+            ({width}%)
+          </span>
+        )}
+      </span>
     </div>
   );
 }
@@ -103,7 +110,7 @@ export default function StatsPage() {
   const stats = view === "month" ? data.month : data.total;
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div>
       {/* Header + toggle */}
       <div
         style={{
