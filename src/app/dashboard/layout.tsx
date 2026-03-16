@@ -87,21 +87,21 @@ export default function DashboardLayout({
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <p className="text-sm text-slate-600">Chargement...</p>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#f8fafc" }}>
+        <p style={{ fontSize: "14px", color: "#64748b", fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" }}>Chargement...</p>
       </div>
     );
   }
 
   return (
-    <div className="dashboard-shell">
+    <div style={{ minHeight: "100vh", backgroundColor: "#f8fafc" }}>
       <Sidebar
         accountName={accountName}
         onLogout={handleLogout}
         isAdmin={isAdmin}
         pendingLeads={pendingLeads}
       />
-      <main className="dashboard-content">{children}</main>
+      <main style={{ marginLeft: "220px", height: "100vh", overflowY: "auto", backgroundColor: "#f8fafc", padding: "2rem 2.5rem", fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" }}>{children}</main>
     </div>
   );
 }

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { formatPhone } from "@/lib/utils";
 import LoadingSpinner from "@/components/dashboard/LoadingSpinner";
 
+const FONT = "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif";
+
 interface Call {
   id: string;
   account_id: string;
@@ -83,15 +85,14 @@ function directionLabel(dir: string | null): string {
   return dir === "outbound" ? "Sortant" : "Entrant";
 }
 
-const STATUS_OPTIONS = [
-  { value: "",            label: "Tous les statuts" },
-  { value: "completed",   label: "Terminé" },
-  { value: "no-answer",   label: "Sans réponse" },
-  { value: "busy",        label: "Occupé" },
-  { value: "ringing",     label: "Sonnerie" },
-  { value: "in-progress", label: "En cours" },
-  { value: "failed",      label: "Échoué" },
-  { value: "canceled",    label: "Annulé" },
+// Business-level filter options (mapped from raw Twilio statuses on the frontend)
+type BusinessFilter = "" | "termine" | "qualifie" | "non_qualifie";
+
+const FILTER_OPTIONS: { value: BusinessFilter; label: string }[] = [
+  { value: "",             label: "Tous les statuts" },
+  { value: "termine",      label: "Terminé" },
+  { value: "qualifie",     label: "Qualifié" },
+  { value: "non_qualifie", label: "Non qualifié" },
 ];
 
 export default function CallsPage() {
@@ -100,7 +101,7 @@ export default function CallsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<BusinessFilter>("");
   const limit = 20;
 
   useEffect(() => {
@@ -129,27 +130,51 @@ export default function CallsPage() {
     return () => { cancelled = true; };
   }, [page]);
 
-  const filteredCalls = useMemo(
-    () =>
-      statusFilter
-        ? calls.filter((c) => c.status === statusFilter)
-        : calls,
-    [calls, statusFilter]
-  );
+  const filteredCalls = useMemo(() => {
+    if (!statusFilter) return calls;
+
+    if (statusFilter === "termine") {
+      // Artisan answered: completed with a positive duration
+      return calls.filter((c) => {
+        if (c.status !== "completed") return false;
+        const dur = c.started_at && c.ended_at
+          ? Math.floor((new Date(c.ended_at).getTime() - new Date(c.started_at).getTime()) / 1000)
+          : 0;
+        return dur > 0;
+      });
+    }
+
+    if (statusFilter === "qualifie") {
+      // Missed call but assistant created a lead (lead != null ≈ qualification happened)
+      return calls.filter((c) => c.status === "completed" && c.lead != null);
+    }
+
+    // non_qualifie: everything else (no-answer, busy, failed, canceled, ringing, or completed without lead)
+    return calls.filter((c) => {
+      if (c.status === "completed" && c.lead != null) return false;
+      if (c.status === "completed") {
+        const dur = c.started_at && c.ended_at
+          ? Math.floor((new Date(c.ended_at).getTime() - new Date(c.started_at).getTime()) / 1000)
+          : 0;
+        if (dur > 0) return false;
+      }
+      return true;
+    });
+  }, [calls, statusFilter]);
 
   return (
-    <div>
-      <h1 className="dashboard-page-title">Appels</h1>
+    <div style={{ fontFamily: FONT }}>
+      <h1 style={{ fontSize: "24px", fontWeight: 700, color: "#0f172a", marginBottom: "24px", letterSpacing: "-0.01em", fontFamily: FONT }}>Appels</h1>
 
-      <div className="dashboard-card">
-        <div className="dashboard-card-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
-          <span>Journal des appels</span>
+      <div style={{ backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
+        <div style={{ padding: "16px 24px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
+          <span style={{ fontSize: "14px", fontWeight: 600, color: "#374151", fontFamily: FONT }}>Journal des appels</span>
           <select
-            className="leads-filter-select"
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => setStatusFilter(e.target.value as BusinessFilter)}
+            style={{ padding: "8px 12px", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "13px", fontFamily: FONT, color: "#374151", backgroundColor: "white", cursor: "pointer", outline: "none" }}
           >
-            {STATUS_OPTIONS.map((opt) => (
+            {FILTER_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
@@ -157,24 +182,23 @@ export default function CallsPage() {
           </select>
         </div>
 
-        <div className="leads-table-wrap">
+        <div style={{ overflowX: "auto" }}>
           {loading ? (
             <LoadingSpinner text="Chargement des appels…" />
           ) : error ? (
-            <div className="dashboard-error">Erreur : {error}</div>
+            <div style={{ padding: "32px 24px", color: "#dc2626", fontSize: "14px", fontFamily: FONT }}>Erreur : {error}</div>
           ) : filteredCalls.length === 0 ? (
-            <div className="page-empty-state">
+            <div style={{ padding: "64px 24px", textAlign: "center", fontFamily: FONT }}>
               {statusFilter ? (
                 <>
-                  <h2>Aucun appel</h2>
-                  <p>Aucun appel avec ce statut.</p>
+                  <h2 style={{ fontSize: "16px", fontWeight: 600, color: "#0f172a", marginBottom: "8px" }}>Aucun appel</h2>
+                  <p style={{ fontSize: "14px", color: "#64748b" }}>Aucun appel avec ce statut.</p>
                 </>
               ) : (
                 <>
-                  <h2>Aucun appel enregistré</h2>
-                  <p>
-                    Les appels entrants traités par l&apos;assistant vocal AtysPro
-                    apparaîtront ici avec leur durée et statut.
+                  <h2 style={{ fontSize: "16px", fontWeight: 600, color: "#0f172a", marginBottom: "8px" }}>Aucun appel enregistré</h2>
+                  <p style={{ fontSize: "14px", color: "#64748b" }}>
+                    Les appels entrants traités par l&apos;assistant vocal AtysPro apparaîtront ici avec leur durée et statut.
                   </p>
                 </>
               )}
@@ -240,25 +264,25 @@ export default function CallsPage() {
         </div>
 
         {pagination && pagination.total > 0 && (
-          <div className="pagination">
-            <span className="pagination-info">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 24px", borderTop: "1px solid #f1f5f9", flexWrap: "wrap", gap: "12px" }}>
+            <span style={{ fontSize: "13px", color: "#64748b", fontFamily: FONT }}>
               {pagination.total} appel{pagination.total > 1 ? "s" : ""} • page{" "}
               {pagination.page} / {pagination.totalPages}
             </span>
-            <div className="pagination-buttons">
+            <div style={{ display: "flex", gap: "8px" }}>
               <button
                 type="button"
-                className="pagination-btn"
                 disabled={!pagination.hasPrev}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
+                style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "white", fontSize: "13px", fontWeight: 500, color: pagination.hasPrev ? "#374151" : "#94a3b8", cursor: pagination.hasPrev ? "pointer" : "not-allowed", fontFamily: FONT }}
               >
                 Précédent
               </button>
               <button
                 type="button"
-                className="pagination-btn"
                 disabled={!pagination.hasNext}
                 onClick={() => setPage((p) => p + 1)}
+                style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "white", fontSize: "13px", fontWeight: 500, color: pagination.hasNext ? "#374151" : "#94a3b8", cursor: pagination.hasNext ? "pointer" : "not-allowed", fontFamily: FONT }}
               >
                 Suivant
               </button>

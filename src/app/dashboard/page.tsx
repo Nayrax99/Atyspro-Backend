@@ -8,6 +8,8 @@ import { formatPhone } from "@/lib/utils";
 import { ChevronRight, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import LoadingSpinner from "@/components/dashboard/LoadingSpinner";
 
+const FONT = "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif";
+
 const API_BASE = "";
 
 type SortField = "priority_score" | "created_at";
@@ -127,28 +129,29 @@ export default function DashboardPage() {
   }, [leads, sortField, sortDir]);
 
   return (
-    <div>
-      <h1 className="dashboard-page-title">Leads</h1>
+    <div style={{ fontFamily: FONT }}>
+      <h1 style={{ fontSize: "24px", fontWeight: 700, color: "#0f172a", marginBottom: "24px", letterSpacing: "-0.01em", fontFamily: FONT }}>Leads</h1>
 
-      <div className="dashboard-card">
-        <div className="dashboard-card-header">Liste des leads</div>
+      <div style={{ backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
+        <div style={{ padding: "16px 24px", borderBottom: "1px solid #f1f5f9", fontSize: "14px", fontWeight: 600, color: "#374151", fontFamily: FONT }}>Liste des leads</div>
 
         {/* Barre de filtres */}
-        <div className="leads-filter-bar">
+        <div style={{ display: "flex", gap: "12px", padding: "16px 24px", borderBottom: "1px solid #f1f5f9", flexWrap: "wrap" }}>
           <input
             type="search"
-            className="leads-search-input"
             placeholder="Rechercher (nom, téléphone, adresse...)"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
+            style={{ flex: "1 1 240px", padding: "10px 14px", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "14px", fontFamily: FONT, color: "#0f172a", outline: "none", backgroundColor: "white" }}
+            className="atys-input"
           />
           <select
-            className="leads-filter-select"
             value={statusFilter}
             onChange={(e) => {
               setStatusFilter(e.target.value as LeadStatus | "");
               setPage(1);
             }}
+            style={{ padding: "10px 14px", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "14px", fontFamily: FONT, color: "#374151", backgroundColor: "white", outline: "none", cursor: "pointer" }}
           >
             <option value="">Tous les statuts</option>
             <option value="complete">Complets</option>
@@ -157,18 +160,17 @@ export default function DashboardPage() {
           </select>
         </div>
 
-        <div className="leads-table-wrap">
+        <div style={{ overflowX: "auto" }}>
           {loading && !data ? (
             <LoadingSpinner text="Chargement des leads…" />
           ) : error ? (
-            <div className="dashboard-error">
-              Erreur : {error}. Vérifiez que l&apos;API et Supabase sont
-              accessibles.
+            <div style={{ padding: "32px 24px", color: "#dc2626", fontSize: "14px", fontFamily: FONT }}>
+              Erreur : {error}. Vérifiez que l&apos;API et Supabase sont accessibles.
             </div>
           ) : leads.length === 0 ? (
-            <div className="dashboard-empty">
-              <h2>Aucun lead</h2>
-              <p>
+            <div style={{ padding: "64px 24px", textAlign: "center", fontFamily: FONT }}>
+              <h2 style={{ fontSize: "16px", fontWeight: 600, color: "#0f172a", marginBottom: "8px" }}>Aucun lead</h2>
+              <p style={{ fontSize: "14px", color: "#64748b" }}>
                 {statusFilter || search
                   ? "Aucun résultat pour ces critères."
                   : "Les leads issus de l'assistant vocal apparaîtront ici."}
@@ -283,25 +285,25 @@ export default function DashboardPage() {
         </div>
 
         {pagination && pagination.total > 0 && (
-          <div className="pagination">
-            <span className="pagination-info">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 24px", borderTop: "1px solid #f1f5f9", flexWrap: "wrap", gap: "12px" }}>
+            <span style={{ fontSize: "13px", color: "#64748b", fontFamily: FONT }}>
               {pagination.total} lead{pagination.total > 1 ? "s" : ""} • page{" "}
               {pagination.page} / {pagination.totalPages}
             </span>
-            <div className="pagination-buttons">
+            <div style={{ display: "flex", gap: "8px" }}>
               <button
                 type="button"
-                className="pagination-btn"
                 disabled={!pagination.hasPrev}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
+                style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "white", fontSize: "13px", fontWeight: 500, color: pagination.hasPrev ? "#374151" : "#94a3b8", cursor: pagination.hasPrev ? "pointer" : "not-allowed", fontFamily: FONT }}
               >
                 Précédent
               </button>
               <button
                 type="button"
-                className="pagination-btn"
                 disabled={!pagination.hasNext}
                 onClick={() => setPage((p) => p + 1)}
+                style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "white", fontSize: "13px", fontWeight: 500, color: pagination.hasNext ? "#374151" : "#94a3b8", cursor: pagination.hasNext ? "pointer" : "not-allowed", fontFamily: FONT }}
               >
                 Suivant
               </button>

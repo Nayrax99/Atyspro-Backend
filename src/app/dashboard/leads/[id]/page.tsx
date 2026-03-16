@@ -10,6 +10,7 @@ import { Phone, MessageCircle } from "lucide-react";
 import LoadingSpinner from "@/components/dashboard/LoadingSpinner";
 
 const API_BASE = "";
+const FONT = "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif";
 
 interface SmsMessage {
   id: string;
@@ -130,7 +131,7 @@ export default function LeadDetailPage() {
 
   if (loading && !lead) {
     return (
-      <div className="dashboard-card">
+      <div style={{ backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", padding: "32px" }}>
         <LoadingSpinner text="Chargement du lead…" />
       </div>
     );
@@ -138,19 +139,19 @@ export default function LeadDetailPage() {
 
   if (error || !lead) {
     return (
-      <div className="max-w-3xl mx-auto">
-        <Link href="/dashboard" className="lead-detail-back">
+      <div style={{ maxWidth: "768px", margin: "0 auto", fontFamily: FONT }}>
+        <Link href="/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "14px", fontWeight: 600, color: "#64748b", textDecoration: "none", marginBottom: "16px" }}>
           ← Retour aux leads
         </Link>
-        <div className="dashboard-error">{error || "Lead non trouvé"}</div>
+        <div style={{ padding: "16px", borderRadius: "8px", backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", fontSize: "14px" }}>{error || "Lead non trouvé"}</div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="lead-detail">
-        <Link href="/dashboard" className="lead-detail-back">
+    <div style={{ maxWidth: "768px", margin: "0 auto", fontFamily: FONT }}>
+      <div>
+        <Link href="/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "14px", fontWeight: 600, color: "#64748b", textDecoration: "none", marginBottom: "16px" }}>
           ← Retour aux leads
         </Link>
 
@@ -189,13 +190,14 @@ export default function LeadDetailPage() {
               </div>
             )}
 
-            <form onSubmit={handleSaveStatus} className="lead-status-form" style={{ marginTop: "1rem" }}>
-              <label htmlFor="lead-status">Statut</label>
+            <form onSubmit={handleSaveStatus} style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "16px", flexWrap: "wrap" }}>
+              <label htmlFor="lead-status" style={{ fontSize: "13px", fontWeight: 600, color: "#374151", fontFamily: FONT }}>Statut</label>
               <select
                 id="lead-status"
                 value={status}
                 onChange={(e) => setStatus(e.target.value as LeadStatus)}
                 disabled={saving}
+                style={{ padding: "8px 12px", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "13px", fontFamily: FONT, color: "#374151", backgroundColor: "white", cursor: "pointer", outline: "none" }}
               >
                 {(Object.keys(LEAD_STATUS_LABELS) as LeadStatus[]).map((s) => (
                   <option key={s} value={s}>
@@ -203,14 +205,14 @@ export default function LeadDetailPage() {
                   </option>
                 ))}
               </select>
-              <button type="submit" disabled={saving}>
+              <button type="submit" disabled={saving} style={{ padding: "8px 16px", borderRadius: "8px", backgroundColor: saving ? "#93c5fd" : "#2563eb", color: "white", border: "none", fontSize: "13px", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", fontFamily: FONT }}>
                 {saving ? "Enregistrement…" : "Enregistrer"}
               </button>
               {saveMessage === "success" && (
-                <span style={{ color: "#059669", fontSize: "0.9rem" }}>Enregistré</span>
+                <span style={{ color: "#059669", fontSize: "13px", fontFamily: FONT }}>Enregistré ✓</span>
               )}
               {saveMessage === "error" && (
-                <span style={{ color: "#dc2626", fontSize: "0.9rem" }}>Erreur</span>
+                <span style={{ color: "#dc2626", fontSize: "13px", fontFamily: FONT }}>Erreur</span>
               )}
             </form>
           </div>
@@ -361,3 +363,4 @@ export default function LeadDetailPage() {
     </div>
   );
 }
+

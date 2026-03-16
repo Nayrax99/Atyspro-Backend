@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import LoadingSpinner from "@/components/dashboard/LoadingSpinner";
 
+const FONT = "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif";
+
 interface StatsResult {
   total: number;
   byStatus: { complete: number; incomplete: number; needs_review: number };
@@ -94,7 +96,7 @@ export default function StatsPage() {
 
   if (loading) {
     return (
-      <div className="dashboard-card">
+      <div style={{ backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", padding: "32px" }}>
         <LoadingSpinner text="Chargement des statistiques…" />
       </div>
     );
@@ -102,7 +104,7 @@ export default function StatsPage() {
 
   if (error || !data) {
     return (
-      <div className="dashboard-error">
+      <div style={{ padding: "16px", borderRadius: "8px", backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", fontSize: "14px", fontFamily: FONT }}>
         Erreur : {error ?? "Impossible de charger les statistiques."}
       </div>
     );
@@ -111,33 +113,24 @@ export default function StatsPage() {
   const stats = view === "month" ? data.month : data.total;
 
   return (
-    <div>
+    <div style={{ fontFamily: FONT }}>
       {/* Header + toggle */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: "1.5rem",
-          flexWrap: "wrap",
-          gap: "0.75rem",
-        }}
-      >
-        <h1 className="dashboard-page-title" style={{ marginBottom: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px", flexWrap: "wrap", gap: "12px" }}>
+        <h1 style={{ fontSize: "24px", fontWeight: 700, color: "#0f172a", letterSpacing: "-0.01em", margin: 0, fontFamily: FONT }}>
           Statistiques
         </h1>
-        <div className="period-toggle">
+        <div style={{ display: "flex", backgroundColor: "#f1f5f9", borderRadius: "8px", padding: "4px", gap: "4px" }}>
           <button
             type="button"
-            className={`period-toggle-btn${view === "month" ? " period-toggle-btn--active" : ""}`}
             onClick={() => setView("month")}
+            style={{ padding: "6px 14px", borderRadius: "6px", border: "none", fontSize: "13px", fontWeight: 600, cursor: "pointer", fontFamily: FONT, backgroundColor: view === "month" ? "white" : "transparent", color: view === "month" ? "#0f172a" : "#64748b", boxShadow: view === "month" ? "0 1px 2px rgba(0,0,0,0.08)" : "none" }}
           >
             Ce mois-ci
           </button>
           <button
             type="button"
-            className={`period-toggle-btn${view === "total" ? " period-toggle-btn--active" : ""}`}
             onClick={() => setView("total")}
+            style={{ padding: "6px 14px", borderRadius: "6px", border: "none", fontSize: "13px", fontWeight: 600, cursor: "pointer", fontFamily: FONT, backgroundColor: view === "total" ? "white" : "transparent", color: view === "total" ? "#0f172a" : "#64748b", boxShadow: view === "total" ? "0 1px 2px rgba(0,0,0,0.08)" : "none" }}
           >
             Tout
           </button>
@@ -145,15 +138,13 @@ export default function StatsPage() {
       </div>
 
       {stats.total === 0 ? (
-        <div className="dashboard-card">
-          <div className="page-empty-state">
-            <h2>Aucune donnée</h2>
-            <p>
-              {view === "month"
-                ? "Aucun lead reçu ce mois-ci."
-                : "Aucun lead enregistré pour l'instant."}
-            </p>
-          </div>
+        <div style={{ backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", padding: "64px 24px", textAlign: "center" }}>
+          <h2 style={{ fontSize: "16px", fontWeight: 600, color: "#0f172a", marginBottom: "8px" }}>Aucune donnée</h2>
+          <p style={{ fontSize: "14px", color: "#64748b" }}>
+            {view === "month"
+              ? "Aucun lead reçu ce mois-ci."
+              : "Aucun lead enregistré pour l'instant."}
+          </p>
         </div>
       ) : (
         <>
@@ -198,9 +189,9 @@ export default function StatsPage() {
 
           {/* Breakdowns */}
           <div className="stats-breakdown-grid">
-            <div className="dashboard-card">
-              <div className="dashboard-card-header">Par type de demande</div>
-              <div style={{ padding: "0.75rem 1.25rem" }}>
+            <div style={{ backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
+              <div style={{ padding: "16px 24px", borderBottom: "1px solid #f1f5f9", fontSize: "14px", fontWeight: 600, color: "#374151", fontFamily: FONT }}>Par type de demande</div>
+              <div style={{ padding: "12px 24px" }}>
                 <BreakdownRow
                   label="Dépannage"
                   count={stats.byType.depannage}
@@ -233,9 +224,9 @@ export default function StatsPage() {
               </div>
             </div>
 
-            <div className="dashboard-card">
-              <div className="dashboard-card-header">Par délai</div>
-              <div style={{ padding: "0.75rem 1.25rem" }}>
+            <div style={{ backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
+              <div style={{ padding: "16px 24px", borderBottom: "1px solid #f1f5f9", fontSize: "14px", fontWeight: 600, color: "#374151", fontFamily: FONT }}>Par délai</div>
+              <div style={{ padding: "12px 24px" }}>
                 <BreakdownRow
                   label="Urgent (aujourd'hui)"
                   count={stats.byDelay.urgent}
