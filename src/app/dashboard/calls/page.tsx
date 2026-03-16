@@ -23,6 +23,11 @@ interface Call {
 interface CallsResponse {
   success: boolean;
   data?: Call[];
+  kpis?: {
+    total: number;
+    qualified: number;
+    avgDurationSec: number | null;
+  };
   pagination?: {
     page: number;
     limit: number;
@@ -32,6 +37,13 @@ interface CallsResponse {
     hasPrev: boolean;
   };
   error?: string;
+}
+
+function formatAvgDuration(sec: number | null): string {
+  if (sec === null) return "—";
+  const min = Math.floor(sec / 60);
+  const s = sec % 60;
+  return min > 0 ? `${min}m ${s.toString().padStart(2, "0")}s` : `${s}s`;
 }
 
 function formatDuration(started: string | null, ended: string | null): string {
@@ -97,12 +109,13 @@ const FILTER_OPTIONS: { value: BusinessFilter; label: string }[] = [
 
 export default function CallsPage() {
   const [calls, setCalls] = useState<Call[]>([]);
+  const [kpis, setKpis] = useState<CallsResponse["kpis"] | null>(null);
   const [pagination, setPagination] = useState<CallsResponse["pagination"] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<BusinessFilter>("");
-  const limit = 20;
+  const limit = 15;
 
   useEffect(() => {
     let cancelled = false;
@@ -118,6 +131,7 @@ export default function CallsPage() {
           return;
         }
         setCalls(json.data ?? []);
+        setKpis(json.kpis ?? null);
         setPagination(json.pagination ?? null);
       })
       .catch((err: Error) => {
@@ -164,7 +178,35 @@ export default function CallsPage() {
 
   return (
     <div style={{ fontFamily: FONT }}>
-      <h1 style={{ fontSize: "24px", fontWeight: 700, color: "#0f172a", marginBottom: "24px", letterSpacing: "-0.01em", fontFamily: FONT }}>Appels</h1>
+      <div style={{ marginBottom: "24px" }}>
+        <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", margin: 0, fontFamily: FONT }}>Appels</h1>
+        <div style={{ width: "40px", height: "3px", backgroundColor: "#2563eb", borderRadius: "2px", marginTop: "8px", marginBottom: "8px" }} />
+        <p style={{ fontSize: "15px", color: "#64748b", fontWeight: 400, margin: 0, fontFamily: FONT }}>
+          Historique des appels reçus sur votre numéro pro
+        </p>
+      </div>
+
+      {/* KPI cards */}
+      {kpis && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px", marginBottom: "16px" }}>
+          <div style={{ backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", padding: "12px 20px" }}>
+            <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", color: "#64748b", textTransform: "uppercase" as const, fontFamily: FONT }}>Appels total</div>
+            <div style={{ fontSize: "28px", fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", marginTop: "8px", fontFamily: FONT }}>{kpis.total}</div>
+          </div>
+          <div style={{ backgroundColor: "#f0fdf4", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: "1px solid #bbf7d0", padding: "12px 20px" }}>
+            <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", color: "#10b981", textTransform: "uppercase" as const, fontFamily: FONT }}>Qualifiés</div>
+            <div style={{ fontSize: "28px", fontWeight: 800, color: "#065f46", letterSpacing: "-0.02em", marginTop: "8px", fontFamily: FONT }}>{kpis.qualified}</div>
+            <div style={{ fontSize: "12px", color: "#10b981", marginTop: "2px", fontFamily: FONT }}>
+              {kpis.total > 0 ? Math.round((kpis.qualified / kpis.total) * 100) : 0}% des appels
+            </div>
+          </div>
+          <div style={{ backgroundColor: "#eff6ff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: "1px solid #bfdbfe", padding: "12px 20px" }}>
+            <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", color: "#3b82f6", textTransform: "uppercase" as const, fontFamily: FONT }}>Durée moyenne</div>
+            <div style={{ fontSize: "28px", fontWeight: 800, color: "#1e40af", letterSpacing: "-0.02em", marginTop: "8px", fontFamily: FONT }}>{formatAvgDuration(kpis.avgDurationSec)}</div>
+            <div style={{ fontSize: "12px", color: "#60a5fa", marginTop: "2px", fontFamily: FONT }}>appels terminés</div>
+          </div>
+        </div>
+      )}
 
       <div style={{ backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
         <div style={{ padding: "16px 24px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>

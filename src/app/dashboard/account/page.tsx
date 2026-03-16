@@ -164,10 +164,20 @@ export default function AccountPage() {
     { key: "abonnement", label: "Abonnement" },
   ];
 
+  const pageHeader = (
+    <div style={{ marginBottom: "32px" }}>
+      <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", margin: 0, fontFamily: FONT }}>Compte</h1>
+      <div style={{ width: "40px", height: "3px", backgroundColor: "#2563eb", borderRadius: "2px", marginTop: "8px", marginBottom: "8px" }} />
+      <p style={{ fontSize: "15px", color: "#64748b", fontWeight: 400, margin: 0, fontFamily: FONT }}>
+        Gérez votre profil et vos préférences
+      </p>
+    </div>
+  );
+
   if (loading) {
     return (
-      <div style={{ maxWidth: "640px", margin: "0 auto", fontFamily: FONT }}>
-        <h1 style={{ fontSize: "24px", fontWeight: 700, color: "#0f172a", marginBottom: "24px", letterSpacing: "-0.01em", fontFamily: FONT }}>Compte</h1>
+      <div style={{ maxWidth: "640px", fontFamily: FONT }}>
+        {pageHeader}
         <div style={{ backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", padding: "32px", textAlign: "center", color: "#64748b", fontSize: "14px" }}>Chargement…</div>
       </div>
     );
@@ -175,8 +185,8 @@ export default function AccountPage() {
 
   if (error) {
     return (
-      <div style={{ maxWidth: "640px", margin: "0 auto", fontFamily: FONT }}>
-        <h1 style={{ fontSize: "24px", fontWeight: 700, color: "#0f172a", marginBottom: "24px", letterSpacing: "-0.01em", fontFamily: FONT }}>Compte</h1>
+      <div style={{ maxWidth: "640px", fontFamily: FONT }}>
+        {pageHeader}
         <div style={{ padding: "16px", borderRadius: "8px", backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", fontSize: "14px" }}>Erreur : {error}</div>
       </div>
     );
@@ -225,8 +235,8 @@ export default function AccountPage() {
         </div>
       )}
 
-      <div style={{ maxWidth: "640px", margin: "0 auto", fontFamily: FONT }}>
-        <h1 style={{ fontSize: "24px", fontWeight: 700, color: "#0f172a", marginBottom: "24px", letterSpacing: "-0.01em", fontFamily: FONT }}>Compte</h1>
+      <div style={{ maxWidth: "640px", fontFamily: FONT }}>
+        {pageHeader}
 
         <div style={{ backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
           {/* Tabs */}
@@ -454,9 +464,9 @@ export default function AccountPage() {
                     </span>
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                  <div style={{ display: "flex", gap: "16px" }}>
                     {/* Essentiel */}
-                    <div style={{ border: "1px solid #e2e8f0", borderRadius: "12px", padding: "20px", backgroundColor: "white" }}>
+                    <div style={{ flex: 1, minWidth: 0, border: "1px solid #e2e8f0", borderRadius: "12px", padding: "16px", backgroundColor: "white" }}>
                       <p style={{ fontSize: "15px", fontWeight: 700, color: "#0f172a", fontFamily: FONT, marginBottom: "4px" }}>Essentiel</p>
                       <p style={{ fontSize: "12px", color: "#64748b", fontFamily: FONT, marginBottom: "16px" }}>Pour démarrer</p>
                       <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -476,7 +486,7 @@ export default function AccountPage() {
                     </div>
 
                     {/* Premium */}
-                    <div style={{ border: "1px solid #e2e8f0", borderTop: "3px solid #2563eb", borderRadius: "12px", padding: "20px", backgroundColor: "white" }}>
+                    <div style={{ flex: 1, minWidth: 0, border: "1px solid #e2e8f0", borderTop: "3px solid #2563eb", borderRadius: "12px", padding: "16px", backgroundColor: "white" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
                         <p style={{ fontSize: "15px", fontWeight: 700, color: "#0f172a", fontFamily: FONT, margin: 0 }}>Premium</p>
                         <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: "20px", backgroundColor: "rgba(37,99,235,0.1)", color: "#2563eb", fontSize: "10px", fontWeight: 700, fontFamily: FONT }}>Populaire</span>

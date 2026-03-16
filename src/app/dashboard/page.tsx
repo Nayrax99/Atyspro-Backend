@@ -67,10 +67,16 @@ function SortIcon({
   );
 }
 
+interface HeaderStats {
+  total: number;
+  processed: number;
+}
+
 export default function DashboardPage() {
   const [data, setData] = useState<LeadsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [headerStats, setHeaderStats] = useState<HeaderStats | null>(null);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<StatusFilterValue>("active");
   const [searchInput, setSearchInput] = useState("");
@@ -78,7 +84,7 @@ export default function DashboardPage() {
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [hoveredChevronId, setHoveredChevronId] = useState<string | null>(null);
-  const limit = 20;
+  const limit = 15;
 
   // Debounce search (400ms)
   useEffect(() => {
@@ -130,6 +136,18 @@ export default function DashboardPage() {
     return cancel;
   }, [fetchLeads]);
 
+  // Fetch light stats for header summary (silent — does not affect leads logic)
+  useEffect(() => {
+    fetch("/api/stats", { credentials: "include" })
+      .then((r) => r.json())
+      .then((json: { success: boolean; data?: { total: { total: number }; month: { byStatus: { processed: number } } } }) => {
+        if (json.success && json.data) {
+          setHeaderStats({ total: json.data.total.total, processed: json.data.month.byStatus.processed });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   function handleSort(field: SortField) {
     if (sortField === field) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -158,7 +176,20 @@ export default function DashboardPage() {
 
   return (
     <div style={{ fontFamily: FONT }}>
-      <h1 style={{ fontSize: "24px", fontWeight: 700, color: "#0f172a", marginBottom: "24px", letterSpacing: "-0.01em", fontFamily: FONT }}>Leads</h1>
+      <div style={{ marginBottom: "32px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
+          <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", margin: 0, fontFamily: FONT }}>Leads</h1>
+          {headerStats && (
+            <span style={{ fontSize: "14px", color: "#64748b", fontWeight: 500, fontFamily: FONT }}>
+              {headerStats.total} lead{headerStats.total !== 1 ? "s" : ""} · {headerStats.processed} traité{headerStats.processed !== 1 ? "s" : ""} ce mois
+            </span>
+          )}
+        </div>
+        <div style={{ width: "40px", height: "3px", backgroundColor: "#2563eb", borderRadius: "2px", marginTop: "8px", marginBottom: "8px" }} />
+        <p style={{ fontSize: "15px", color: "#64748b", fontWeight: 400, margin: 0, fontFamily: FONT }}>
+          Vos prospects qualifiés par l&apos;assistant vocal
+        </p>
+      </div>
 
       <div style={{ backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
         <div style={{ padding: "16px 24px", borderBottom: "1px solid #f1f5f9", fontSize: "14px", fontWeight: 600, color: "#374151", fontFamily: FONT }}>Liste des leads</div>

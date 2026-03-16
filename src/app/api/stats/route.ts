@@ -34,6 +34,11 @@ interface StatsResult {
   lowPriority: number;
 }
 
+interface ChartBucket {
+  label: string;
+  count: number;
+}
+
 function aggregate(arr: LeadRow[]): StatsResult {
   const byStatus = { new: 0, incomplete: 0, to_process: 0, processed: 0 };
   const byType = [0, 0, 0, 0, 0]; // index 0 = null, 1-4 = type_code
@@ -91,6 +96,52 @@ function aggregate(arr: LeadRow[]): StatsResult {
   };
 }
 
+const MONTHS_FR = ["jan", "fév", "mar", "avr", "mai", "jun", "jul", "aoû", "sep", "oct", "nov", "déc"];
+
+/** Regroupe les leads par semaine (lundi → dimanche) — tout en UTC */
+function groupByWeek(arr: LeadRow[]): ChartBucket[] {
+  const buckets = new Map<string, { label: string; count: number; order: number }>();
+  for (const l of arr) {
+    const d = new Date(l.created_at);
+    const day = d.getUTCDay();
+    const mondayOffset = day === 0 ? -6 : 1 - day;
+    const monday = new Date(d);
+    monday.setUTCDate(d.getUTCDate() + mondayOffset);
+    monday.setUTCHours(0, 0, 0, 0);
+    const sunday = new Date(monday);
+    sunday.setUTCDate(monday.getUTCDate() + 6);
+    const key = monday.toISOString().split("T")[0];
+    if (!buckets.has(key)) {
+      const label = `${monday.getUTCDate()} ${MONTHS_FR[monday.getUTCMonth()]}-${sunday.getUTCDate()} ${MONTHS_FR[sunday.getUTCMonth()]}`;
+      buckets.set(key, { label, count: 0, order: monday.getTime() });
+    }
+    buckets.get(key)!.count++;
+  }
+  return Array.from(buckets.values())
+    .sort((a, b) => a.order - b.order)
+    .map(({ label, count }) => ({ label, count }));
+}
+
+/** Regroupe les leads par jour — clé et label tous deux en UTC pour éviter les doublons de timezone */
+function groupByDay(arr: LeadRow[]): ChartBucket[] {
+  const buckets = new Map<string, { label: string; count: number; order: number }>();
+  for (const l of arr) {
+    const d = new Date(l.created_at);
+    const key = d.toISOString().split("T")[0]; // clé UTC : "YYYY-MM-DD"
+    if (!buckets.has(key)) {
+      buckets.set(key, {
+        label: `${d.getUTCDate()} ${MONTHS_FR[d.getUTCMonth()]}`, // label UTC, cohérent avec la clé
+        count: 0,
+        order: d.getTime(),
+      });
+    }
+    buckets.get(key)!.count++;
+  }
+  return Array.from(buckets.values())
+    .sort((a, b) => a.order - b.order)
+    .map(({ label, count }) => ({ label, count }));
+}
+
 /**
  * GET /api/stats — Statistiques agrégées des leads (authentifié)
  * Query params: period=month|all (default: all)
@@ -117,6 +168,10 @@ export async function GET(req: NextRequest) {
       data: {
         total: aggregate(all),
         month: aggregate(thisMonth),
+        chartData: {
+          byWeek: groupByWeek(all),
+          byDay: groupByDay(thisMonth),
+        },
       },
     });
   } catch (error) {

@@ -53,24 +53,8 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
         />
 
         {/* Logo */}
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", position: "relative" }}>
-          <span
-            style={{
-              display: "flex",
-              width: "36px",
-              height: "36px",
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: "10px",
-              backgroundColor: "rgba(255,255,255,0.15)",
-              fontSize: "18px",
-              fontWeight: "700",
-              color: "white",
-            }}
-          >
-            ⚡
-          </span>
-          <span style={{ fontSize: "20px", fontWeight: "700", color: "white", letterSpacing: "-0.02em" }}>
+        <div style={{ position: "relative" }}>
+          <span style={{ fontSize: "24px", fontWeight: 800, color: "white", letterSpacing: "-0.02em", fontFamily: FONT }}>
             AtysPro
           </span>
         </div>
@@ -109,7 +93,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
             }}
           >
             Votre assistant vocal qualifie vos appels manqués et génère des leads
-            prêts à rappeler — même quand vous êtes sur chantier.
+            prêts à rappeler — même quand vous n&apos;êtes pas disponible.
           </p>
 
           {/* Feature list */}
@@ -147,7 +131,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
             position: "relative",
           }}
         >
-          Conçu pour les artisans indépendants — électriciens, plombiers, serruriers.
+          Pour tous les professionnels qui ne peuvent pas se permettre de rater un appel.
         </p>
       </div>
 
