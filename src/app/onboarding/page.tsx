@@ -67,6 +67,11 @@ export default function OnboardingPage() {
     setStep((current) => (current < 3 ? ((current + 1) as OnboardingStep) : current));
   };
 
+  const goToPrevStep = () => {
+    setError(null);
+    setStep((current) => (current > 1 ? ((current - 1) as OnboardingStep) : current));
+  };
+
   const handleSubmitStep1 = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
@@ -338,6 +343,28 @@ export default function OnboardingPage() {
             {step === 2 && (
               <div>
                 <header style={{ marginBottom: "24px" }}>
+                  <button
+                    type="button"
+                    onClick={goToPrevStep}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      color: "#64748b",
+                      padding: "0",
+                      marginBottom: "12px",
+                      fontFamily: FONT,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "#334155")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "#64748b")}
+                  >
+                    ← Retour
+                  </button>
                   <h2 style={{ fontSize: "20px", fontWeight: "700", color: "#0f172a", letterSpacing: "-0.01em" }}>
                     Votre numéro professionnel
                   </h2>
@@ -426,6 +453,28 @@ export default function OnboardingPage() {
             {step === 3 && (
               <div>
                 <header style={{ marginBottom: "24px" }}>
+                  <button
+                    type="button"
+                    onClick={goToPrevStep}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      color: "#64748b",
+                      padding: "0",
+                      marginBottom: "12px",
+                      fontFamily: FONT,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "#334155")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "#64748b")}
+                  >
+                    ← Retour
+                  </button>
                   <h2 style={{ fontSize: "20px", fontWeight: "700", color: "#0f172a", letterSpacing: "-0.01em" }}>
                     Comment ça marche ?
                   </h2>

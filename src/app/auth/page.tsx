@@ -101,6 +101,19 @@ export default function AuthPage() {
         setError(message);
         return;
       }
+      // Auto-login after signup
+      try {
+        const loginResponse = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        if (loginResponse.ok) {
+          window.location.href = "/onboarding";
+          return;
+        }
+      } catch { /* ignore — fallback below */ }
+      // Fallback: manual login
       setSuccessMessage("Compte créé ! Vous pouvez maintenant vous connecter.");
       setMode("login");
       setPassword("");
