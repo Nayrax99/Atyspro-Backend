@@ -3,7 +3,7 @@
  * Alignés sur le schéma Supabase (table leads).
  */
 
-export type LeadStatus = "complete" | "incomplete" | "needs_review";
+export type LeadStatus = "new" | "incomplete" | "to_process" | "processed";
 
 export type LeadValueEstimate = "low" | "medium" | "high" | null;
 
@@ -44,9 +44,10 @@ export interface LeadDetailResponse {
 }
 
 export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
-  complete: "Complet",
+  new: "Nouveau",
   incomplete: "Incomplet",
-  needs_review: "À vérifier",
+  to_process: "À traiter",
+  processed: "Traité",
 };
 
 export function formatType(lead: Pick<Lead, "type_code">): string {

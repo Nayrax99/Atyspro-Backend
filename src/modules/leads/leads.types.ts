@@ -9,6 +9,7 @@ export interface ListLeadsParams {
   page: number;
   limit: number;
   status?: string;
+  statuses?: string[]; // multiple statuses filter (uses IN query)
   search?: string;
 }
 

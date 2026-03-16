@@ -28,7 +28,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const validStatuses = ["complete", "incomplete", "needs_review"];
+    // "active" is a virtual filter for new + incomplete + to_process
+    const ACTIVE_STATUSES = ["new", "incomplete", "to_process"];
+    const validStatuses = ["new", "incomplete", "to_process", "processed", "active"];
     if (status && !validStatuses.includes(status)) {
       return NextResponse.json(
         { success: false, error: "Statut invalide" },
@@ -36,11 +38,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const isActiveFilter = status === "active";
     const { leads, count, totalPages } = await listLeads(client, {
       account_id,
       page,
       limit,
-      status,
+      status: isActiveFilter ? undefined : status,
+      statuses: isActiveFilter ? ACTIVE_STATUSES : undefined,
       search,
     });
 

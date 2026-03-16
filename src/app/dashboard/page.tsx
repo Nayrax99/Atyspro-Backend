@@ -9,11 +9,38 @@ import { ChevronRight, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import LoadingSpinner from "@/components/dashboard/LoadingSpinner";
 
 const FONT = "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif";
-
 const API_BASE = "";
 
 type SortField = "priority_score" | "created_at";
 type SortDir = "asc" | "desc";
+type StatusFilterValue = "active" | LeadStatus | "";
+
+const STATUS_FILTER_OPTIONS: { value: StatusFilterValue; label: string }[] = [
+  { value: "active",      label: "Actifs" },
+  { value: "",            label: "Tous" },
+  { value: "new",         label: "Nouveau" },
+  { value: "incomplete",  label: "Incomplet" },
+  { value: "to_process",  label: "À traiter" },
+  { value: "processed",   label: "Traité" },
+];
+
+function getStatusBadgeStyle(status: LeadStatus): React.CSSProperties {
+  const base: React.CSSProperties = {
+    borderRadius: "20px",
+    padding: "4px 12px",
+    fontSize: "12px",
+    fontWeight: 600,
+    display: "inline-block",
+    whiteSpace: "nowrap",
+    fontFamily: FONT,
+  };
+  switch (status) {
+    case "new":        return { ...base, backgroundColor: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe" };
+    case "incomplete": return { ...base, backgroundColor: "#fff7ed", color: "#ea580c", border: "1px solid #fed7aa" };
+    case "to_process": return { ...base, backgroundColor: "#fefce8", color: "#ca8a04", border: "1px solid #fef08a" };
+    case "processed":  return { ...base, backgroundColor: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0" };
+  }
+}
 
 function getScoreClass(score: number | null): string {
   if (score == null) return "score-cell--low";
@@ -45,14 +72,15 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<LeadStatus | "">("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilterValue>("active");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [hoveredChevronId, setHoveredChevronId] = useState<string | null>(null);
   const limit = 20;
 
-  // Debounce de la recherche (400ms)
+  // Debounce search (400ms)
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearch(searchInput);
@@ -135,7 +163,7 @@ export default function DashboardPage() {
       <div style={{ backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
         <div style={{ padding: "16px 24px", borderBottom: "1px solid #f1f5f9", fontSize: "14px", fontWeight: 600, color: "#374151", fontFamily: FONT }}>Liste des leads</div>
 
-        {/* Barre de filtres */}
+        {/* Filter bar */}
         <div style={{ display: "flex", gap: "12px", padding: "16px 24px", borderBottom: "1px solid #f1f5f9", flexWrap: "wrap" }}>
           <input
             type="search"
@@ -148,15 +176,14 @@ export default function DashboardPage() {
           <select
             value={statusFilter}
             onChange={(e) => {
-              setStatusFilter(e.target.value as LeadStatus | "");
+              setStatusFilter(e.target.value as StatusFilterValue);
               setPage(1);
             }}
             style={{ padding: "10px 14px", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "14px", fontFamily: FONT, color: "#374151", backgroundColor: "white", outline: "none", cursor: "pointer" }}
           >
-            <option value="">Tous les statuts</option>
-            <option value="complete">Complets</option>
-            <option value="incomplete">Incomplets</option>
-            <option value="needs_review">À vérifier</option>
+            {STATUS_FILTER_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
           </select>
         </div>
 
@@ -189,11 +216,7 @@ export default function DashboardPage() {
                     onClick={() => handleSort("priority_score")}
                   >
                     Score{" "}
-                    <SortIcon
-                      field="priority_score"
-                      sortField={sortField}
-                      sortDir={sortDir}
-                    />
+                    <SortIcon field="priority_score" sortField={sortField} sortDir={sortDir} />
                   </th>
                   <th>Relances</th>
                   <th
@@ -201,11 +224,7 @@ export default function DashboardPage() {
                     onClick={() => handleSort("created_at")}
                   >
                     Date{" "}
-                    <SortIcon
-                      field="created_at"
-                      sortField={sortField}
-                      sortDir={sortDir}
-                    />
+                    <SortIcon field="created_at" sortField={sortField} sortDir={sortDir} />
                   </th>
                   <th></th>
                 </tr>
@@ -215,10 +234,7 @@ export default function DashboardPage() {
                   <tr key={lead.id}>
                     <td>
                       {lead.full_name || (
-                        <span
-                          className="lead-cell-empty"
-                          style={{ fontStyle: "italic" }}
-                        >
+                        <span className="lead-cell-empty" style={{ fontStyle: "italic" }}>
                           Inconnu
                         </span>
                       )}
@@ -226,32 +242,22 @@ export default function DashboardPage() {
                     <td>{formatPhone(lead.client_phone)}</td>
                     <td>
                       <span className="lead-job-type">{formatType(lead)}</span>
-                      <div className="lead-request-preview">
-                        {formatDelay(lead)}
-                      </div>
+                      <div className="lead-request-preview">{formatDelay(lead)}</div>
                     </td>
                     <td>
-                      <span
-                        className={`badge badge--${lead.status}`}
-                        title={lead.status}
-                      >
+                      <span style={getStatusBadgeStyle(lead.status)}>
                         {LEAD_STATUS_LABELS[lead.status]}
                       </span>
                     </td>
                     <td>
-                      <span
-                        className={`score-cell ${getScoreClass(lead.priority_score)}`}
-                      >
-                        {lead.priority_score != null
-                          ? lead.priority_score
-                          : "—"}
+                      <span className={`score-cell ${getScoreClass(lead.priority_score)}`}>
+                        {lead.priority_score != null ? lead.priority_score : "—"}
                       </span>
                     </td>
                     <td>
                       {lead.relance_count != null && lead.relance_count > 0 ? (
                         <span className="badge badge--warning">
-                          {lead.relance_count} relance
-                          {lead.relance_count > 1 ? "s" : ""}
+                          {lead.relance_count} relance{lead.relance_count > 1 ? "s" : ""}
                         </span>
                       ) : (
                         <span>0</span>
@@ -259,20 +265,31 @@ export default function DashboardPage() {
                     </td>
                     <td>
                       {lead.created_at
-                        ? new Date(lead.created_at).toLocaleDateString(
-                            "fr-FR",
-                            {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            }
-                          )
+                        ? new Date(lead.created_at).toLocaleDateString("fr-FR", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })
                         : "—"}
                     </td>
                     <td>
                       <Link
                         href={`/dashboard/leads/${lead.id}`}
-                        className="lead-table-action"
+                        onMouseEnter={() => setHoveredChevronId(lead.id)}
+                        onMouseLeave={() => setHoveredChevronId(null)}
+                        style={{
+                          display: "flex",
+                          width: "32px",
+                          height: "32px",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderRadius: "50%",
+                          border: "1px solid #e2e8f0",
+                          backgroundColor: hoveredChevronId === lead.id ? "#f1f5f9" : "transparent",
+                          transition: "background-color 0.2s",
+                          textDecoration: "none",
+                          color: "#64748b",
+                        }}
                       >
                         <ChevronRight size={15} />
                       </Link>

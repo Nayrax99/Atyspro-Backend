@@ -35,20 +35,74 @@ function getScoreTextClass(score: number | null): string {
   return "score-cell--critical";
 }
 
+function getStatusBadgeStyle(status: LeadStatus): React.CSSProperties {
+  const base: React.CSSProperties = {
+    borderRadius: "20px",
+    padding: "4px 12px",
+    fontSize: "12px",
+    fontWeight: 600,
+    display: "inline-block",
+    fontFamily: FONT,
+  };
+  switch (status) {
+    case "new":        return { ...base, backgroundColor: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe" };
+    case "incomplete": return { ...base, backgroundColor: "#fff7ed", color: "#ea580c", border: "1px solid #fed7aa" };
+    case "to_process": return { ...base, backgroundColor: "#fefce8", color: "#ca8a04", border: "1px solid #fef08a" };
+    case "processed":  return { ...base, backgroundColor: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0" };
+  }
+}
+
+/** Computes the estimated deadline from delay_code + created_at */
+function computeDeadline(lead: Lead): { text: string; isRed: boolean; isGray: boolean } {
+  if (!lead.delay_code) return { text: "Non renseigné", isRed: false, isGray: true };
+  if (lead.delay_code === 4) return { text: "Pas de date limite", isRed: false, isGray: true };
+
+  const created = new Date(lead.created_at);
+  const now = new Date();
+  const isUrgent = lead.delay_code === 1;
+
+  let deadline: Date;
+  if (isUrgent) {
+    deadline = new Date(created);
+    deadline.setHours(23, 59, 59, 999);
+  } else if (lead.delay_code === 2) {
+    deadline = new Date(created);
+    deadline.setDate(deadline.getDate() + 2);
+  } else {
+    // delay_code === 3
+    deadline = new Date(created);
+    deadline.setDate(deadline.getDate() + 7);
+  }
+
+  const isPast = deadline < now;
+  const dateLabel = isUrgent
+    ? created.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
+    : deadline.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+
+  let text = isUrgent
+    ? `Aujourd'hui (${dateLabel})`
+    : `Avant le ${dateLabel}`;
+  if (isPast) text += " (dépassée)";
+
+  return { text, isRed: isUrgent || isPast, isGray: false };
+}
+
 export default function LeadDetailPage() {
   const params = useParams();
   const id = typeof params.id === "string" ? params.id : "";
   const [lead, setLead] = useState<Lead | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<LeadStatus | "">("");
+  const [status, setStatus] = useState<LeadStatus>("new");
   const [saving, setSaving] = useState(false);
+  const [markingProcessed, setMarkingProcessed] = useState(false);
   const [saveMessage, setSaveMessage] = useState<"success" | "error" | null>(null);
+  const [markHovered, setMarkHovered] = useState(false);
 
   const [smsMessages, setSmsMessages] = useState<SmsMessage[]>([]);
   const [smsLoading, setSmsLoading] = useState(false);
 
-  // Auto-efface le message de confirmation après 3s
+  // Auto-clear save message after 3s
   useEffect(() => {
     if (!saveMessage) return;
     const t = setTimeout(() => setSaveMessage(null), 3000);
@@ -107,7 +161,7 @@ export default function LeadDetailPage() {
 
   const handleSaveStatus = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!id || !status) return;
+    if (!id) return;
     setSaving(true);
     setSaveMessage(null);
 
@@ -129,6 +183,30 @@ export default function LeadDetailPage() {
       .finally(() => setSaving(false));
   };
 
+  const handleMarkProcessed = () => {
+    if (!id) return;
+    setMarkingProcessed(true);
+    setSaveMessage(null);
+
+    fetch(`${API_BASE}/api/leads/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "processed" }),
+    })
+      .then((res) => res.json())
+      .then((json: { success?: boolean; data?: Lead; error?: string }) => {
+        if (json.success && json.data) {
+          setLead(json.data);
+          setStatus("processed");
+          setSaveMessage("success");
+        } else {
+          setSaveMessage("error");
+        }
+      })
+      .catch(() => setSaveMessage("error"))
+      .finally(() => setMarkingProcessed(false));
+  };
+
   if (loading && !lead) {
     return (
       <div style={{ backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", padding: "32px" }}>
@@ -148,6 +226,8 @@ export default function LeadDetailPage() {
     );
   }
 
+  const deadline = computeDeadline(lead);
+
   return (
     <div style={{ maxWidth: "768px", margin: "0 auto", fontFamily: FONT }}>
       <div>
@@ -156,7 +236,7 @@ export default function LeadDetailPage() {
         </Link>
 
         <div className="dashboard-card">
-          {/* Header : nom + badge statut */}
+          {/* Header: name + status badge */}
           <div className="lead-detail-section">
             <div className="lead-detail-header">
               <h2 className="lead-detail-title">
@@ -164,17 +244,14 @@ export default function LeadDetailPage() {
                   <span style={{ color: "#9ca3af", fontStyle: "italic" }}>Inconnu</span>
                 )}
               </h2>
-              <span className={`badge badge--${lead.status}`}>
+              <span style={getStatusBadgeStyle(lead.status)}>
                 {LEAD_STATUS_LABELS[lead.status]}
               </span>
             </div>
 
             {lead.client_phone && (
               <div className="lead-action-buttons">
-                <a
-                  href={`tel:${lead.client_phone}`}
-                  className="lead-action-btn lead-action-btn--call"
-                >
+                <a href={`tel:${lead.client_phone}`} className="lead-action-btn lead-action-btn--call">
                   <Phone size={15} />
                   Appeler
                 </a>
@@ -190,24 +267,53 @@ export default function LeadDetailPage() {
               </div>
             )}
 
+            {/* Status form + mark-processed button */}
             <form onSubmit={handleSaveStatus} style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "16px", flexWrap: "wrap" }}>
               <label htmlFor="lead-status" style={{ fontSize: "13px", fontWeight: 600, color: "#374151", fontFamily: FONT }}>Statut</label>
               <select
                 id="lead-status"
                 value={status}
                 onChange={(e) => setStatus(e.target.value as LeadStatus)}
-                disabled={saving}
+                disabled={saving || markingProcessed}
                 style={{ padding: "8px 12px", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "13px", fontFamily: FONT, color: "#374151", backgroundColor: "white", cursor: "pointer", outline: "none" }}
               >
                 {(Object.keys(LEAD_STATUS_LABELS) as LeadStatus[]).map((s) => (
-                  <option key={s} value={s}>
-                    {LEAD_STATUS_LABELS[s]}
-                  </option>
+                  <option key={s} value={s}>{LEAD_STATUS_LABELS[s]}</option>
                 ))}
               </select>
-              <button type="submit" disabled={saving} style={{ padding: "8px 16px", borderRadius: "8px", backgroundColor: saving ? "#93c5fd" : "#2563eb", color: "white", border: "none", fontSize: "13px", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", fontFamily: FONT }}>
+              <button
+                type="submit"
+                disabled={saving || markingProcessed}
+                style={{ padding: "8px 16px", borderRadius: "8px", backgroundColor: saving ? "#93c5fd" : "#2563eb", color: "white", border: "none", fontSize: "13px", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", fontFamily: FONT }}
+              >
                 {saving ? "Enregistrement…" : "Enregistrer"}
               </button>
+
+              {/* Mark as processed */}
+              {lead.status !== "processed" && (
+                <button
+                  type="button"
+                  onClick={handleMarkProcessed}
+                  disabled={markingProcessed || saving}
+                  onMouseEnter={() => setMarkHovered(true)}
+                  onMouseLeave={() => setMarkHovered(false)}
+                  style={{
+                    padding: "8px 20px",
+                    borderRadius: "8px",
+                    backgroundColor: markingProcessed ? "#86efac" : markHovered ? "#15803d" : "#16a34a",
+                    color: "white",
+                    border: "none",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    cursor: markingProcessed ? "not-allowed" : "pointer",
+                    fontFamily: FONT,
+                    transition: "background-color 0.15s ease",
+                  }}
+                >
+                  {markingProcessed ? "En cours…" : "Marquer comme traité"}
+                </button>
+              )}
+
               {saveMessage === "success" && (
                 <span style={{ color: "#059669", fontSize: "13px", fontFamily: FONT }}>Enregistré ✓</span>
               )}
@@ -246,6 +352,19 @@ export default function LeadDetailPage() {
             <div className="lead-detail-field">
               <div className="lead-detail-label">Délai souhaité</div>
               <div className="lead-detail-value">{formatDelay(lead)}</div>
+            </div>
+            <div className="lead-detail-field">
+              <div className="lead-detail-label">Date limite estimée</div>
+              <div
+                className="lead-detail-value"
+                style={{
+                  color: deadline.isRed ? "#dc2626" : deadline.isGray ? "#94a3b8" : undefined,
+                  fontStyle: deadline.isGray ? "italic" : undefined,
+                  fontWeight: deadline.isRed ? 600 : undefined,
+                }}
+              >
+                {deadline.text}
+              </div>
             </div>
             <div className="lead-detail-field">
               <div className="lead-detail-label">Score de priorité</div>
@@ -301,7 +420,7 @@ export default function LeadDetailPage() {
             </div>
           </div>
 
-          {/* Messages SMS */}
+          {/* SMS Messages */}
           <div className="lead-detail-section">
             <h3>Messages</h3>
             {smsLoading ? (
@@ -363,4 +482,3 @@ export default function LeadDetailPage() {
     </div>
   );
 }
-

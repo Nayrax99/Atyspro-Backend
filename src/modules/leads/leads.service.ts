@@ -19,7 +19,9 @@ export async function listLeads(
     .select("*", { count: "exact" })
     .eq("account_id", account_id);
 
-  if (params.status) {
+  if (params.statuses && params.statuses.length > 0) {
+    query = query.in("status", params.statuses);
+  } else if (params.status) {
     query = query.eq("status", params.status);
   }
 
