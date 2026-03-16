@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import LoadingSpinner from "@/components/dashboard/LoadingSpinner";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
 
 const FONT = "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif";
 
@@ -89,11 +91,11 @@ function BarChart({ buckets }: { buckets: ChartBucket[] }) {
     );
   }
   const maxCount = Math.max(...buckets.map((b) => b.count), 1);
-  const BAR_MAX_H = 100;
+  const BAR_MAX_H = 120;
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: "6px", height: `${BAR_MAX_H + 24}px`, maxHeight: "200px", overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: "6px", height: `${BAR_MAX_H + 20}px`, maxHeight: "200px", overflow: "hidden" }}>
         {buckets.map((bucket, i) => {
           const barH = Math.max(Math.round((bucket.count / maxCount) * BAR_MAX_H), bucket.count > 0 ? 4 : 0);
           return (
@@ -101,7 +103,7 @@ function BarChart({ buckets }: { buckets: ChartBucket[] }) {
               key={i}
               style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}
             >
-              <span style={{ fontSize: "11px", fontWeight: 600, color: "#374151", marginBottom: "3px", fontFamily: FONT }}>
+              <span style={{ fontSize: "10px", fontWeight: 600, color: "#374151", marginBottom: "2px", fontFamily: FONT }}>
                 {bucket.count}
               </span>
               <div
@@ -165,9 +167,9 @@ export default function StatsPage() {
 
   if (loading) {
     return (
-      <div style={{ backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", padding: "32px" }}>
+      <Card padding={32}>
         <LoadingSpinner text="Chargement des statistiques…" />
-      </div>
+      </Card>
     );
   }
 
@@ -182,7 +184,6 @@ export default function StatsPage() {
   const stats = view === "month" ? data.month : data.total;
   const chartBuckets = view === "month" ? data.chartData.byDay : data.chartData.byWeek;
 
-  const aTraiterCount = stats.byStatus.new + stats.byStatus.to_process;
   const traitementPct = stats.total > 0 ? Math.round((stats.byStatus.processed / stats.total) * 100) : 0;
   const traitementColor = traitementPct >= 70 ? "#10b981" : traitementPct >= 40 ? "#f59e0b" : "#ef4444";
   const traitementBg = traitementPct >= 70 ? "#f0fdf4" : traitementPct >= 40 ? "#fffbeb" : "#fef2f2";
@@ -190,27 +191,28 @@ export default function StatsPage() {
 
   return (
     <div style={{ fontFamily: FONT }}>
+      <style>{`.stats-breakdown-row{padding-top:8px!important;padding-bottom:8px!important}`}</style>
       {/* Header + toggle */}
-      <div style={{ marginBottom: "24px" }}>
+      <div style={{ marginBottom: "28px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
           <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", margin: 0, fontFamily: FONT }}>
             Statistiques
           </h1>
           <div style={{ display: "flex", backgroundColor: "#f1f5f9", borderRadius: "8px", padding: "4px", gap: "4px" }}>
-            <button
-              type="button"
+            <Button
+              variant={view === "month" ? "secondary" : "ghost"}
               onClick={() => setView("month")}
-              style={{ padding: "6px 14px", borderRadius: "6px", border: "none", fontSize: "13px", fontWeight: 600, cursor: "pointer", fontFamily: FONT, backgroundColor: view === "month" ? "white" : "transparent", color: view === "month" ? "#0f172a" : "#64748b", boxShadow: view === "month" ? "0 1px 2px rgba(0,0,0,0.08)" : "none" }}
+              className="!px-[14px] !py-[6px] text-[13px]"
             >
               Ce mois-ci
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant={view === "total" ? "secondary" : "ghost"}
               onClick={() => setView("total")}
-              style={{ padding: "6px 14px", borderRadius: "6px", border: "none", fontSize: "13px", fontWeight: 600, cursor: "pointer", fontFamily: FONT, backgroundColor: view === "total" ? "white" : "transparent", color: view === "total" ? "#0f172a" : "#64748b", boxShadow: view === "total" ? "0 1px 2px rgba(0,0,0,0.08)" : "none" }}
+              className="!px-[14px] !py-[6px] text-[13px]"
             >
               Tout
-            </button>
+            </Button>
           </div>
         </div>
         <div style={{ width: "40px", height: "3px", backgroundColor: "#2563eb", borderRadius: "2px", marginTop: "8px", marginBottom: "8px" }} />
@@ -220,26 +222,26 @@ export default function StatsPage() {
       </div>
 
       {stats.total === 0 ? (
-        <div style={{ backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", padding: "64px 24px", textAlign: "center" }}>
+        <Card padding="64px 24px" className="text-center">
           <h2 style={{ fontSize: "16px", fontWeight: 600, color: "#0f172a", marginBottom: "8px" }}>Aucune donnée</h2>
           <p style={{ fontSize: "14px", color: "#64748b" }}>
             {view === "month"
               ? "Aucun lead reçu ce mois-ci."
               : "Aucun lead enregistré pour l'instant."}
           </p>
-        </div>
+        </Card>
       ) : (
         <>
-          {/* KPIs — ligne du haut : 4 cards */}
+          {/* KPIs — 4 cards */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "12px" }}>
             {/* Leads reçus */}
-            <div style={{ backgroundColor: "#eff6ff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: "1px solid #bfdbfe", padding: "12px 20px" }}>
+            <div style={{ backgroundColor: "#eff6ff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: "1px solid #bfdbfe", padding: "24px" }}>
               <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", color: "#3b82f6", textTransform: "uppercase", fontFamily: FONT }}>Leads reçus</div>
               <div style={{ fontSize: "28px", fontWeight: 800, color: "#1e40af", letterSpacing: "-0.02em", marginTop: "8px", fontFamily: FONT }}>{stats.total}</div>
             </div>
 
             {/* Score moyen */}
-            <div style={{ backgroundColor: "#eff6ff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: "1px solid #bfdbfe", padding: "12px 20px" }}>
+            <div style={{ backgroundColor: "#eff6ff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: "1px solid #bfdbfe", padding: "24px" }}>
               <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", color: "#3b82f6", textTransform: "uppercase", fontFamily: FONT }}>Score moyen</div>
               <div style={{ fontSize: "28px", fontWeight: 800, color: "#1e40af", letterSpacing: "-0.02em", marginTop: "8px", fontFamily: FONT }}>
                 {stats.avgScore != null ? stats.avgScore : "—"}
@@ -248,7 +250,7 @@ export default function StatsPage() {
             </div>
 
             {/* Taux de traitement */}
-            <div style={{ backgroundColor: traitementBg, borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: `1px solid ${traitementBorder}`, padding: "12px 20px" }}>
+            <div style={{ backgroundColor: traitementBg, borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: `1px solid ${traitementBorder}`, padding: "24px" }}>
               <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", color: traitementColor, textTransform: "uppercase", fontFamily: FONT }}>Taux de traitement</div>
               <div style={{ fontSize: "28px", fontWeight: 800, color: traitementColor, letterSpacing: "-0.02em", marginTop: "8px", fontFamily: FONT }}>{traitementPct}%</div>
               <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px", fontFamily: FONT }}>
@@ -257,7 +259,7 @@ export default function StatsPage() {
             </div>
 
             {/* Haute priorité */}
-            <div style={{ backgroundColor: "#fffbeb", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: "1px solid #fde68a", padding: "12px 20px" }}>
+            <div style={{ backgroundColor: "#fffbeb", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: "1px solid #fde68a", padding: "24px" }}>
               <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", color: "#d97706", textTransform: "uppercase", fontFamily: FONT }}>Haute priorité</div>
               <div style={{ fontSize: "28px", fontWeight: 800, color: "#92400e", letterSpacing: "-0.02em", marginTop: "8px", fontFamily: FONT }}>{stats.highPriority}</div>
               <div style={{ fontSize: "12px", color: "#d97706", marginTop: "2px", fontFamily: FONT }}>
@@ -266,33 +268,9 @@ export default function StatsPage() {
             </div>
           </div>
 
-          {/* KPIs — ligne du bas : 3 cards plus petites */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px", marginBottom: "16px" }}>
-            {/* Traités */}
-            <div style={{ backgroundColor: "#f0fdf4", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: "1px solid #bbf7d0", padding: "12px 20px" }}>
-              <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", color: "#10b981", textTransform: "uppercase", fontFamily: FONT }}>Traités</div>
-              <div style={{ fontSize: "28px", fontWeight: 800, color: "#065f46", letterSpacing: "-0.02em", marginTop: "6px", fontFamily: FONT }}>{stats.byStatus.processed}</div>
-              <div style={{ fontSize: "12px", color: "#10b981", marginTop: "2px", fontFamily: FONT }}>{pct(stats.byStatus.processed, stats.total)}% du total</div>
-            </div>
-
-            {/* À traiter */}
-            <div style={{ backgroundColor: "#fffbeb", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: "1px solid #fde68a", padding: "12px 20px" }}>
-              <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", color: "#d97706", textTransform: "uppercase", fontFamily: FONT }}>À traiter</div>
-              <div style={{ fontSize: "28px", fontWeight: 800, color: "#92400e", letterSpacing: "-0.02em", marginTop: "6px", fontFamily: FONT }}>{aTraiterCount}</div>
-              <div style={{ fontSize: "12px", color: "#d97706", marginTop: "2px", fontFamily: FONT }}>{pct(aTraiterCount, stats.total)}% du total</div>
-            </div>
-
-            {/* Incomplets */}
-            <div style={{ backgroundColor: "#fef2f2", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: "1px solid #fecaca", padding: "12px 20px" }}>
-              <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", color: "#ef4444", textTransform: "uppercase", fontFamily: FONT }}>Incomplets</div>
-              <div style={{ fontSize: "28px", fontWeight: 800, color: "#991b1b", letterSpacing: "-0.02em", marginTop: "6px", fontFamily: FONT }}>{stats.byStatus.incomplete}</div>
-              <div style={{ fontSize: "12px", color: "#ef4444", marginTop: "2px", fontFamily: FONT }}>{pct(stats.byStatus.incomplete, stats.total)}% du total</div>
-            </div>
-          </div>
-
           {/* Breakdowns */}
-          <div className="stats-breakdown-grid">
-            <div style={{ backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
+          <div className="stats-breakdown-grid" style={{ marginTop: "24px" }}>
+            <Card padding="none">
               <div style={{ padding: "12px 16px", borderBottom: "1px solid #f1f5f9", fontSize: "14px", fontWeight: 600, color: "#374151", fontFamily: FONT }}>Par type de demande</div>
               <div style={{ padding: "8px 16px" }}>
                 <BreakdownRow label="Dépannage" count={stats.byType.depannage} total={stats.total} colorClass="stats-progress-fill--red" />
@@ -301,9 +279,9 @@ export default function StatsPage() {
                 <BreakdownRow label="Autre" count={stats.byType.autre} total={stats.total} colorClass="stats-progress-fill--slate" />
                 <BreakdownRow label="Non renseigné" count={stats.byType.nonRenseigne} total={stats.total} colorClass="stats-progress-fill--slate" />
               </div>
-            </div>
+            </Card>
 
-            <div style={{ backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
+            <Card padding="none">
               <div style={{ padding: "12px 16px", borderBottom: "1px solid #f1f5f9", fontSize: "14px", fontWeight: 600, color: "#374151", fontFamily: FONT }}>Par délai</div>
               <div style={{ padding: "8px 16px" }}>
                 <BreakdownRow label="Urgent (aujourd'hui)" count={stats.byDelay.urgent} total={stats.total} colorClass="stats-progress-fill--red" />
@@ -312,20 +290,22 @@ export default function StatsPage() {
                 <BreakdownRow label="Pas pressé" count={stats.byDelay.flexible} total={stats.total} colorClass="stats-progress-fill--green" />
                 <BreakdownRow label="Non renseigné" count={stats.byDelay.nonRenseigne} total={stats.total} colorClass="stats-progress-fill--slate" />
               </div>
-            </div>
+            </Card>
           </div>
 
           {/* Graphique évolution des leads */}
-          <div style={{ marginTop: "16px", width: "100%", backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
+          <div style={{ marginTop: "24px" }}>
+          <Card padding="none">
             <div style={{ padding: "12px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ fontSize: "14px", fontWeight: 600, color: "#374151", fontFamily: FONT }}>Évolution des leads</span>
               <span style={{ fontSize: "12px", color: "#94a3b8", fontFamily: FONT }}>
                 {view === "month" ? "Par jour — ce mois-ci" : "Par semaine — tout"}
               </span>
             </div>
-            <div style={{ padding: "12px 20px" }}>
+            <div style={{ padding: "8px 12px 12px" }}>
               <BarChart buckets={chartBuckets} />
             </div>
+          </Card>
           </div>
         </>
       )}

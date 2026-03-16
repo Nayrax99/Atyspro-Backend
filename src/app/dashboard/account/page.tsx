@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
 
 type Tab = "profil" | "parametres" | "abonnement";
 
@@ -176,16 +178,18 @@ export default function AccountPage() {
 
   if (loading) {
     return (
-      <div style={{ maxWidth: "640px", fontFamily: FONT }}>
+      <div style={{ maxWidth: "960px", fontFamily: FONT }}>
         {pageHeader}
-        <div style={{ backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", padding: "32px", textAlign: "center", color: "#64748b", fontSize: "14px" }}>Chargement…</div>
+        <Card padding={32} className="text-center text-[14px] text-slate-500">
+          Chargement…
+        </Card>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div style={{ maxWidth: "640px", fontFamily: FONT }}>
+      <div style={{ maxWidth: "960px", fontFamily: FONT }}>
         {pageHeader}
         <div style={{ padding: "16px", borderRadius: "8px", backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", fontSize: "14px" }}>Erreur : {error}</div>
       </div>
@@ -216,29 +220,29 @@ export default function AccountPage() {
               {confirmMessage}
             </p>
             <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
-              <button
-                type="button"
+              <Button
+                variant="secondary"
                 onClick={() => setShowConfirm(false)}
-                style={{ padding: "10px 20px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "white", fontSize: "14px", fontWeight: 600, color: "#374151", cursor: "pointer", fontFamily: FONT }}
+                className="text-[14px]"
               >
                 Annuler
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="primary"
                 onClick={() => void doSave()}
-                style={{ padding: "10px 20px", borderRadius: "8px", border: "none", backgroundColor: "#2563eb", fontSize: "14px", fontWeight: 600, color: "white", cursor: "pointer", fontFamily: FONT }}
+                className="text-[14px]"
               >
                 Confirmer
-              </button>
+              </Button>
             </div>
           </div>
         </div>
       )}
 
-      <div style={{ maxWidth: "640px", fontFamily: FONT }}>
+      <div style={{ maxWidth: "960px", fontFamily: FONT }}>
         {pageHeader}
 
-        <div style={{ backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
+        <Card padding="none">
           {/* Tabs */}
           <div style={{ display: "flex", borderBottom: "1px solid #e2e8f0", padding: "0 24px" }}>
             {TABS.map((t) => (
@@ -340,7 +344,7 @@ export default function AccountPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  style={{ padding: "12px 24px", borderRadius: "8px", backgroundColor: saving ? "#93c5fd" : "#2563eb", color: "white", border: "none", fontSize: "14px", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", fontFamily: FONT }}
+                  style={{ backgroundColor: saving ? "#93c5fd" : "#2563eb", color: "white", borderRadius: "8px", padding: "10px 20px", fontWeight: 600, fontSize: "14px", border: "none", cursor: saving ? "not-allowed" : "pointer", fontFamily: FONT }}
                 >
                   {saving ? "Sauvegarde…" : "Enregistrer"}
                 </button>
@@ -419,44 +423,50 @@ export default function AccountPage() {
 
             {/* ── Abonnement tab ── */}
             {tab === "abonnement" && (
-              <div>
-                {/* Current beta */}
-                <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
-                  <span style={{ display: "inline-block", padding: "6px 14px", borderRadius: "20px", backgroundColor: "rgba(37,99,235,0.1)", color: "#2563eb", fontSize: "13px", fontWeight: 700, fontFamily: FONT }}>
-                    Bêta gratuite
-                  </span>
-                  <span style={{ fontSize: "14px", color: "#64748b", fontFamily: FONT }}>
-                    Accès complet pendant la phase bêta
-                  </span>
+              <div style={{ display: "flex", flexDirection: "row", gap: "32px", alignItems: "flex-start" }}>
+
+                {/* Colonne gauche — beta actuelle */}
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
+                    <span style={{ display: "inline-block", padding: "6px 14px", borderRadius: "20px", backgroundColor: "rgba(37,99,235,0.1)", color: "#2563eb", fontSize: "13px", fontWeight: 700, fontFamily: FONT }}>
+                      Bêta gratuite
+                    </span>
+                    <span style={{ fontSize: "14px", color: "#64748b", fontFamily: FONT }}>
+                      Accès complet pendant la phase bêta
+                    </span>
+                  </div>
+
+                  <p style={{ fontSize: "12px", fontWeight: 600, color: "#94a3b8", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: "12px", fontFamily: FONT }}>
+                    Fonctionnalités incluses
+                  </p>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "24px" }}>
+                    {[
+                      "Capture automatique des appels manqués",
+                      "Qualification vocale automatique des clients",
+                      "Scoring de priorité (0-100)",
+                      "Dashboard leads en temps réel",
+                      "Application mobile iOS & Android",
+                      "Jusqu'à 2 relances de correction",
+                    ].map((feature) => (
+                      <div key={feature} style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "14px", color: "#374151", fontFamily: FONT }}>
+                        <span style={{ display: "flex", width: "20px", height: "20px", alignItems: "center", justifyContent: "center", borderRadius: "50%", backgroundColor: "rgba(5,150,105,0.1)", color: "#059669", fontSize: "11px", fontWeight: 700, flexShrink: 0 }}>✓</span>
+                        <span>{feature}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <p style={{ fontSize: "12px", color: "#94a3b8", lineHeight: 1.6, fontFamily: FONT, margin: 0 }}>
+                    Le pricing définitif sera communiqué avant la sortie officielle.
+                    En tant que bêta testeur, vous bénéficierez d&apos;une offre préférentielle.
+                  </p>
                 </div>
 
-                <p style={{ fontSize: "12px", fontWeight: 600, color: "#94a3b8", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: "12px", fontFamily: FONT }}>
-                  Fonctionnalités incluses
-                </p>
+                {/* Séparateur vertical */}
+                <div style={{ width: "1px", backgroundColor: "#f1f5f9", alignSelf: "stretch", flexShrink: 0 }} />
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "32px" }}>
-                  {[
-                    "Capture automatique des appels manqués",
-                    "Qualification vocale automatique des clients",
-                    "Scoring de priorité (0-100)",
-                    "Dashboard leads en temps réel",
-                    "Application mobile iOS & Android",
-                    "Jusqu'à 2 relances de correction",
-                  ].map((feature) => (
-                    <div key={feature} style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "14px", color: "#374151", fontFamily: FONT }}>
-                      <span style={{ display: "flex", width: "20px", height: "20px", alignItems: "center", justifyContent: "center", borderRadius: "50%", backgroundColor: "rgba(5,150,105,0.1)", color: "#059669", fontSize: "11px", fontWeight: 700, flexShrink: 0 }}>✓</span>
-                      <span>{feature}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <p style={{ marginBottom: "32px", fontSize: "12px", color: "#94a3b8", lineHeight: 1.6, fontFamily: FONT }}>
-                  Le pricing définitif sera communiqué avant la sortie officielle.
-                  En tant que bêta testeur, vous bénéficierez d&apos;une offre préférentielle.
-                </p>
-
-                {/* Plans à venir */}
-                <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: "28px" }}>
+                {/* Colonne droite — plans à venir */}
+                <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
                     <p style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a", fontFamily: FONT, margin: 0 }}>Plans à venir</p>
                     <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: "20px", backgroundColor: "#f1f5f9", border: "1px solid #e2e8f0", fontSize: "11px", fontWeight: 600, color: "#64748b", fontFamily: FONT }}>
@@ -464,11 +474,11 @@ export default function AccountPage() {
                     </span>
                   </div>
 
-                  <div style={{ display: "flex", gap: "16px" }}>
+                  <div style={{ display: "flex", flexDirection: "row", gap: "20px", width: "100%" }}>
                     {/* Essentiel */}
-                    <div style={{ flex: 1, minWidth: 0, border: "1px solid #e2e8f0", borderRadius: "12px", padding: "16px", backgroundColor: "white" }}>
-                      <p style={{ fontSize: "15px", fontWeight: 700, color: "#0f172a", fontFamily: FONT, marginBottom: "4px" }}>Essentiel</p>
-                      <p style={{ fontSize: "12px", color: "#64748b", fontFamily: FONT, marginBottom: "16px" }}>Pour démarrer</p>
+                    <div style={{ flex: 1, minWidth: 0, border: "1px solid #e2e8f0", borderRadius: "12px", padding: "24px", backgroundColor: "#fafafa" }}>
+                      <p style={{ fontSize: "18px", fontWeight: 700, color: "#0f172a", fontFamily: FONT, marginBottom: "4px" }}>Essentiel</p>
+                      <p style={{ fontSize: "13px", color: "#64748b", fontFamily: FONT, marginBottom: "16px" }}>Pour démarrer</p>
                       <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                         {[
                           "Capture des appels manqués",
@@ -477,7 +487,7 @@ export default function AccountPage() {
                           "Dashboard leads",
                           "1 métier / secteur",
                         ].map((f) => (
-                          <div key={f} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "#374151", fontFamily: FONT }}>
+                          <div key={f} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", color: "#374151", fontFamily: FONT }}>
                             <span style={{ color: "#059669", fontWeight: 700, flexShrink: 0 }}>✓</span>
                             <span>{f}</span>
                           </div>
@@ -486,12 +496,12 @@ export default function AccountPage() {
                     </div>
 
                     {/* Premium */}
-                    <div style={{ flex: 1, minWidth: 0, border: "1px solid #e2e8f0", borderTop: "3px solid #2563eb", borderRadius: "12px", padding: "16px", backgroundColor: "white" }}>
+                    <div style={{ flex: 1, minWidth: 0, border: "1px solid #bfdbfe", borderTop: "3px solid #2563eb", borderRadius: "12px", padding: "24px", backgroundColor: "#f8fbff" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                        <p style={{ fontSize: "15px", fontWeight: 700, color: "#0f172a", fontFamily: FONT, margin: 0 }}>Premium</p>
+                        <p style={{ fontSize: "18px", fontWeight: 700, color: "#0f172a", fontFamily: FONT, margin: 0 }}>Premium</p>
                         <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: "20px", backgroundColor: "rgba(37,99,235,0.1)", color: "#2563eb", fontSize: "10px", fontWeight: 700, fontFamily: FONT }}>Populaire</span>
                       </div>
-                      <p style={{ fontSize: "12px", color: "#64748b", fontFamily: FONT, marginBottom: "16px" }}>Pour développer votre activité</p>
+                      <p style={{ fontSize: "13px", color: "#64748b", fontFamily: FONT, marginBottom: "16px" }}>Pour développer votre activité</p>
                       <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                         {[
                           "Tout Essentiel inclus",
@@ -501,7 +511,7 @@ export default function AccountPage() {
                           "Statistiques avancées",
                           "Support prioritaire",
                         ].map((f) => (
-                          <div key={f} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "#374151", fontFamily: FONT }}>
+                          <div key={f} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", color: "#374151", fontFamily: FONT }}>
                             <span style={{ color: "#2563eb", fontWeight: 700, flexShrink: 0 }}>✓</span>
                             <span>{f}</span>
                           </div>
@@ -510,10 +520,11 @@ export default function AccountPage() {
                     </div>
                   </div>
                 </div>
+
               </div>
             )}
           </div>
-        </div>
+        </Card>
       </div>
     </>
   );

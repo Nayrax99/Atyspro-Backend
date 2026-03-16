@@ -7,6 +7,7 @@ import { LEAD_STATUS_LABELS, formatDelay, formatType } from "@/types/lead";
 import { formatPhone } from "@/lib/utils";
 import { ChevronRight, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import LoadingSpinner from "@/components/dashboard/LoadingSpinner";
+import Card from "@/components/ui/Card";
 
 const FONT = "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif";
 const API_BASE = "";
@@ -24,23 +25,12 @@ const STATUS_FILTER_OPTIONS: { value: StatusFilterValue; label: string }[] = [
   { value: "processed",   label: "Traité" },
 ];
 
-function getStatusBadgeStyle(status: LeadStatus): React.CSSProperties {
-  const base: React.CSSProperties = {
-    borderRadius: "20px",
-    padding: "4px 12px",
-    fontSize: "12px",
-    fontWeight: 600,
-    display: "inline-block",
-    whiteSpace: "nowrap",
-    fontFamily: FONT,
-  };
-  switch (status) {
-    case "new":        return { ...base, backgroundColor: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe" };
-    case "incomplete": return { ...base, backgroundColor: "#fff7ed", color: "#ea580c", border: "1px solid #fed7aa" };
-    case "to_process": return { ...base, backgroundColor: "#fefce8", color: "#ca8a04", border: "1px solid #fef08a" };
-    case "processed":  return { ...base, backgroundColor: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0" };
-  }
-}
+const STATUS_BADGE_CLASSES: Record<LeadStatus, string> = {
+  new: "badge badge--neutral",
+  incomplete: "badge badge--danger",
+  to_process: "badge badge--warning",
+  processed: "badge badge--success",
+};
 
 function getScoreClass(score: number | null): string {
   if (score == null) return "score-cell--low";
@@ -176,6 +166,7 @@ export default function DashboardPage() {
 
   return (
     <div style={{ fontFamily: FONT }}>
+      <style>{`.atys-pagination-btn:hover:not(:disabled){background-color:#f8fafc!important}`}</style>
       <div style={{ marginBottom: "32px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
           <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", margin: 0, fontFamily: FONT }}>Leads</h1>
@@ -191,7 +182,7 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <div style={{ backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
+      <Card padding="none">
         <div style={{ padding: "16px 24px", borderBottom: "1px solid #f1f5f9", fontSize: "14px", fontWeight: 600, color: "#374151", fontFamily: FONT }}>Liste des leads</div>
 
         {/* Filter bar */}
@@ -276,7 +267,7 @@ export default function DashboardPage() {
                       <div className="lead-request-preview">{formatDelay(lead)}</div>
                     </td>
                     <td>
-                      <span style={getStatusBadgeStyle(lead.status)}>
+                      <span className={STATUS_BADGE_CLASSES[lead.status]}>
                         {LEAD_STATUS_LABELS[lead.status]}
                       </span>
                     </td>
@@ -291,7 +282,7 @@ export default function DashboardPage() {
                           {lead.relance_count} relance{lead.relance_count > 1 ? "s" : ""}
                         </span>
                       ) : (
-                        <span>0</span>
+                        <span className="text-sm text-slate-500">0</span>
                       )}
                     </td>
                     <td>
@@ -308,19 +299,8 @@ export default function DashboardPage() {
                         href={`/dashboard/leads/${lead.id}`}
                         onMouseEnter={() => setHoveredChevronId(lead.id)}
                         onMouseLeave={() => setHoveredChevronId(null)}
-                        style={{
-                          display: "flex",
-                          width: "32px",
-                          height: "32px",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          borderRadius: "50%",
-                          border: "1px solid #e2e8f0",
-                          backgroundColor: hoveredChevronId === lead.id ? "#f1f5f9" : "transparent",
-                          transition: "background-color 0.2s",
-                          textDecoration: "none",
-                          color: "#64748b",
-                        }}
+                        className="lead-table-action"
+                        style={{ width: "32px", height: "32px" }}
                       >
                         <ChevronRight size={15} />
                       </Link>
@@ -343,7 +323,8 @@ export default function DashboardPage() {
                 type="button"
                 disabled={!pagination.hasPrev}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "white", fontSize: "13px", fontWeight: 500, color: pagination.hasPrev ? "#374151" : "#94a3b8", cursor: pagination.hasPrev ? "pointer" : "not-allowed", fontFamily: FONT }}
+                style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "white", fontSize: "13px", fontWeight: 500, color: "#334155", cursor: pagination.hasPrev ? "pointer" : "not-allowed", opacity: pagination.hasPrev ? 1 : 0.4, fontFamily: FONT }}
+                className="atys-pagination-btn"
               >
                 Précédent
               </button>
@@ -351,14 +332,15 @@ export default function DashboardPage() {
                 type="button"
                 disabled={!pagination.hasNext}
                 onClick={() => setPage((p) => p + 1)}
-                style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "white", fontSize: "13px", fontWeight: 500, color: pagination.hasNext ? "#374151" : "#94a3b8", cursor: pagination.hasNext ? "pointer" : "not-allowed", fontFamily: FONT }}
+                style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "white", fontSize: "13px", fontWeight: 500, color: "#334155", cursor: pagination.hasNext ? "pointer" : "not-allowed", opacity: pagination.hasNext ? 1 : 0.4, fontFamily: FONT }}
+                className="atys-pagination-btn"
               >
                 Suivant
               </button>
             </div>
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

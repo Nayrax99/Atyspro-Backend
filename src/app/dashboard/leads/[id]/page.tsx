@@ -8,6 +8,8 @@ import { LEAD_STATUS_LABELS, formatDelay, formatType } from "@/types/lead";
 import { formatPhone } from "@/lib/utils";
 import { Phone, MessageCircle } from "lucide-react";
 import LoadingSpinner from "@/components/dashboard/LoadingSpinner";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
 
 const API_BASE = "";
 const FONT = "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif";
@@ -35,22 +37,12 @@ function getScoreTextClass(score: number | null): string {
   return "score-cell--critical";
 }
 
-function getStatusBadgeStyle(status: LeadStatus): React.CSSProperties {
-  const base: React.CSSProperties = {
-    borderRadius: "20px",
-    padding: "4px 12px",
-    fontSize: "12px",
-    fontWeight: 600,
-    display: "inline-block",
-    fontFamily: FONT,
-  };
-  switch (status) {
-    case "new":        return { ...base, backgroundColor: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe" };
-    case "incomplete": return { ...base, backgroundColor: "#fff7ed", color: "#ea580c", border: "1px solid #fed7aa" };
-    case "to_process": return { ...base, backgroundColor: "#fefce8", color: "#ca8a04", border: "1px solid #fef08a" };
-    case "processed":  return { ...base, backgroundColor: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0" };
-  }
-}
+const STATUS_BADGE_CLASSES: Record<LeadStatus, string> = {
+  new: "badge badge--neutral",
+  incomplete: "badge badge--danger",
+  to_process: "badge badge--warning",
+  processed: "badge badge--success",
+};
 
 /** Computes the estimated deadline from delay_code + created_at */
 function computeDeadline(lead: Lead): { text: string; isRed: boolean; isGray: boolean } {
@@ -209,9 +201,9 @@ export default function LeadDetailPage() {
 
   if (loading && !lead) {
     return (
-      <div style={{ backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", padding: "32px" }}>
+      <Card padding={32}>
         <LoadingSpinner text="Chargement du lead…" />
-      </div>
+      </Card>
     );
   }
 
@@ -235,7 +227,7 @@ export default function LeadDetailPage() {
           ← Retour aux leads
         </Link>
 
-        <div className="dashboard-card">
+        <Card padding="none">
           {/* Header: name + status badge */}
           <div className="lead-detail-section">
             <div className="lead-detail-header">
@@ -244,7 +236,7 @@ export default function LeadDetailPage() {
                   <span style={{ color: "#9ca3af", fontStyle: "italic" }}>Inconnu</span>
                 )}
               </h2>
-              <span style={getStatusBadgeStyle(lead.status)}>
+              <span className={STATUS_BADGE_CLASSES[lead.status]}>
                 {LEAD_STATUS_LABELS[lead.status]}
               </span>
             </div>
@@ -284,7 +276,17 @@ export default function LeadDetailPage() {
               <button
                 type="submit"
                 disabled={saving || markingProcessed}
-                style={{ padding: "8px 16px", borderRadius: "8px", backgroundColor: saving ? "#93c5fd" : "#2563eb", color: "white", border: "none", fontSize: "13px", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", fontFamily: FONT }}
+                style={{
+                  backgroundColor: "#2563eb",
+                  color: "white",
+                  borderRadius: "8px",
+                  padding: "10px 20px",
+                  fontWeight: 600,
+                  fontSize: "14px",
+                  border: "none",
+                  cursor: saving || markingProcessed ? "not-allowed" : "pointer",
+                  fontFamily: FONT,
+                }}
               >
                 {saving ? "Enregistrement…" : "Enregistrer"}
               </button>
@@ -295,19 +297,16 @@ export default function LeadDetailPage() {
                   type="button"
                   onClick={handleMarkProcessed}
                   disabled={markingProcessed || saving}
-                  onMouseEnter={() => setMarkHovered(true)}
-                  onMouseLeave={() => setMarkHovered(false)}
                   style={{
-                    padding: "8px 20px",
-                    borderRadius: "8px",
-                    backgroundColor: markingProcessed ? "#86efac" : markHovered ? "#15803d" : "#16a34a",
+                    backgroundColor: "#16a34a",
                     color: "white",
-                    border: "none",
-                    fontSize: "13px",
+                    borderRadius: "8px",
+                    padding: "10px 24px",
                     fontWeight: 600,
-                    cursor: markingProcessed ? "not-allowed" : "pointer",
+                    fontSize: "14px",
+                    border: "none",
+                    cursor: markingProcessed || saving ? "not-allowed" : "pointer",
                     fontFamily: FONT,
-                    transition: "background-color 0.15s ease",
                   }}
                 >
                   {markingProcessed ? "En cours…" : "Marquer comme traité"}
@@ -477,7 +476,7 @@ export default function LeadDetailPage() {
               </div>
             )}
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );

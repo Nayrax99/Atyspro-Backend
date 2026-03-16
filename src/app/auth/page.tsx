@@ -9,17 +9,16 @@ const FONT = "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif";
 const LABEL_STYLE: React.CSSProperties = {
   display: "block",
   fontSize: "13px",
-  fontWeight: "600",
-  color: "#374151",
+  fontWeight: 500,
+  color: "#0f172a",
   letterSpacing: "0.01em",
-  textTransform: "uppercase",
   marginBottom: "6px",
 };
 const INPUT_BASE: React.CSSProperties = {
   width: "100%",
   border: "1px solid #cbd5e1",
   borderRadius: "8px",
-  padding: "12px 16px",
+  padding: "13px 16px",
   fontSize: "15px",
   outline: "none",
   backgroundColor: "white",
@@ -31,9 +30,9 @@ const INPUT_BASE: React.CSSProperties = {
 };
 const CARD_STYLE: React.CSSProperties = {
   backgroundColor: "white",
-  borderRadius: "20px",
-  padding: "40px",
-  boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
+  borderRadius: "14px",
+  padding: "32px",
+  boxShadow: "0 8px 30px rgba(15,23,42,0.10)",
   border: "1px solid #e2e8f0",
 };
 const FIELD_GROUP: React.CSSProperties = { marginBottom: "24px" };
@@ -167,37 +166,30 @@ export default function AuthPage() {
       {/* Hover styles pour inputs — inline styles ne peuvent pas gérer :hover */}
       <style>{`
         .atys-input:hover { border-color: #94a3b8 !important; }
-        .atys-input:focus { border-color: #2563eb !important; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+        .atys-input:focus {
+          border-color: #2563eb !important;
+          box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+        }
+        .atys-link {
+          transition: color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+        }
+        .atys-link:hover {
+          opacity: 0.9;
+        }
       `}</style>
 
       <main style={{ width: "100%", maxWidth: "440px", fontFamily: FONT }}>
         {/* Logo en haut du panneau droit */}
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "32px" }}>
-          <span
-            style={{
-              display: "flex",
-              width: "32px",
-              height: "32px",
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: "8px",
-              backgroundColor: "#2563eb",
-              fontSize: "16px",
-              fontWeight: "700",
-              color: "white",
-            }}
-          >
-            ⚡
-          </span>
-          <span style={{ fontSize: "20px", fontWeight: "700", color: "#0f172a", letterSpacing: "-0.02em" }}>
+        <div style={{ marginBottom: "32px" }}>
+          <span style={{ fontSize: "20px", fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", fontFamily: FONT }}>
             AtysPro
           </span>
         </div>
 
         {/* Titre et sous-titre au-dessus de la card */}
         <div style={{ marginBottom: "24px" }}>
-          <h2 style={{ fontSize: "24px", fontWeight: "700", color: "#0f172a", marginBottom: "6px", letterSpacing: "-0.01em" }}>
-            {isSignup ? "Créer un compte" : "Bon retour !"}
+          <h2 style={{ fontSize: "26px", fontWeight: 700, color: "#0f172a", marginBottom: "6px", letterSpacing: "-0.02em" }}>
+            {isSignup ? "Créer un compte" : "Connexion à AtysPro"}
           </h2>
           <p style={{ fontSize: "14px", color: "#64748b" }}>
             {isSignup
@@ -288,7 +280,9 @@ export default function AuthPage() {
               <div
                 style={{
                   borderRadius: "8px",
-                  border: "1px solid #fecaca",
+                  borderWidth: "1px",
+                  borderStyle: "solid",
+                  borderColor: "#fecaca",
                   backgroundColor: "#fef2f2",
                   padding: "12px 16px",
                   fontSize: "14px",
@@ -305,7 +299,9 @@ export default function AuthPage() {
               <div
                 style={{
                   borderRadius: "8px",
-                  border: "1px solid #a7f3d0",
+                  borderWidth: "1px",
+                  borderStyle: "solid",
+                  borderColor: "#a7f3d0",
                   backgroundColor: "#ecfdf5",
                   padding: "12px 16px",
                   fontSize: "14px",
@@ -326,11 +322,11 @@ export default function AuthPage() {
               onMouseLeave={() => setBtnHover(false)}
               style={{
                 width: "100%",
-                height: "48px",
+                height: "50px",
                 backgroundColor: loading ? "#93c5fd" : btnHover ? "#1d4ed8" : "#2563eb",
                 color: "white",
                 borderRadius: "12px",
-                fontWeight: "600",
+                fontWeight: 600,
                 fontSize: "16px",
                 border: "none",
                 cursor: loading ? "not-allowed" : "pointer",
@@ -342,7 +338,7 @@ export default function AuthPage() {
               {loading
                 ? "Envoi en cours..."
                 : isSignup
-                ? "Créer mon compte"
+                ? "Créer mon compte gratuitement"
                 : "Se connecter"}
             </button>
           </form>
@@ -360,7 +356,9 @@ export default function AuthPage() {
                   border: "none",
                   cursor: "pointer",
                   fontFamily: FONT,
+                  textDecoration: "underline",
                 }}
+                className="atys-link"
               >
                 {forgotLoading ? "Envoi du lien..." : "Mot de passe oublié ?"}
               </button>
@@ -368,7 +366,7 @@ export default function AuthPage() {
           )}
         </div>
 
-        <p style={{ marginTop: "24px", textAlign: "center", fontSize: "14px", color: "#64748b", fontFamily: FONT }}>
+        <p style={{ marginTop: "24px", textAlign: "center", fontSize: "13px", color: "#64748b", fontFamily: FONT }}>
           {isSignup ? (
             <>
               Déjà un compte ?{" "}
@@ -380,12 +378,12 @@ export default function AuthPage() {
                   color: "#2563eb",
                   background: "none",
                   border: "none",
-                  borderBottom: "1px solid #2563eb",
                   cursor: "pointer",
                   paddingBottom: "1px",
                   fontFamily: FONT,
                   textDecoration: "none",
                 }}
+                className="atys-link"
               >
                 Se connecter
               </button>
@@ -401,12 +399,12 @@ export default function AuthPage() {
                   color: "#2563eb",
                   background: "none",
                   border: "none",
-                  borderBottom: "1px solid #2563eb",
                   cursor: "pointer",
                   paddingBottom: "1px",
                   fontFamily: FONT,
                   textDecoration: "none",
                 }}
+                className="atys-link"
               >
                 Créer un compte
               </button>

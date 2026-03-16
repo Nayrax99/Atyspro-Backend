@@ -178,6 +178,7 @@ export default function CallsPage() {
 
   return (
     <div style={{ fontFamily: FONT }}>
+      <style>{`.atys-pagination-btn:hover:not(:disabled){background-color:#f8fafc!important}`}</style>
       <div style={{ marginBottom: "24px" }}>
         <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", margin: 0, fontFamily: FONT }}>Appels</h1>
         <div style={{ width: "40px", height: "3px", backgroundColor: "#2563eb", borderRadius: "2px", marginTop: "8px", marginBottom: "8px" }} />
@@ -316,7 +317,8 @@ export default function CallsPage() {
                 type="button"
                 disabled={!pagination.hasPrev}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "white", fontSize: "13px", fontWeight: 500, color: pagination.hasPrev ? "#374151" : "#94a3b8", cursor: pagination.hasPrev ? "pointer" : "not-allowed", fontFamily: FONT }}
+                style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "white", fontSize: "13px", fontWeight: 500, color: "#334155", cursor: pagination.hasPrev ? "pointer" : "not-allowed", opacity: pagination.hasPrev ? 1 : 0.4, fontFamily: FONT }}
+                className="atys-pagination-btn"
               >
                 Précédent
               </button>
@@ -324,7 +326,8 @@ export default function CallsPage() {
                 type="button"
                 disabled={!pagination.hasNext}
                 onClick={() => setPage((p) => p + 1)}
-                style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "white", fontSize: "13px", fontWeight: 500, color: pagination.hasNext ? "#374151" : "#94a3b8", cursor: pagination.hasNext ? "pointer" : "not-allowed", fontFamily: FONT }}
+                style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "white", fontSize: "13px", fontWeight: 500, color: "#334155", cursor: pagination.hasNext ? "pointer" : "not-allowed", opacity: pagination.hasNext ? 1 : 0.4, fontFamily: FONT }}
+                className="atys-pagination-btn"
               >
                 Suivant
               </button>

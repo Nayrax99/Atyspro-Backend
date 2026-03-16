@@ -23,12 +23,12 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
           position: "relative",
           flexDirection: "column",
           justifyContent: "center",
-          gap: "3rem",
-          paddingTop: "3rem",
-          paddingBottom: "3rem",
-          paddingLeft: "3.5rem",
-          paddingRight: "3.5rem",
-          background: "linear-gradient(135deg, #1e40af 0%, #2563eb 50%, #4f46e5 100%)",
+          gap: "3.25rem",
+          paddingTop: "3.5rem",
+          paddingBottom: "3.5rem",
+          paddingLeft: "3.75rem",
+          paddingRight: "3.75rem",
+          background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 45%, #4f46e5 100%)",
           overflow: "hidden",
         }}
         aria-hidden="true"
@@ -66,30 +66,30 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
             style={{
               width: "40px",
               height: "3px",
-              borderRadius: "2px",
-              backgroundColor: "rgba(255,255,255,0.5)",
-              marginBottom: "20px",
+              borderRadius: "999px",
+              backgroundColor: "rgba(255,255,255,0.65)",
+              marginBottom: "24px",
             }}
           />
           <h1
             style={{
-              fontSize: "clamp(2.25rem, 3.5vw, 3rem)",
+              fontSize: "clamp(2.5rem, 3.7vw, 3.25rem)",
               fontWeight: "800",
               lineHeight: "1.15",
               letterSpacing: "-0.02em",
               color: "white",
-              marginBottom: "1rem",
+              marginBottom: "1.1rem",
             }}
           >
             Ne manquez plus<br />aucun client.
           </h1>
           <p
             style={{
-              fontSize: "17px",
-              color: "rgba(219, 234, 254, 0.85)",
+              fontSize: "16px",
+              color: "rgba(219, 234, 254, 0.82)",
               lineHeight: "1.7",
               maxWidth: "360px",
-              marginBottom: "2.25rem",
+              marginBottom: "2.5rem",
             }}
           >
             Votre assistant vocal qualifie vos appels manqués et génère des leads
@@ -97,23 +97,23 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
           </p>
 
           {/* Feature list */}
-          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "16px" }}>
+          <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "18px" }}>
             {FEATURES.map(({ icon: Icon, label }) => (
               <li key={label} style={{ display: "flex", alignItems: "center", gap: "14px" }}>
                 <span
                   style={{
                     display: "flex",
-                    width: "40px",
-                    height: "40px",
+                    width: "44px",
+                    height: "44px",
                     flexShrink: 0,
                     alignItems: "center",
                     justifyContent: "center",
                     borderRadius: "50%",
-                    backgroundColor: "rgba(255,255,255,0.18)",
+                    backgroundColor: "rgba(15,23,42,0.15)",
                     backdropFilter: "blur(4px)",
                   }}
                 >
-                  <Icon size={16} color="white" />
+                  <Icon size={18} color="white" />
                 </span>
                 <span style={{ fontSize: "15px", color: "rgba(219, 234, 254, 0.9)" }}>{label}</span>
               </li>
