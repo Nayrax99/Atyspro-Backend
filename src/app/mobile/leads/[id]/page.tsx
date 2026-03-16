@@ -70,7 +70,7 @@ export default function MobileLeadDetailPage() {
       const res = await fetch(`${API_BASE}/api/leads/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "complete" }),
+        body: JSON.stringify({ status: "processed" }),
       });
       const json = (await res.json()) as {
         success?: boolean;
@@ -192,7 +192,7 @@ export default function MobileLeadDetailPage() {
         <button
           type="button"
           onClick={handleUpdateStatus}
-          disabled={saving || lead.status === "complete"}
+          disabled={saving || lead.status === "processed"}
           className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-[#e5e5ea] px-6 py-4 text-[17px] font-semibold text-[#1c1c1e] active:opacity-80 disabled:opacity-40"
         >
           {saving ? "Enregistrement…" : "Marquer comme traité"}

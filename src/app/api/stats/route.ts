@@ -13,7 +13,7 @@ interface LeadRow {
 
 interface StatsResult {
   total: number;
-  byStatus: { complete: number; incomplete: number; needs_review: number };
+  byStatus: { new: number; incomplete: number; to_process: number; processed: number };
   byType: {
     depannage: number;
     installation: number;
@@ -35,7 +35,7 @@ interface StatsResult {
 }
 
 function aggregate(arr: LeadRow[]): StatsResult {
-  const byStatus = { complete: 0, incomplete: 0, needs_review: 0 };
+  const byStatus = { new: 0, incomplete: 0, to_process: 0, processed: 0 };
   const byType = [0, 0, 0, 0, 0]; // index 0 = null, 1-4 = type_code
   const byDelay = [0, 0, 0, 0, 0]; // index 0 = null, 1-4 = delay_code
   let scoreSum = 0;
@@ -45,9 +45,10 @@ function aggregate(arr: LeadRow[]): StatsResult {
   let lowPriority = 0;
 
   for (const l of arr) {
-    if (l.status === "complete") byStatus.complete++;
+    if (l.status === "new") byStatus.new++;
     else if (l.status === "incomplete") byStatus.incomplete++;
-    else if (l.status === "needs_review") byStatus.needs_review++;
+    else if (l.status === "to_process") byStatus.to_process++;
+    else if (l.status === "processed") byStatus.processed++;
 
     const t = l.type_code ?? 0;
     if (t >= 0 && t <= 4) byType[t]++;

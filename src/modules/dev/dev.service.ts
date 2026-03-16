@@ -7,7 +7,7 @@ import type { SimulateSmsParams } from "./dev.types";
 
 const LEADS_DATA = [
   {
-    status: "needs_review" as const,
+    status: "to_process" as const,
     contact_name: "Marie Dubois",
     phone: "+33698765432",
     address: "15 rue de la République, 75011 Paris",
@@ -28,7 +28,7 @@ const LEADS_DATA = [
     score: 50,
   },
   {
-    status: "needs_review" as const,
+    status: "to_process" as const,
     contact_name: "Sophie Lefebvre",
     phone: "+33676543210",
     address: "8 impasse des Fleurs, 33000 Bordeaux",
@@ -188,7 +188,7 @@ export async function simulateSms(params: SimulateSmsParams) {
 
   const leadData = {
     account_id,
-    status: "needs_review" as const,
+    status: "to_process" as const,
     client_phone: from,
     type_code,
     delay_code,

@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
     const { count: completeCount } = await supabaseAdmin
       .from("leads")
       .select("*", { count: "exact", head: true })
-      .eq("status", "complete");
+      .eq("status", "processed");
 
     // Appels total
     const { count: callCount } = await supabaseAdmin

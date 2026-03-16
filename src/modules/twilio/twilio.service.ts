@@ -196,7 +196,7 @@ export async function handleSmsWebhook(
   if (currentRelanceCount < 2) {
     const newRelanceCount = currentRelanceCount + 1;
     leadData.relance_count = newRelanceCount;
-    leadData.status = newRelanceCount >= 2 ? "needs_review" : parsed.lead_status;
+    leadData.status = newRelanceCount >= 2 ? "to_process" : parsed.lead_status;
 
     console.log("Relance correction (immédiate), relance_count:", newRelanceCount);
 
@@ -238,7 +238,7 @@ export async function handleSmsWebhook(
     };
   }
 
-  leadData.status = "needs_review";
+  leadData.status = "to_process";
   leadData.raw_message = parsed.raw_message;
 
   if (existingLead) {

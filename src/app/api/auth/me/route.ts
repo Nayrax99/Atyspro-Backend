@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
       .from("leads")
       .select("*", { count: "exact", head: true })
       .eq("account_id", account_id)
-      .neq("status", "complete");
+      .neq("status", "processed");
 
     return NextResponse.json({
       success: true,

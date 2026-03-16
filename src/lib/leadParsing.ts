@@ -29,7 +29,7 @@ export function parseSms(body: string): {
   full_name: string | null;
   description: string | null;
   raw_message: string;
-  lead_status: "complete" | "incomplete" | "needs_review";
+  lead_status: "new" | "incomplete" | "to_process";
   has_separator: boolean;
   parsing_notes?: string | null;
 } {
@@ -53,7 +53,7 @@ export function parseSms(body: string): {
   let address: string | null = null;
   let full_name: string | null = null;
   let description: string | null = null;
-  let lead_status: "complete" | "incomplete" | "needs_review" = "needs_review";
+  let lead_status: "new" | "incomplete" | "to_process" = "to_process";
   let parsing_notes: string | null = null;
 
   // CAS 1: Réponse structurée avec séparateur
@@ -90,11 +90,11 @@ export function parseSms(body: string): {
 
     // Déterminer le status
     if (type_code && delay_code && address) {
-      lead_status = "complete";
+      lead_status = "new";
     } else if (type_code || delay_code) {
       lead_status = "incomplete";
     } else {
-      lead_status = "needs_review";
+      lead_status = "to_process";
     }
   }
   // CAS 2: Réponse non structurée (pas de séparateur clair)
@@ -113,7 +113,7 @@ export function parseSms(body: string): {
       lead_status = "incomplete";
       parsing_notes = "Réponse non structurée, extraction partielle uniquement";
     } else {
-      lead_status = "needs_review";
+      lead_status = "to_process";
       parsing_notes = "Réponse libre sans structure détectée";
     }
   }
