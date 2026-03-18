@@ -1,9 +1,13 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/dashboard/Sidebar";
+import RestoreSkin from "@/components/dashboard/RestoreSkin";
+import { DashboardProvider } from "@/contexts/DashboardContext";
+import { applySkin, METIER_TO_SKIN } from "@/theme";
+import type { Skin } from "@/theme";
 import "./dashboard.css";
 
 interface DashboardLayoutProps {
@@ -27,44 +31,81 @@ interface MeResponse {
   error?: string;
 }
 
-export default function DashboardLayout({
-  children,
-}: Readonly<DashboardLayoutProps>) {
+interface AccountResponse {
+  success: boolean;
+  data?: { specialty?: string | null };
+}
+
+export default function DashboardLayout({ children }: Readonly<DashboardLayoutProps>) {
   const router = useRouter();
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [accountName, setAccountName] = useState<string | null>(null);
+  const [accountEmail, setAccountEmail] = useState<string | null>(null);
+  const [skin, setSkin] = useState<Skin>("core");
   const [isAdmin, setIsAdmin] = useState(false);
   const [pendingLeads, setPendingLeads] = useState(0);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    } finally {
+      router.replace("/auth");
+    }
+  }, [router]);
 
   useEffect(() => {
     let isMounted = true;
 
     const checkAuth = async () => {
       try {
-        const response = await fetch("/api/auth/me", {
-          method: "GET",
-          credentials: "include",
-        });
+        let [meRes, accountRes] = await Promise.all([
+          fetch("/api/auth/me", { method: "GET", credentials: "include" }),
+          fetch("/api/account", { credentials: "include" }),
+        ]);
 
-        if (response.status === 401 || !response.ok) {
+        // Tenter un refresh si token expiré
+        if (meRes.status === 401) {
+          const refreshRes = await fetch("/api/auth/refresh", { method: "POST", credentials: "include" });
+          if (refreshRes.ok) {
+            [meRes, accountRes] = await Promise.all([
+              fetch("/api/auth/me", { method: "GET", credentials: "include" }),
+              fetch("/api/account", { credentials: "include" }),
+            ]);
+          }
+        }
+
+        if (meRes.status === 401 || !meRes.ok) {
           if (!isMounted) return;
           setStatus("unauthenticated");
           router.replace("/auth");
           return;
         }
 
-        const data = (await response.json()) as MeResponse;
+        const me = (await meRes.json()) as MeResponse;
         if (!isMounted) return;
 
-        if (!data.account?.onboarding_completed) {
+        if (!me.account?.onboarding_completed) {
           setStatus("authenticated");
           router.replace("/onboarding");
           return;
         }
 
-        setAccountName(data.account?.name ?? null);
-        setIsAdmin(data.account?.is_admin ?? false);
-        setPendingLeads(data.account?.pending_leads ?? 0);
+        // Resolve skin from specialty
+        let resolvedSkin: Skin = "core";
+        if (accountRes.ok) {
+          const accountData = (await accountRes.json()) as AccountResponse;
+          const specialty = accountData.data?.specialty ?? null;
+          if (specialty) {
+            resolvedSkin = METIER_TO_SKIN[specialty] ?? "core";
+            applySkin(resolvedSkin);
+          }
+        }
+
+        setAccountName(me.account?.name ?? null);
+        setAccountEmail(me.user?.email ?? null);
+        setSkin(resolvedSkin);
+        setIsAdmin(me.account?.is_admin ?? false);
+        setPendingLeads(me.account?.pending_leads ?? 0);
         setStatus("authenticated");
       } catch {
         if (!isMounted) return;
@@ -77,31 +118,40 @@ export default function DashboardLayout({
     return () => { isMounted = false; };
   }, [router]);
 
-  const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-    } finally {
-      router.replace("/auth");
-    }
-  };
-
   if (status === "loading") {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#f8fafc" }}>
-        <p style={{ fontSize: "14px", color: "#64748b", fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" }}>Chargement...</p>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--ap-bg)" }}>
+        <p style={{ fontSize: 13, color: "#6B7280", fontFamily: "var(--font-sans)" }}>Chargement…</p>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#f8fafc" }}>
-      <Sidebar
-        accountName={accountName}
-        onLogout={handleLogout}
-        isAdmin={isAdmin}
-        pendingLeads={pendingLeads}
-      />
-      <main style={{ marginLeft: "220px", height: "100vh", overflowY: "auto", backgroundColor: "#f8fafc", padding: "2rem 2.5rem", fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif" }}>{children}</main>
-    </div>
+    <DashboardProvider
+      value={{ accountName, accountEmail, skin, pendingLeads, isAdmin, onLogout: handleLogout }}
+    >
+      <div style={{ minHeight: "100vh", background: "var(--ap-bg)" }}>
+        <RestoreSkin />
+        <Sidebar
+          accountName={accountName}
+          accountEmail={accountEmail}
+          metier={skin !== "core" ? skin : undefined}
+          onLogout={handleLogout}
+          isAdmin={isAdmin}
+          pendingLeads={pendingLeads}
+        />
+        <main
+          style={{
+            marginLeft: 220,
+            minHeight: "100vh",
+            background: "var(--ap-bg)",
+            padding: "28px 32px",
+            fontFamily: "var(--font-sans)",
+          }}
+        >
+          {children}
+        </main>
+      </div>
+    </DashboardProvider>
   );
 }

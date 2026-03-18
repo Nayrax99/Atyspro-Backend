@@ -4,44 +4,24 @@ import { useEffect, useState } from "react";
 import LoadingSpinner from "@/components/dashboard/LoadingSpinner";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
-
-const FONT = "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif";
+import { useDashboard } from "@/contexts/DashboardContext";
 
 interface StatsResult {
   total: number;
   byStatus: { new: number; incomplete: number; to_process: number; processed: number };
-  byType: {
-    depannage: number;
-    installation: number;
-    devis: number;
-    autre: number;
-    nonRenseigne: number;
-  };
-  byDelay: {
-    urgent: number;
-    h48: number;
-    semaine: number;
-    flexible: number;
-    nonRenseigne: number;
-  };
+  byType: { depannage: number; installation: number; devis: number; autre: number; nonRenseigne: number };
+  byDelay: { urgent: number; h48: number; semaine: number; flexible: number; nonRenseigne: number };
   avgScore: number | null;
   highPriority: number;
   mediumPriority: number;
   lowPriority: number;
 }
 
-interface ChartBucket {
-  label: string;
-  count: number;
-}
+interface ChartBucket { label: string; count: number }
 
 interface StatsResponse {
   success: boolean;
-  data?: {
-    total: StatsResult;
-    month: StatsResult;
-    chartData: { byWeek: ChartBucket[]; byDay: ChartBucket[] };
-  };
+  data?: { total: StatsResult; month: StatsResult; chartData: { byWeek: ChartBucket[]; byDay: ChartBucket[] } };
   error?: string;
 }
 
@@ -49,34 +29,16 @@ function pct(n: number, total: number): number {
   return total === 0 ? 0 : Math.round((n / total) * 100);
 }
 
-function BreakdownRow({
-  label,
-  count,
-  total,
-  colorClass = "",
-}: {
-  label: string;
-  count: number;
-  total: number;
-  colorClass?: string;
-}) {
+function BreakdownRow({ label, count, total, color = "var(--ap-primary)" }: { label: string; count: number; total: number; color?: string }) {
   const width = pct(count, total);
   return (
-    <div className="stats-breakdown-row">
-      <span className="stats-breakdown-label">{label}</span>
-      <div className="stats-progress-bar">
-        <div
-          className={`stats-progress-fill ${colorClass}`}
-          style={{ width: `${width}%` }}
-        />
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: "0.5px solid #F8FAFC" }}>
+      <span style={{ fontSize: 12, color: "#64748B", width: 140, flexShrink: 0 }}>{label}</span>
+      <div style={{ flex: 1, height: 6, background: "#F1F5F9", borderRadius: 10, overflow: "hidden" }}>
+        <div style={{ width: `${width}%`, height: "100%", background: color, borderRadius: 10, transition: "width 0.4s ease" }} />
       </div>
-      <span className="stats-breakdown-count">
-        {count}
-        {total > 0 && (
-          <span style={{ fontWeight: 400, color: "#9ca3af", marginLeft: "0.25rem" }}>
-            ({width}%)
-          </span>
-        )}
+      <span style={{ fontSize: 12, fontWeight: 600, color: "#374151", width: 55, textAlign: "right" }}>
+        {count} <span style={{ fontWeight: 400, color: "#9CA3AF" }}>({width}%)</span>
       </span>
     </div>
   );
@@ -84,55 +46,29 @@ function BreakdownRow({
 
 function BarChart({ buckets }: { buckets: ChartBucket[] }) {
   if (buckets.length === 0) {
-    return (
-      <div style={{ padding: "32px 0", textAlign: "center", fontSize: "13px", color: "#94a3b8", fontFamily: FONT }}>
-        Aucune donnée pour cette période.
-      </div>
-    );
+    return <div style={{ padding: "32px 0", textAlign: "center", fontSize: 13, color: "#94A3B8" }}>Aucune donnée.</div>;
   }
   const maxCount = Math.max(...buckets.map((b) => b.count), 1);
-  const BAR_MAX_H = 120;
+  const BAR_MAX_H = 100;
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: "6px", height: `${BAR_MAX_H + 20}px`, maxHeight: "200px", overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: BAR_MAX_H + 20 }}>
         {buckets.map((bucket, i) => {
           const barH = Math.max(Math.round((bucket.count / maxCount) * BAR_MAX_H), bucket.count > 0 ? 4 : 0);
           return (
-            <div
-              key={i}
-              style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}
-            >
-              <span style={{ fontSize: "10px", fontWeight: 600, color: "#374151", marginBottom: "2px", fontFamily: FONT }}>
-                {bucket.count}
-              </span>
-              <div
-                style={{
-                  width: "100%",
-                  backgroundColor: "#2563eb",
-                  borderRadius: "3px 3px 0 0",
-                  height: `${barH}px`,
-                }}
-              />
+            <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" }}>
+              {bucket.count > 0 && (
+                <span style={{ fontSize: 10, fontWeight: 600, color: "#374151", marginBottom: 2 }}>{bucket.count}</span>
+              )}
+              <div style={{ width: "100%", background: "var(--ap-primary)", borderRadius: "3px 3px 0 0", height: barH, opacity: 0.85 }} />
             </div>
           );
         })}
       </div>
-      <div style={{ display: "flex", gap: "6px", marginTop: "6px", borderTop: "2px solid #e2e8f0", paddingTop: "6px" }}>
+      <div style={{ display: "flex", gap: 4, marginTop: 4, borderTop: "1.5px solid #E2E8F0", paddingTop: 4 }}>
         {buckets.map((bucket, i) => (
-          <div
-            key={i}
-            style={{
-              flex: 1,
-              textAlign: "center",
-              fontSize: "10px",
-              color: "#94a3b8",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              fontFamily: FONT,
-            }}
-          >
+          <div key={i} style={{ flex: 1, textAlign: "center", fontSize: 9, color: "#94A3B8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {bucket.label}
           </div>
         ))}
@@ -141,12 +77,22 @@ function BarChart({ buckets }: { buckets: ChartBucket[] }) {
   );
 }
 
+function KpiCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+  return (
+    <Card padding={20} style={{ position: "relative", overflow: "hidden" }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "var(--ap-primary)", borderRadius: "14px 14px 0 0" }} />
+      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "#94A3B8", marginBottom: 10 }}>{label}</div>
+      <div style={{ fontSize: 30, fontWeight: 800, color: "#0F172A", letterSpacing: "-0.02em", lineHeight: 1 }}>{value}</div>
+      {sub && <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 6 }}>{sub}</div>}
+    </Card>
+  );
+}
+
 export default function StatsPage() {
-  const [data, setData] = useState<{
-    total: StatsResult;
-    month: StatsResult;
-    chartData: { byWeek: ChartBucket[]; byDay: ChartBucket[] };
-  } | null>(null);
+  const { skin } = useDashboard();
+  void skin;
+
+  const [data, setData] = useState<{ total: StatsResult; month: StatsResult; chartData: { byWeek: ChartBucket[]; byDay: ChartBucket[] } } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<"month" | "total">("month");
@@ -155,158 +101,81 @@ export default function StatsPage() {
     fetch("/api/stats", { credentials: "include" })
       .then((r) => r.json())
       .then((json: StatsResponse) => {
-        if (!json.success) {
-          setError(json.error || "Erreur inconnue");
-          return;
-        }
+        if (!json.success) { setError(json.error || "Erreur inconnue"); return; }
         setData(json.data ?? null);
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) {
-    return (
-      <Card padding={32}>
-        <LoadingSpinner text="Chargement des statistiques…" />
-      </Card>
-    );
-  }
-
+  if (loading) return <Card padding={32}><LoadingSpinner text="Chargement des statistiques…" /></Card>;
   if (error || !data) {
-    return (
-      <div style={{ padding: "16px", borderRadius: "8px", backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", fontSize: "14px", fontFamily: FONT }}>
-        Erreur : {error ?? "Impossible de charger les statistiques."}
-      </div>
-    );
+    return <div style={{ padding: 16, borderRadius: 10, background: "#FEF2F2", border: "1px solid #FECACA", color: "#DC2626", fontSize: 13 }}>Erreur : {error ?? "Impossible de charger."}</div>;
   }
 
   const stats = view === "month" ? data.month : data.total;
   const chartBuckets = view === "month" ? data.chartData.byDay : data.chartData.byWeek;
-
   const traitementPct = stats.total > 0 ? Math.round((stats.byStatus.processed / stats.total) * 100) : 0;
-  const traitementColor = traitementPct >= 70 ? "#10b981" : traitementPct >= 40 ? "#f59e0b" : "#ef4444";
-  const traitementBg = traitementPct >= 70 ? "#f0fdf4" : traitementPct >= 40 ? "#fffbeb" : "#fef2f2";
-  const traitementBorder = traitementPct >= 70 ? "#bbf7d0" : traitementPct >= 40 ? "#fde68a" : "#fecaca";
 
   return (
-    <div style={{ fontFamily: FONT }}>
-      <style>{`.stats-breakdown-row{padding-top:8px!important;padding-bottom:8px!important}`}</style>
-      {/* Header + toggle */}
-      <div style={{ marginBottom: "28px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
-          <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", margin: 0, fontFamily: FONT }}>
-            Statistiques
-          </h1>
-          <div style={{ display: "flex", backgroundColor: "#f1f5f9", borderRadius: "8px", padding: "4px", gap: "4px" }}>
-            <Button
-              variant={view === "month" ? "secondary" : "ghost"}
-              onClick={() => setView("month")}
-              className="!px-[14px] !py-[6px] text-[13px]"
-            >
-              Ce mois-ci
-            </Button>
-            <Button
-              variant={view === "total" ? "secondary" : "ghost"}
-              onClick={() => setView("total")}
-              className="!px-[14px] !py-[6px] text-[13px]"
-            >
-              Tout
-            </Button>
+    <div style={{ fontFamily: "var(--font-sans)" }}>
+      {/* Header */}
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0F172A", letterSpacing: "-0.02em", margin: 0 }}>Statistiques</h1>
+            <div style={{ width: 32, height: 2, background: "var(--ap-primary)", borderRadius: 2, marginTop: 6 }} />
+          </div>
+          <div style={{ display: "flex", background: "#F1F5F9", borderRadius: 10, padding: 3, gap: 3 }}>
+            <Button variant={view === "month" ? "dark" : "ghost"} size="sm" onClick={() => setView("month")}>Ce mois-ci</Button>
+            <Button variant={view === "total" ? "dark" : "ghost"} size="sm" onClick={() => setView("total")}>Tout</Button>
           </div>
         </div>
-        <div style={{ width: "40px", height: "3px", backgroundColor: "#2563eb", borderRadius: "2px", marginTop: "8px", marginBottom: "8px" }} />
-        <p style={{ fontSize: "15px", color: "#64748b", fontWeight: 400, margin: 0, fontFamily: FONT }}>
-          Suivez la performance de votre activité
-        </p>
       </div>
 
       {stats.total === 0 ? (
-        <Card padding="64px 24px" className="text-center">
-          <h2 style={{ fontSize: "16px", fontWeight: 600, color: "#0f172a", marginBottom: "8px" }}>Aucune donnée</h2>
-          <p style={{ fontSize: "14px", color: "#64748b" }}>
-            {view === "month"
-              ? "Aucun lead reçu ce mois-ci."
-              : "Aucun lead enregistré pour l'instant."}
-          </p>
+        <Card padding={48} style={{ textAlign: "center" }}>
+          <h2 style={{ fontSize: 15, fontWeight: 600, color: "#0F172A", marginBottom: 8 }}>Aucune donnée</h2>
+          <p style={{ fontSize: 13, color: "#64748B", margin: 0 }}>{view === "month" ? "Aucun lead reçu ce mois-ci." : "Aucun lead enregistré."}</p>
         </Card>
       ) : (
         <>
-          {/* KPIs — 4 cards */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "12px" }}>
-            {/* Leads reçus */}
-            <div style={{ backgroundColor: "#eff6ff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: "1px solid #bfdbfe", padding: "24px" }}>
-              <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", color: "#3b82f6", textTransform: "uppercase", fontFamily: FONT }}>Leads reçus</div>
-              <div style={{ fontSize: "28px", fontWeight: 800, color: "#1e40af", letterSpacing: "-0.02em", marginTop: "8px", fontFamily: FONT }}>{stats.total}</div>
-            </div>
-
-            {/* Score moyen */}
-            <div style={{ backgroundColor: "#eff6ff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: "1px solid #bfdbfe", padding: "24px" }}>
-              <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", color: "#3b82f6", textTransform: "uppercase", fontFamily: FONT }}>Score moyen</div>
-              <div style={{ fontSize: "28px", fontWeight: 800, color: "#1e40af", letterSpacing: "-0.02em", marginTop: "8px", fontFamily: FONT }}>
-                {stats.avgScore != null ? stats.avgScore : "—"}
-              </div>
-              <div style={{ fontSize: "12px", color: "#60a5fa", marginTop: "2px", fontFamily: FONT }}>sur 100</div>
-            </div>
-
-            {/* Taux de traitement */}
-            <div style={{ backgroundColor: traitementBg, borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: `1px solid ${traitementBorder}`, padding: "24px" }}>
-              <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", color: traitementColor, textTransform: "uppercase", fontFamily: FONT }}>Taux de traitement</div>
-              <div style={{ fontSize: "28px", fontWeight: 800, color: traitementColor, letterSpacing: "-0.02em", marginTop: "8px", fontFamily: FONT }}>{traitementPct}%</div>
-              <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px", fontFamily: FONT }}>
-                {stats.byStatus.processed} sur {stats.total} lead{stats.total > 1 ? "s" : ""} traité{stats.byStatus.processed > 1 ? "s" : ""}
-              </div>
-            </div>
-
-            {/* Haute priorité */}
-            <div style={{ backgroundColor: "#fffbeb", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: "1px solid #fde68a", padding: "24px" }}>
-              <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", color: "#d97706", textTransform: "uppercase", fontFamily: FONT }}>Haute priorité</div>
-              <div style={{ fontSize: "28px", fontWeight: 800, color: "#92400e", letterSpacing: "-0.02em", marginTop: "8px", fontFamily: FONT }}>{stats.highPriority}</div>
-              <div style={{ fontSize: "12px", color: "#d97706", marginTop: "2px", fontFamily: FONT }}>
-                {pct(stats.highPriority, stats.total)}% du total
-              </div>
-            </div>
+          {/* KPIs */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
+            <KpiCard label="Leads reçus" value={stats.total} />
+            <KpiCard label="Score moyen" value={stats.avgScore ?? "—"} sub="sur 100" />
+            <KpiCard label="Taux de traitement" value={`${traitementPct}%`} sub={`${stats.byStatus.processed} traité${stats.byStatus.processed > 1 ? "s" : ""}`} />
+            <KpiCard label="Haute priorité" value={stats.highPriority} sub={`${pct(stats.highPriority, stats.total)}% du total`} />
           </div>
 
           {/* Breakdowns */}
-          <div className="stats-breakdown-grid" style={{ marginTop: "24px" }}>
-            <Card padding="none">
-              <div style={{ padding: "12px 16px", borderBottom: "1px solid #f1f5f9", fontSize: "14px", fontWeight: 600, color: "#374151", fontFamily: FONT }}>Par type de demande</div>
-              <div style={{ padding: "8px 16px" }}>
-                <BreakdownRow label="Dépannage" count={stats.byType.depannage} total={stats.total} colorClass="stats-progress-fill--red" />
-                <BreakdownRow label="Installation" count={stats.byType.installation} total={stats.total} />
-                <BreakdownRow label="Devis" count={stats.byType.devis} total={stats.total} colorClass="stats-progress-fill--green" />
-                <BreakdownRow label="Autre" count={stats.byType.autre} total={stats.total} colorClass="stats-progress-fill--slate" />
-                <BreakdownRow label="Non renseigné" count={stats.byType.nonRenseigne} total={stats.total} colorClass="stats-progress-fill--slate" />
-              </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+            <Card padding={20}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#0F172A", marginBottom: 14 }}>Par type de demande</div>
+              <BreakdownRow label="Dépannage" count={stats.byType.depannage} total={stats.total} color="#DC2626" />
+              <BreakdownRow label="Installation" count={stats.byType.installation} total={stats.total} />
+              <BreakdownRow label="Devis" count={stats.byType.devis} total={stats.total} color="#16A34A" />
+              <BreakdownRow label="Autre" count={stats.byType.autre} total={stats.total} />
+              <BreakdownRow label="Non renseigné" count={stats.byType.nonRenseigne} total={stats.total} color="#D1D5DB" />
             </Card>
-
-            <Card padding="none">
-              <div style={{ padding: "12px 16px", borderBottom: "1px solid #f1f5f9", fontSize: "14px", fontWeight: 600, color: "#374151", fontFamily: FONT }}>Par délai</div>
-              <div style={{ padding: "8px 16px" }}>
-                <BreakdownRow label="Urgent (aujourd'hui)" count={stats.byDelay.urgent} total={stats.total} colorClass="stats-progress-fill--red" />
-                <BreakdownRow label="Sous 48h" count={stats.byDelay.h48} total={stats.total} colorClass="stats-progress-fill--amber" />
-                <BreakdownRow label="Cette semaine" count={stats.byDelay.semaine} total={stats.total} />
-                <BreakdownRow label="Pas pressé" count={stats.byDelay.flexible} total={stats.total} colorClass="stats-progress-fill--green" />
-                <BreakdownRow label="Non renseigné" count={stats.byDelay.nonRenseigne} total={stats.total} colorClass="stats-progress-fill--slate" />
-              </div>
+            <Card padding={20}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#0F172A", marginBottom: 14 }}>Par délai souhaité</div>
+              <BreakdownRow label="Urgent (aujourd'hui)" count={stats.byDelay.urgent} total={stats.total} color="#DC2626" />
+              <BreakdownRow label="Sous 48h" count={stats.byDelay.h48} total={stats.total} color="#D97706" />
+              <BreakdownRow label="Cette semaine" count={stats.byDelay.semaine} total={stats.total} />
+              <BreakdownRow label="Pas pressé" count={stats.byDelay.flexible} total={stats.total} />
+              <BreakdownRow label="Non renseigné" count={stats.byDelay.nonRenseigne} total={stats.total} color="#D1D5DB" />
             </Card>
           </div>
 
-          {/* Graphique évolution des leads */}
-          <div style={{ marginTop: "24px" }}>
-          <Card padding="none">
-            <div style={{ padding: "12px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: "14px", fontWeight: 600, color: "#374151", fontFamily: FONT }}>Évolution des leads</span>
-              <span style={{ fontSize: "12px", color: "#94a3b8", fontFamily: FONT }}>
-                {view === "month" ? "Par jour — ce mois-ci" : "Par semaine — tout"}
-              </span>
+          {/* Chart */}
+          <Card padding={20}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#0F172A" }}>Évolution des leads</span>
+              <span style={{ fontSize: 11, color: "#94A3B8" }}>{view === "month" ? "Par jour — ce mois-ci" : "Par semaine — tout"}</span>
             </div>
-            <div style={{ padding: "8px 12px 12px" }}>
-              <BarChart buckets={chartBuckets} />
-            </div>
+            <BarChart buckets={chartBuckets} />
           </Card>
-          </div>
         </>
       )}
     </div>

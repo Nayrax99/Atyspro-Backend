@@ -13,6 +13,7 @@ async function getId(ctx: Ctx): Promise<string> {
 
 const ALLOWED_FIELDS = [
   "status",
+  "full_name",
   "contact_name",
   "phone",
   "address",

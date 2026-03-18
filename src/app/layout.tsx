@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+import RestoreSkin from "@/components/dashboard/RestoreSkin";
 
 const plusJakarta = Plus_Jakarta_Sans({
-  variable: "--font-plus-jakarta",
+  variable: "--font-sans",
   subsets: ["latin"],
-  weight: ["500", "600", "700", "800"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -20,7 +21,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr">
-      <body className={`${plusJakarta.variable} ${plusJakarta.className} antialiased`}>
+      <body className={`${plusJakarta.variable} antialiased`}>
+        <RestoreSkin />
         {children}
       </body>
     </html>

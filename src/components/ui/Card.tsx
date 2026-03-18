@@ -1,31 +1,31 @@
-import type { ReactNode } from "react";
+import type { ReactNode, CSSProperties } from "react";
 
 type CardPadding = number | string | "none";
 
-export default function Card({
-  children,
-  className = "",
-  padding,
-}: {
+interface CardProps {
   children: ReactNode;
-  className?: string;
   padding?: CardPadding;
-}) {
+  style?: CSSProperties;
+  className?: string;
+}
+
+export default function Card({ children, padding, style, className }: CardProps) {
   const resolvedPadding = padding === "none" ? 0 : padding ?? 24;
 
   return (
     <div
-      className={[
-        "bg-white rounded-[12px] border border-[#E2E8F0] overflow-hidden",
-        "shadow-[0_4px_12px_rgba(0,0,0,0.05)]",
-        className,
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      style={{ padding: resolvedPadding }}
+      className={className}
+      style={{
+        background: "#fff",
+        borderRadius: 14,
+        border: "0.5px solid #E5E7EB",
+        overflow: "hidden",
+        boxShadow: "0 1px 3px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04)",
+        padding: resolvedPadding,
+        ...style,
+      }}
     >
       {children}
     </div>
   );
 }
-

@@ -4,66 +4,104 @@
 @source "../app/**/*.{js,ts,jsx,tsx}";
 
 /* ============================================
-   DESIGN SYSTEM - AtysPro Électricien Premium
+   AtysPro — Design System CSS Variables
    ============================================ */
 
-/* Plus Jakarta Sans via next/font dans layout.tsx - variable --font-plus-jakarta */
+:root {
+  /* Couleurs système — ne pas modifier */
+  --ap-navy:          #0D1B38;
+  --ap-dark:          #0F172A;
+  --ap-bg:            #F0F2F7;
+  --ap-white:         #FFFFFF;
+  --ap-gray-100:      #F3F4F6;
+  --ap-gray-200:      #E5E7EB;
+  --ap-gray-300:      #D1D5DB;
+  --ap-gray-400:      #9CA3AF;
+  --ap-gray-500:      #6B7280;
+  --ap-gray-600:      #4B5563;
 
-@theme {
-  /* Couleurs AtysPro */
-  --color-atys-blue: #2563eb;
-  --color-atys-violet: #7c3aed;
-  --color-atys-yellow: #fbbf24;
-  --color-atys-success: #10b981;
-  --color-atys-danger: #ef4444;
+  /* Couleurs sémantiques — ne pas modifier */
+  --ap-danger:        #DC2626;
+  --ap-danger-bg:     #FEF2F2;
+  --ap-danger-border: #FECACA;
+  --ap-success:       #16A34A;
+  --ap-success-bg:    #F0FDF4;
+  --ap-success-border:#BBF7D0;
+  --ap-warning:       #D97706;
+  --ap-warning-bg:    #FFFBEB;
+  --ap-warning-border:#FDE68A;
+  --ap-whatsapp:      #25D366;
 
-  /* Ombres premium */
-  --shadow-atys: 0 20px 40px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.02);
-  --shadow-atys-lg: 0 32px 64px rgba(0, 0, 0, 0.12);
-  --shadow-atys-glow: 0 0 24px rgba(37, 99, 235, 0.35);
-
-  /* Animations custom */
-  --animate-shimmer: shimmer 2s ease-in-out infinite;
-  --animate-badge-pulse: badge-pulse 2s ease-in-out infinite;
-  --animate-badge-bounce: badge-bounce 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+  /* Skin accent — overridées par applySkin() au login */
+  --ap-primary:        #1A56DB;
+  --ap-primary-hover:  #1648C0;
+  --ap-primary-light:  #EBF2FF;
+  --ap-primary-border: #BFDBFE;
 }
 
+/* ============================================
+   AtysPro — Keyframes
+   ============================================ */
+
+@keyframes ap-slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ap-row-in {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes ap-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes ap-fade-down {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ap-fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ap-pulse-badge {
+  0%, 100% { box-shadow: 0 1px 4px rgba(220,38,38,0.5); }
+  50%       { box-shadow: 0 1px 8px rgba(220,38,38,0.8); }
+}
+
+@keyframes ap-pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.6; transform: scale(0.8); }
+}
+
+@keyframes ap-spin {
+  to { transform: translateY(-50%) rotate(360deg); }
+}
+
+@keyframes ap-grid-drift {
+  from { transform: translate(0, 0); }
+  to   { transform: translate(48px, 48px); }
+}
+
+@keyframes ap-orb-float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(20px, -20px) scale(1.05); }
+  66%       { transform: translate(-10px, 15px) scale(0.97); }
+}
+
+/* Legacy shimmer (conservé pour compatibilité) */
 @keyframes shimmer {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }
 }
 
-@keyframes badge-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-  50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
-}
-
-@keyframes badge-bounce {
-  0% { transform: scale(0.8); opacity: 0; }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-@keyframes cardSlideIn {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
 /* ============================================
    BASE
    ============================================ */
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
 
 html,
 body {
@@ -72,10 +110,10 @@ body {
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: var(--font-plus-jakarta, 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif);
-  font-weight: 600;
+  color: var(--ap-dark);
+  background: var(--ap-bg);
+  font-family: var(--font-sans, 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif);
+  font-weight: 400;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

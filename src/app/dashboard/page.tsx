@@ -5,11 +5,16 @@ import Link from "next/link";
 import type { Lead, LeadsResponse, LeadStatus } from "@/types/lead";
 import { LEAD_STATUS_LABELS, formatDelay, formatType } from "@/types/lead";
 import { formatPhone } from "@/lib/utils";
-import { ChevronRight, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Search, ChevronDown } from "lucide-react";
 import LoadingSpinner from "@/components/dashboard/LoadingSpinner";
-import Card from "@/components/ui/Card";
+import Badge from "@/components/ui/Badge";
+import type { BadgeVariant } from "@/components/ui/Badge";
+import ScoreCircle from "@/components/ui/ScoreCircle";
+import MetierBadge from "@/components/ui/MetierBadge";
+import { useDashboard } from "@/contexts/DashboardContext";
+import { SKINS } from "@/theme";
 
-const FONT = "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif";
+const FONT = "var(--font-sans, 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif)";
 const API_BASE = "";
 
 type SortField = "priority_score" | "created_at";
@@ -17,71 +22,55 @@ type SortDir = "asc" | "desc";
 type StatusFilterValue = "active" | LeadStatus | "";
 
 const STATUS_FILTER_OPTIONS: { value: StatusFilterValue; label: string }[] = [
-  { value: "active",      label: "Actifs" },
-  { value: "",            label: "Tous" },
-  { value: "new",         label: "Nouveau" },
-  { value: "incomplete",  label: "Incomplet" },
-  { value: "to_process",  label: "À traiter" },
-  { value: "processed",   label: "Traité" },
+  { value: "active",     label: "Actifs" },
+  { value: "",           label: "Tous" },
+  { value: "new",        label: "Nouveau" },
+  { value: "incomplete", label: "Incomplet" },
+  { value: "to_process", label: "À traiter" },
+  { value: "processed",  label: "Traité" },
 ];
 
-const STATUS_BADGE_CLASSES: Record<LeadStatus, string> = {
-  new: "badge badge--neutral",
-  incomplete: "badge badge--danger",
-  to_process: "badge badge--warning",
-  processed: "badge badge--success",
+const STATUS_TO_BADGE: Record<LeadStatus, BadgeVariant> = {
+  new:        "nouveau",
+  incomplete: "incomplet",
+  to_process: "a-traiter",
+  processed:  "traite",
 };
 
-function getScoreClass(score: number | null): string {
-  if (score == null) return "score-cell--low";
-  if (score >= 70) return "score-cell--high";
-  if (score >= 40) return "score-cell--medium";
-  return "score-cell--critical";
+function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: SortField | null; sortDir: SortDir }) {
+  if (sortField !== field) return <ArrowUpDown size={11} style={{ opacity: 0.35 }} />;
+  return sortDir === "asc"
+    ? <ArrowUp size={11} style={{ color: "var(--ap-primary)" }} />
+    : <ArrowDown size={11} style={{ color: "var(--ap-primary)" }} />;
 }
 
-function SortIcon({
-  field,
-  sortField,
-  sortDir,
-}: {
-  field: SortField;
-  sortField: SortField | null;
-  sortDir: SortDir;
-}) {
-  if (sortField !== field)
-    return <ArrowUpDown size={12} className="th-sort-icon" />;
-  return sortDir === "asc" ? (
-    <ArrowUp size={12} className="th-sort-icon th-sort-icon--active" />
-  ) : (
-    <ArrowDown size={12} className="th-sort-icon th-sort-icon--active" />
-  );
-}
-
-interface HeaderStats {
-  total: number;
-  processed: number;
+interface StatsData {
+  total: { total: number };
+  month: {
+    total: number;
+    byStatus: { new: number; to_process: number; incomplete: number; processed: number };
+    avgScore: number | null;
+    urgent: number;
+  };
 }
 
 export default function DashboardPage() {
+  const { skin } = useDashboard();
   const [data, setData] = useState<LeadsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [headerStats, setHeaderStats] = useState<HeaderStats | null>(null);
+  const [statsData, setStatsData] = useState<StatsData | null>(null);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<StatusFilterValue>("active");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [hoveredChevronId, setHoveredChevronId] = useState<string | null>(null);
-  const limit = 15;
+  const [hoveredRow, setHoveredRow] = useState<string | null>(null);
+  const limit = 10;
 
-  // Debounce search (400ms)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearch(searchInput);
-      setPage(1);
-    }, 400);
+    const timer = setTimeout(() => { setSearch(searchInput); setPage(1); }, 400);
     return () => clearTimeout(timer);
   }, [searchInput]);
 
@@ -90,73 +79,48 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
 
-    const params = new URLSearchParams({
-      page: String(page),
-      limit: String(limit),
-    });
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (statusFilter) params.set("status", statusFilter);
     if (search.trim()) params.set("search", search.trim());
 
     fetch(`${API_BASE}/api/leads?${params.toString()}`)
-      .then((res) => res.json())
+      .then((r) => r.json())
       .then((json: LeadsResponse & { error?: string }) => {
         if (cancelled) return;
-        if (!json.success) {
-          setError(json.error || "Erreur inconnue");
-          setData(null);
-          return;
-        }
+        if (!json.success) { setError(json.error ?? "Erreur inconnue"); setData(null); return; }
         setData(json as LeadsResponse);
       })
-      .catch((err: Error) => {
-        if (!cancelled) {
-          setError(err.message || "Erreur réseau");
-          setData(null);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      .catch((err: Error) => { if (!cancelled) { setError(err.message); setData(null); } })
+      .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
   }, [page, statusFilter, search]);
 
-  useEffect(() => {
-    const cancel = fetchLeads();
-    return cancel;
-  }, [fetchLeads]);
+  useEffect(() => { const cancel = fetchLeads(); return cancel; }, [fetchLeads]);
 
-  // Fetch light stats for header summary (silent — does not affect leads logic)
   useEffect(() => {
     fetch("/api/stats", { credentials: "include" })
       .then((r) => r.json())
-      .then((json: { success: boolean; data?: { total: { total: number }; month: { byStatus: { processed: number } } } }) => {
-        if (json.success && json.data) {
-          setHeaderStats({ total: json.data.total.total, processed: json.data.month.byStatus.processed });
-        }
+      .then((json: { success: boolean; data?: StatsData }) => {
+        if (json.success && json.data) setStatsData(json.data);
       })
       .catch(() => {});
   }, []);
 
   function handleSort(field: SortField) {
-    if (sortField === field) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortField(field);
-      setSortDir("desc");
-    }
+    if (sortField === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortField(field); setSortDir("desc"); }
   }
 
   const leads = useMemo(() => data?.data ?? [], [data]);
   const pagination = data?.pagination;
-
   const sortedLeads = useMemo(() => {
     if (!sortField) return leads;
     return [...leads].sort((a, b) => {
       if (sortField === "priority_score") {
-        const aVal = a.priority_score ?? -1;
-        const bVal = b.priority_score ?? -1;
-        return sortDir === "asc" ? aVal - bVal : bVal - aVal;
+        return sortDir === "asc"
+          ? (a.priority_score ?? -1) - (b.priority_score ?? -1)
+          : (b.priority_score ?? -1) - (a.priority_score ?? -1);
       }
       const aDate = new Date(a.created_at).getTime();
       const bDate = new Date(b.created_at).getTime();
@@ -164,183 +128,383 @@ export default function DashboardPage() {
     });
   }, [leads, sortField, sortDir]);
 
+  // Contextual banner data
+  const pendingCount = (statsData?.month.byStatus.to_process ?? 0) + (statsData?.month.byStatus.new ?? 0);
+  const urgentCount = statsData?.month.urgent ?? 0;
+  const skinConfig = SKINS[skin];
+
+  const thHeader: React.CSSProperties = {
+    padding: "9px 14px",
+    textAlign: "left",
+    fontSize: 10,
+    fontWeight: 700,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: "#9CA3AF",
+    background: "#F3F4F6",
+    borderBottom: "0.5px solid #E5E7EB",
+    whiteSpace: "nowrap",
+  };
+
+  const tdCell: React.CSSProperties = {
+    padding: "13px 14px",
+    borderBottom: "0.5px solid #E5E7EB",
+    fontSize: 13,
+    color: "#0F172A",
+    verticalAlign: "middle",
+  };
+
   return (
-    <div style={{ fontFamily: FONT }}>
-      <style>{`.atys-pagination-btn:hover:not(:disabled){background-color:#f8fafc!important}`}</style>
-      <div style={{ marginBottom: "32px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
-          <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", margin: 0, fontFamily: FONT }}>Leads</h1>
-          {headerStats && (
-            <span style={{ fontSize: "14px", color: "#64748b", fontWeight: 500, fontFamily: FONT }}>
-              {headerStats.total} lead{headerStats.total !== 1 ? "s" : ""} · {headerStats.processed} traité{headerStats.processed !== 1 ? "s" : ""} ce mois
-            </span>
-          )}
+    <div style={{ fontFamily: FONT, width: "100%" }}>
+      {/* ── Page Header ─────────────────────────────────────────── */}
+      <div style={{ marginBottom: 24 }}>
+        {/* Title row */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0F172A", letterSpacing: "-0.03em", margin: 0 }}>
+              Leads
+            </h1>
+            {/* Accent bar */}
+            <div style={{ width: 40, height: 2, background: "var(--ap-primary)", borderRadius: 2, marginTop: 6 }} />
+          </div>
+          {/* Skin badge — droite */}
+          {skin !== "core" && <MetierBadge metier={skin} />}
         </div>
-        <div style={{ width: "40px", height: "3px", backgroundColor: "#2563eb", borderRadius: "2px", marginTop: "8px", marginBottom: "8px" }} />
-        <p style={{ fontSize: "15px", color: "#64748b", fontWeight: 400, margin: 0, fontFamily: FONT }}>
-          Vos prospects qualifiés par l&apos;assistant vocal
-        </p>
+
+        {/* Contextual banner */}
+        {statsData && (
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 12 }}>
+            <span style={{ fontSize: 13, color: "#6B7280", fontWeight: 400 }}>
+              {skinConfig.wording.pageSub}
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {pendingCount > 0 && (
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--ap-primary)",
+                    background: "var(--ap-primary-light)",
+                    border: "0.5px solid var(--ap-primary-border)",
+                    padding: "3px 10px",
+                    borderRadius: 20,
+                  }}
+                >
+                  {pendingCount} en attente
+                </span>
+              )}
+              {urgentCount > 0 && (
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#DC2626",
+                    background: "#FEF2F2",
+                    border: "0.5px solid #FECACA",
+                    padding: "3px 10px",
+                    borderRadius: 20,
+                  }}
+                >
+                  {urgentCount} urgent{urgentCount > 1 ? "s" : ""} aujourd&apos;hui
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
-      <Card padding="none">
-        <div style={{ padding: "16px 24px", borderBottom: "1px solid #f1f5f9", fontSize: "14px", fontWeight: 600, color: "#374151", fontFamily: FONT }}>Liste des leads</div>
-
+      {/* ── Table Card ──────────────────────────────────────────── */}
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 14,
+          border: "0.5px solid #E5E7EB",
+          overflow: "hidden",
+          boxShadow: "0 1px 3px rgba(15,23,42,0.06)",
+          animation: "ap-slide-up 0.4s ease 100ms both",
+          width: "100%",
+        }}
+      >
         {/* Filter bar */}
-        <div style={{ display: "flex", gap: "12px", padding: "16px 24px", borderBottom: "1px solid #f1f5f9", flexWrap: "wrap" }}>
-          <input
-            type="search"
-            placeholder="Rechercher (nom, téléphone, adresse...)"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            style={{ flex: "1 1 240px", padding: "10px 14px", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "14px", fontFamily: FONT, color: "#0f172a", outline: "none", backgroundColor: "white" }}
-            className="atys-input"
-          />
-          <select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value as StatusFilterValue);
-              setPage(1);
-            }}
-            style={{ padding: "10px 14px", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "14px", fontFamily: FONT, color: "#374151", backgroundColor: "white", outline: "none", cursor: "pointer" }}
-          >
-            {STATUS_FILTER_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+        <div
+          style={{
+            padding: "14px 18px",
+            borderBottom: "0.5px solid #E5E7EB",
+            display: "flex",
+            gap: 10,
+            flexWrap: "wrap",
+            alignItems: "center",
+          }}
+        >
+          {/* Search */}
+          <div style={{ position: "relative", flex: "1 1 240px" }}>
+            <Search
+              size={14}
+              style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#9CA3AF", pointerEvents: "none" }}
+            />
+            <input
+              type="search"
+              placeholder="Rechercher (nom, téléphone, adresse…)"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "9px 12px 9px 32px",
+                border: "0.5px solid #E5E7EB",
+                borderRadius: 8,
+                fontSize: 13,
+                fontFamily: FONT,
+                color: "#0F172A",
+                outline: "none",
+                background: "#F3F4F6",
+                transition: "border-color 0.15s, box-shadow 0.15s",
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = "var(--ap-primary)";
+                e.target.style.boxShadow = "0 0 0 3px rgba(26,86,219,0.12)";
+                e.target.style.background = "#fff";
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = "#E5E7EB";
+                e.target.style.boxShadow = "none";
+                e.target.style.background = "#F3F4F6";
+              }}
+            />
+          </div>
+          {/* Status filter with chevron */}
+          <div style={{ position: "relative" }}>
+            <select
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value as StatusFilterValue); setPage(1); }}
+              style={{
+                padding: "7px 32px 7px 10px",
+                border: "0.5px solid #D1D5DB",
+                borderRadius: 8,
+                fontSize: 13,
+                fontFamily: FONT,
+                color: "#374151",
+                background: "#fff",
+                outline: "none",
+                cursor: "pointer",
+                appearance: "none",
+                WebkitAppearance: "none",
+              }}
+            >
+              {STATUS_FILTER_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <ChevronDown
+              size={13}
+              style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: "#6B7280", pointerEvents: "none" }}
+            />
+          </div>
         </div>
 
-        <div style={{ overflowX: "auto" }}>
+        {/* Table */}
+        <div style={{ overflowX: "auto", width: "100%" }}>
           {loading && !data ? (
             <LoadingSpinner text="Chargement des leads…" />
           ) : error ? (
-            <div style={{ padding: "32px 24px", color: "#dc2626", fontSize: "14px", fontFamily: FONT }}>
-              Erreur : {error}. Vérifiez que l&apos;API et Supabase sont accessibles.
+            <div style={{ padding: "32px 24px", color: "#DC2626", fontSize: 13, fontFamily: FONT }}>
+              Erreur : {error}
             </div>
           ) : leads.length === 0 ? (
             <div style={{ padding: "64px 24px", textAlign: "center", fontFamily: FONT }}>
-              <h2 style={{ fontSize: "16px", fontWeight: 600, color: "#0f172a", marginBottom: "8px" }}>Aucun lead</h2>
-              <p style={{ fontSize: "14px", color: "#64748b" }}>
+              <h2 style={{ fontSize: 15, fontWeight: 600, color: "#0F172A", marginBottom: 8 }}>Aucun lead</h2>
+              <p style={{ fontSize: 13, color: "#6B7280" }}>
                 {statusFilter || search
                   ? "Aucun résultat pour ces critères."
                   : "Les leads issus de l'assistant vocal apparaîtront ici."}
               </p>
             </div>
           ) : (
-            <table className="leads-table">
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  <th>Contact</th>
-                  <th>Téléphone</th>
-                  <th>Type / Délai</th>
-                  <th>Statut</th>
+                  <th style={thHeader}>Contact</th>
+                  <th style={thHeader}>Téléphone</th>
+                  <th style={thHeader}>{skinConfig.wording.typeLabel}</th>
+                  <th style={thHeader}>Statut</th>
                   <th
-                    className="th-sortable"
+                    style={{ ...thHeader, cursor: "pointer", userSelect: "none" }}
                     onClick={() => handleSort("priority_score")}
                   >
-                    Score{" "}
-                    <SortIcon field="priority_score" sortField={sortField} sortDir={sortDir} />
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      Score <SortIcon field="priority_score" sortField={sortField} sortDir={sortDir} />
+                    </span>
                   </th>
-                  <th>Relances</th>
+                  <th style={thHeader}>Relances</th>
                   <th
-                    className="th-sortable"
+                    style={{ ...thHeader, cursor: "pointer", userSelect: "none" }}
                     onClick={() => handleSort("created_at")}
                   >
-                    Date{" "}
-                    <SortIcon field="created_at" sortField={sortField} sortDir={sortDir} />
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      Date <SortIcon field="created_at" sortField={sortField} sortDir={sortDir} />
+                    </span>
                   </th>
-                  <th></th>
+                  <th style={{ ...thHeader, width: 40 }}></th>
                 </tr>
               </thead>
               <tbody>
-                {sortedLeads.map((lead: Lead) => (
-                  <tr key={lead.id}>
-                    <td>
-                      {lead.full_name || (
-                        <span className="lead-cell-empty" style={{ fontStyle: "italic" }}>
-                          Inconnu
+                {sortedLeads.map((lead: Lead, idx) => {
+                  const isHovered = hoveredRow === lead.id;
+                  return (
+                    <tr
+                      key={lead.id}
+                      style={{
+                        background: isHovered ? "#F8FAFE" : "#fff",
+                        transition: "background 0.12s ease",
+                        animation: `ap-row-in 350ms ease ${300 + idx * 60}ms both`,
+                      }}
+                      onMouseEnter={() => setHoveredRow(lead.id)}
+                      onMouseLeave={() => setHoveredRow(null)}
+                    >
+                      <td style={{ ...tdCell, fontWeight: 500 }}>
+                        {lead.full_name || (
+                          <span style={{ color: "#9CA3AF", fontStyle: "italic" }}>Inconnu</span>
+                        )}
+                      </td>
+                      <td style={{ ...tdCell, color: "#6B7280" }}>
+                        {formatPhone(lead.client_phone)}
+                      </td>
+                      <td style={tdCell}>
+                        <span style={{ fontWeight: 600, fontSize: 13, color: "#0F172A" }}>
+                          {formatType(lead)}
                         </span>
-                      )}
-                    </td>
-                    <td>{formatPhone(lead.client_phone)}</td>
-                    <td>
-                      <span className="lead-job-type">{formatType(lead)}</span>
-                      <div className="lead-request-preview">{formatDelay(lead)}</div>
-                    </td>
-                    <td>
-                      <span className={STATUS_BADGE_CLASSES[lead.status]}>
-                        {LEAD_STATUS_LABELS[lead.status]}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`score-cell ${getScoreClass(lead.priority_score)}`}>
-                        {lead.priority_score != null ? lead.priority_score : "—"}
-                      </span>
-                    </td>
-                    <td>
-                      {lead.relance_count != null && lead.relance_count > 0 ? (
-                        <span className="badge badge--warning">
-                          {lead.relance_count} relance{lead.relance_count > 1 ? "s" : ""}
-                        </span>
-                      ) : (
-                        <span className="text-sm text-slate-500">0</span>
-                      )}
-                    </td>
-                    <td>
-                      {lead.created_at
-                        ? new Date(lead.created_at).toLocaleDateString("fr-FR", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })
-                        : "—"}
-                    </td>
-                    <td>
-                      <Link
-                        href={`/dashboard/leads/${lead.id}`}
-                        onMouseEnter={() => setHoveredChevronId(lead.id)}
-                        onMouseLeave={() => setHoveredChevronId(null)}
-                        className="lead-table-action"
-                        style={{ width: "32px", height: "32px" }}
-                      >
-                        <ChevronRight size={15} />
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                        <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>
+                          {formatDelay(lead)}
+                        </div>
+                      </td>
+                      <td style={tdCell}>
+                        <Badge variant={STATUS_TO_BADGE[lead.status]}>
+                          {LEAD_STATUS_LABELS[lead.status]}
+                        </Badge>
+                      </td>
+                      <td style={{ ...tdCell, textAlign: "center" }}>
+                        <ScoreCircle score={lead.priority_score} size="md" />
+                      </td>
+                      <td style={{ ...tdCell, textAlign: "center" }}>
+                        {lead.relance_count != null && lead.relance_count > 0 ? (
+                          <Badge variant="relance">
+                            {lead.relance_count} relance{lead.relance_count > 1 ? "s" : ""}
+                          </Badge>
+                        ) : (
+                          <span style={{ color: "#D1D5DB" }}>0</span>
+                        )}
+                      </td>
+                      <td style={{ ...tdCell, color: "#6B7280", fontSize: 12 }}>
+                        {lead.created_at
+                          ? new Date(lead.created_at).toLocaleDateString("fr-FR", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            })
+                          : "—"}
+                      </td>
+                      <td style={{ ...tdCell, textAlign: "center" }}>
+                        <Link
+                          href={`/dashboard/leads/${lead.id}`}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: 28,
+                            height: 28,
+                            borderRadius: "50%",
+                            border: "0.5px solid #E5E7EB",
+                            color: "#9CA3AF",
+                            textDecoration: "none",
+                            transition: "all 0.15s",
+                            transform: isHovered ? "translateX(3px)" : "none",
+                          }}
+                          onMouseEnter={(e) => {
+                            const el = e.currentTarget as HTMLAnchorElement;
+                            el.style.background = "var(--ap-primary-light)";
+                            el.style.color = "var(--ap-primary)";
+                            el.style.borderColor = "var(--ap-primary-border)";
+                          }}
+                          onMouseLeave={(e) => {
+                            const el = e.currentTarget as HTMLAnchorElement;
+                            el.style.background = "transparent";
+                            el.style.color = "#9CA3AF";
+                            el.style.borderColor = "#E5E7EB";
+                          }}
+                        >
+                          <ChevronRight size={13} />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
         </div>
 
+        {/* Pagination */}
         {pagination && pagination.total > 0 && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 24px", borderTop: "1px solid #f1f5f9", flexWrap: "wrap", gap: "12px" }}>
-            <span style={{ fontSize: "13px", color: "#64748b", fontFamily: FONT }}>
-              {pagination.total} lead{pagination.total > 1 ? "s" : ""} • page{" "}
-              {pagination.page} / {pagination.totalPages}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "12px 18px",
+              borderTop: "0.5px solid #E5E7EB",
+              flexWrap: "wrap",
+              gap: 12,
+            }}
+          >
+            <span style={{ fontSize: 12, color: "#6B7280", fontFamily: FONT }}>
+              {pagination.total} lead{pagination.total > 1 ? "s" : ""} · page {pagination.page} / {pagination.totalPages}
             </span>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button
-                type="button"
+            <div style={{ display: "flex", gap: 8 }}>
+              <PaginationBtn
                 disabled={!pagination.hasPrev}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "white", fontSize: "13px", fontWeight: 500, color: "#334155", cursor: pagination.hasPrev ? "pointer" : "not-allowed", opacity: pagination.hasPrev ? 1 : 0.4, fontFamily: FONT }}
-                className="atys-pagination-btn"
               >
                 Précédent
-              </button>
-              <button
-                type="button"
+              </PaginationBtn>
+              <PaginationBtn
                 disabled={!pagination.hasNext}
                 onClick={() => setPage((p) => p + 1)}
-                style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "white", fontSize: "13px", fontWeight: 500, color: "#334155", cursor: pagination.hasNext ? "pointer" : "not-allowed", opacity: pagination.hasNext ? 1 : 0.4, fontFamily: FONT }}
-                className="atys-pagination-btn"
               >
                 Suivant
-              </button>
+              </PaginationBtn>
             </div>
           </div>
         )}
-      </Card>
+      </div>
     </div>
+  );
+}
+
+function PaginationBtn({
+  children, disabled, onClick,
+}: { children: React.ReactNode; disabled?: boolean; onClick?: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      style={{
+        padding: "7px 14px",
+        borderRadius: 8,
+        border: "0.5px solid #E5E7EB",
+        background: hovered && !disabled ? "#F0F2F7" : "#fff",
+        fontSize: 12,
+        fontWeight: 500,
+        color: "#374151",
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.4 : 1,
+        fontFamily: "var(--font-sans)",
+        transition: "background 0.12s",
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {children}
+    </button>
   );
 }

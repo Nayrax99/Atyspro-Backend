@@ -23,12 +23,13 @@ export async function GET(req: NextRequest) {
       .eq("id", account_id)
       .maybeSingle();
 
-    // Count pending leads (incomplete + needs_review) for sidebar badge
+    // Count actionable leads (nouveau + à traiter, score > 0) for sidebar badge
     const { count: pendingLeads } = await supabaseAdmin
       .from("leads")
       .select("*", { count: "exact", head: true })
       .eq("account_id", account_id)
-      .neq("status", "processed");
+      .in("status", ["new", "to_process"])
+      .gt("priority_score", 0);
 
     return NextResponse.json({
       success: true,

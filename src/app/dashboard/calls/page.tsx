@@ -2,10 +2,12 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+import { ChevronDown } from "lucide-react";
 import { formatPhone } from "@/lib/utils";
 import LoadingSpinner from "@/components/dashboard/LoadingSpinner";
-
-const FONT = "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import { useDashboard } from "@/contexts/DashboardContext";
 
 interface Call {
   id: string;
@@ -23,19 +25,8 @@ interface Call {
 interface CallsResponse {
   success: boolean;
   data?: Call[];
-  kpis?: {
-    total: number;
-    qualified: number;
-    avgDurationSec: number | null;
-  };
-  pagination?: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-    hasNext: boolean;
-    hasPrev: boolean;
-  };
+  kpis?: { total: number; qualified: number; avgDurationSec: number | null };
+  pagination?: { page: number; limit: number; total: number; totalPages: number; hasNext: boolean; hasPrev: boolean };
   error?: string;
 }
 
@@ -48,29 +39,11 @@ function formatAvgDuration(sec: number | null): string {
 
 function formatDuration(started: string | null, ended: string | null): string {
   if (!started || !ended) return "—";
-  const diff = Math.floor(
-    (new Date(ended).getTime() - new Date(started).getTime()) / 1000
-  );
+  const diff = Math.floor((new Date(ended).getTime() - new Date(started).getTime()) / 1000);
   if (diff <= 0) return "—";
   const min = Math.floor(diff / 60);
   const sec = diff % 60;
   return min > 0 ? `${min}m ${sec.toString().padStart(2, "0")}s` : `${sec}s`;
-}
-
-function callStatusClass(status: string | null): string {
-  switch (status) {
-    case "completed":
-      return "badge badge--call-completed";
-    case "no-answer":
-      return "badge badge--call-no-answer";
-    case "busy":
-      return "badge badge--call-busy";
-    case "failed":
-    case "canceled":
-      return "badge badge--call-failed";
-    default:
-      return "badge badge--call-no-answer";
-  }
 }
 
 function callStatusLabel(status: string | null): string {
@@ -87,34 +60,51 @@ function callStatusLabel(status: string | null): string {
   }
 }
 
-function directionClass(dir: string | null): string {
-  return dir === "outbound"
-    ? "badge badge--call-outbound"
-    : "badge badge--call-inbound";
+function CallStatusBadge({ status }: { status: string | null }) {
+  const styles: Record<string, { bg: string; color: string }> = {
+    completed:      { bg: "#DCFCE7", color: "#15803D" },
+    "no-answer":    { bg: "#F1F5F9", color: "#64748B" },
+    busy:           { bg: "#FFFBEB", color: "#D97706" },
+    failed:         { bg: "#FEF2F2", color: "#DC2626" },
+    canceled:       { bg: "#FEF2F2", color: "#DC2626" },
+    ringing:        { bg: "#EFF6FF", color: "#2563EB" },
+    "in-progress":  { bg: "#EFF6FF", color: "#2563EB" },
+    initiated:      { bg: "#EFF6FF", color: "#2563EB" },
+  };
+  const s = styles[status ?? ""] ?? { bg: "#F1F5F9", color: "#64748B" };
+  return (
+    <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 20, background: s.bg, color: s.color, letterSpacing: "0.02em" }}>
+      {callStatusLabel(status)}
+    </span>
+  );
 }
 
-function directionLabel(dir: string | null): string {
-  return dir === "outbound" ? "Sortant" : "Entrant";
+type DirectionFilter = "" | "inbound" | "outbound";
+type QualificationFilter = "" | "qualifie" | "non_qualifie";
+
+function KpiCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+  return (
+    <Card padding={20} style={{ position: "relative", overflow: "hidden" }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "var(--ap-primary)", borderRadius: "14px 14px 0 0" }} />
+      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "#94A3B8", marginBottom: 10 }}>{label}</div>
+      <div style={{ fontSize: 30, fontWeight: 800, color: "#0F172A", letterSpacing: "-0.02em", lineHeight: 1 }}>{value}</div>
+      {sub && <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 6 }}>{sub}</div>}
+    </Card>
+  );
 }
-
-// Business-level filter options (mapped from raw Twilio statuses on the frontend)
-type BusinessFilter = "" | "termine" | "qualifie" | "non_qualifie";
-
-const FILTER_OPTIONS: { value: BusinessFilter; label: string }[] = [
-  { value: "",             label: "Tous les statuts" },
-  { value: "termine",      label: "Terminé" },
-  { value: "qualifie",     label: "Qualifié" },
-  { value: "non_qualifie", label: "Non qualifié" },
-];
 
 export default function CallsPage() {
+  const { skin } = useDashboard();
+  void skin;
+
   const [calls, setCalls] = useState<Call[]>([]);
   const [kpis, setKpis] = useState<CallsResponse["kpis"] | null>(null);
   const [pagination, setPagination] = useState<CallsResponse["pagination"] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<BusinessFilter>("");
+  const [directionFilter, setDirectionFilter] = useState<DirectionFilter>("");
+  const [qualificationFilter, setQualificationFilter] = useState<QualificationFilter>("");
   const limit = 15;
 
   useEffect(() => {
@@ -126,177 +116,138 @@ export default function CallsPage() {
       .then((r) => r.json())
       .then((json: CallsResponse) => {
         if (cancelled) return;
-        if (!json.success) {
-          setError(json.error ?? "Erreur inconnue");
-          return;
-        }
+        if (!json.success) { setError(json.error ?? "Erreur inconnue"); return; }
         setCalls(json.data ?? []);
         setKpis(json.kpis ?? null);
         setPagination(json.pagination ?? null);
       })
-      .catch((err: Error) => {
-        if (!cancelled) setError(err.message);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      .catch((err: Error) => { if (!cancelled) setError(err.message); })
+      .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
   }, [page]);
 
   const filteredCalls = useMemo(() => {
-    if (!statusFilter) return calls;
-
-    if (statusFilter === "termine") {
-      // Artisan answered: completed with a positive duration
-      return calls.filter((c) => {
-        if (c.status !== "completed") return false;
-        const dur = c.started_at && c.ended_at
-          ? Math.floor((new Date(c.ended_at).getTime() - new Date(c.started_at).getTime()) / 1000)
-          : 0;
-        return dur > 0;
-      });
-    }
-
-    if (statusFilter === "qualifie") {
-      // Missed call but assistant created a lead (lead != null ≈ qualification happened)
-      return calls.filter((c) => c.status === "completed" && c.lead != null);
-    }
-
-    // non_qualifie: everything else (no-answer, busy, failed, canceled, ringing, or completed without lead)
     return calls.filter((c) => {
-      if (c.status === "completed" && c.lead != null) return false;
-      if (c.status === "completed") {
-        const dur = c.started_at && c.ended_at
-          ? Math.floor((new Date(c.ended_at).getTime() - new Date(c.started_at).getTime()) / 1000)
-          : 0;
-        if (dur > 0) return false;
-      }
+      if (directionFilter === "inbound" && c.direction !== "inbound") return false;
+      if (directionFilter === "outbound" && c.direction !== "outbound") return false;
+      if (qualificationFilter === "qualifie" && c.lead == null) return false;
+      if (qualificationFilter === "non_qualifie" && c.lead != null) return false;
       return true;
     });
-  }, [calls, statusFilter]);
+  }, [calls, directionFilter, qualificationFilter]);
+
+  const TH: React.CSSProperties = { padding: "10px 16px", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#94A3B8", textAlign: "left", background: "#F8FAFC", borderBottom: "0.5px solid #E5E7EB", whiteSpace: "nowrap" };
+  const TD: React.CSSProperties = { padding: "12px 16px", fontSize: 13, color: "#374151", borderBottom: "0.5px solid #F1F5F9", whiteSpace: "nowrap" };
 
   return (
-    <div style={{ fontFamily: FONT }}>
-      <style>{`.atys-pagination-btn:hover:not(:disabled){background-color:#f8fafc!important}`}</style>
-      <div style={{ marginBottom: "24px" }}>
-        <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", margin: 0, fontFamily: FONT }}>Appels</h1>
-        <div style={{ width: "40px", height: "3px", backgroundColor: "#2563eb", borderRadius: "2px", marginTop: "8px", marginBottom: "8px" }} />
-        <p style={{ fontSize: "15px", color: "#64748b", fontWeight: 400, margin: 0, fontFamily: FONT }}>
-          Historique des appels reçus sur votre numéro pro
-        </p>
+    <div style={{ fontFamily: "var(--font-sans)" }}>
+      {/* Header */}
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0F172A", letterSpacing: "-0.02em", margin: 0 }}>Appels</h1>
+        <div style={{ width: 32, height: 2, background: "var(--ap-primary)", borderRadius: 2, marginTop: 6, marginBottom: 6 }} />
+        <p style={{ fontSize: 13, color: "#64748B", margin: 0 }}>Historique des appels reçus sur votre numéro pro</p>
       </div>
 
-      {/* KPI cards */}
+      {/* KPIs */}
       {kpis && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px", marginBottom: "16px" }}>
-          <div style={{ backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", padding: "12px 20px" }}>
-            <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", color: "#64748b", textTransform: "uppercase" as const, fontFamily: FONT }}>Appels total</div>
-            <div style={{ fontSize: "28px", fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", marginTop: "8px", fontFamily: FONT }}>{kpis.total}</div>
-          </div>
-          <div style={{ backgroundColor: "#f0fdf4", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: "1px solid #bbf7d0", padding: "12px 20px" }}>
-            <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", color: "#10b981", textTransform: "uppercase" as const, fontFamily: FONT }}>Qualifiés</div>
-            <div style={{ fontSize: "28px", fontWeight: 800, color: "#065f46", letterSpacing: "-0.02em", marginTop: "8px", fontFamily: FONT }}>{kpis.qualified}</div>
-            <div style={{ fontSize: "12px", color: "#10b981", marginTop: "2px", fontFamily: FONT }}>
-              {kpis.total > 0 ? Math.round((kpis.qualified / kpis.total) * 100) : 0}% des appels
-            </div>
-          </div>
-          <div style={{ backgroundColor: "#eff6ff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", border: "1px solid #bfdbfe", padding: "12px 20px" }}>
-            <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em", color: "#3b82f6", textTransform: "uppercase" as const, fontFamily: FONT }}>Durée moyenne</div>
-            <div style={{ fontSize: "28px", fontWeight: 800, color: "#1e40af", letterSpacing: "-0.02em", marginTop: "8px", fontFamily: FONT }}>{formatAvgDuration(kpis.avgDurationSec)}</div>
-            <div style={{ fontSize: "12px", color: "#60a5fa", marginTop: "2px", fontFamily: FONT }}>appels terminés</div>
-          </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 20 }}>
+          <KpiCard label="Appels total" value={kpis.total} />
+          <KpiCard
+            label="Qualifiés"
+            value={kpis.qualified}
+            sub={kpis.total > 0 ? `${Math.round((kpis.qualified / kpis.total) * 100)}% des appels` : undefined}
+          />
+          <KpiCard label="Durée moyenne" value={formatAvgDuration(kpis.avgDurationSec)} sub="appels terminés" />
         </div>
       )}
 
-      <div style={{ backgroundColor: "white", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
-        <div style={{ padding: "16px 24px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
-          <span style={{ fontSize: "14px", fontWeight: 600, color: "#374151", fontFamily: FONT }}>Journal des appels</span>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as BusinessFilter)}
-            style={{ padding: "8px 12px", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "13px", fontFamily: FONT, color: "#374151", backgroundColor: "white", cursor: "pointer", outline: "none" }}
-          >
-            {FILTER_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+      {/* Table card */}
+      <Card padding="none">
+        {/* Toolbar */}
+        <div style={{ padding: "14px 20px", borderBottom: "0.5px solid #E5E7EB", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#0F172A" }}>Journal des appels</span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ position: "relative" }}>
+              <select
+                value={directionFilter}
+                onChange={(e) => setDirectionFilter(e.target.value as DirectionFilter)}
+                style={{ height: 34, padding: "0 32px 0 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 12, fontFamily: "var(--font-sans)", color: "#374151", background: "#fff", appearance: "none", cursor: "pointer", outline: "none" }}
+              >
+                <option value="">Tous</option>
+                <option value="inbound">Entrant</option>
+                <option value="outbound">Sortant</option>
+              </select>
+              <ChevronDown size={13} color="#94A3B8" style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+            </div>
+            <div style={{ position: "relative" }}>
+              <select
+                value={qualificationFilter}
+                onChange={(e) => setQualificationFilter(e.target.value as QualificationFilter)}
+                style={{ height: 34, padding: "0 32px 0 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 12, fontFamily: "var(--font-sans)", color: "#374151", background: "#fff", appearance: "none", cursor: "pointer", outline: "none" }}
+              >
+                <option value="">Tous</option>
+                <option value="qualifie">Qualifié</option>
+                <option value="non_qualifie">Non qualifié</option>
+              </select>
+              <ChevronDown size={13} color="#94A3B8" style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+            </div>
+          </div>
         </div>
 
         <div style={{ overflowX: "auto" }}>
           {loading ? (
             <LoadingSpinner text="Chargement des appels…" />
           ) : error ? (
-            <div style={{ padding: "32px 24px", color: "#dc2626", fontSize: "14px", fontFamily: FONT }}>Erreur : {error}</div>
+            <div style={{ padding: "32px 24px", color: "#DC2626", fontSize: 13 }}>Erreur : {error}</div>
           ) : filteredCalls.length === 0 ? (
-            <div style={{ padding: "64px 24px", textAlign: "center", fontFamily: FONT }}>
-              {statusFilter ? (
-                <>
-                  <h2 style={{ fontSize: "16px", fontWeight: 600, color: "#0f172a", marginBottom: "8px" }}>Aucun appel</h2>
-                  <p style={{ fontSize: "14px", color: "#64748b" }}>Aucun appel avec ce statut.</p>
-                </>
-              ) : (
-                <>
-                  <h2 style={{ fontSize: "16px", fontWeight: 600, color: "#0f172a", marginBottom: "8px" }}>Aucun appel enregistré</h2>
-                  <p style={{ fontSize: "14px", color: "#64748b" }}>
-                    Les appels entrants traités par l&apos;assistant vocal AtysPro apparaîtront ici avec leur durée et statut.
-                  </p>
-                </>
-              )}
+            <div style={{ padding: "64px 24px", textAlign: "center" }}>
+              <h2 style={{ fontSize: 15, fontWeight: 600, color: "#0F172A", marginBottom: 8 }}>Aucun appel{(directionFilter || qualificationFilter) ? " avec ces filtres" : ""}</h2>
+              {!directionFilter && !qualificationFilter && <p style={{ fontSize: 13, color: "#64748B", margin: 0 }}>Les appels traités par l&apos;assistant vocal apparaîtront ici.</p>}
             </div>
           ) : (
-            <table className="leads-table">
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>De</th>
-                  <th>Vers</th>
-                  <th>Direction</th>
-                  <th>Durée</th>
-                  <th>Statut</th>
-                  <th>Lead</th>
+                  <th style={TH}>Date</th>
+                  <th style={TH}>De</th>
+                  <th style={TH}>Vers</th>
+                  <th style={TH}>Direction</th>
+                  <th style={TH}>Durée</th>
+                  <th style={TH}>Statut</th>
+                  <th style={TH}>Lead</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredCalls.map((call) => (
                   <tr key={call.id}>
-                    <td>
+                    <td style={TD}>
                       {call.started_at
-                        ? new Date(call.started_at).toLocaleString("fr-FR", {
-                            day: "2-digit",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
+                        ? new Date(call.started_at).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
                         : "—"}
                     </td>
-                    <td>{formatPhone(call.from_number)}</td>
-                    <td>{formatPhone(call.to_number)}</td>
-                    <td>
-                      <span className={directionClass(call.direction)}>
-                        {directionLabel(call.direction)}
-                      </span>
+                    <td style={TD}>{formatPhone(call.from_number)}</td>
+                    <td style={TD}>{formatPhone(call.to_number)}</td>
+                    <td style={TD}>
+                      {call.direction === "outbound" ? (
+                        <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 20, background: "#F3F4F6", color: "#6B7280", border: "1px solid #D1D5DB" }}>
+                          Sortant
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 20, background: "var(--ap-primary-light, #EFF6FF)", color: "var(--ap-primary)", border: "1px solid var(--ap-primary-border, #BFDBFE)" }}>
+                          Entrant
+                        </span>
+                      )}
                     </td>
-                    <td>{formatDuration(call.started_at, call.ended_at)}</td>
-                    <td>
-                      <span className={callStatusClass(call.status)}>
-                        {callStatusLabel(call.status)}
-                      </span>
-                    </td>
-                    <td>
+                    <td style={TD}>{formatDuration(call.started_at, call.ended_at)}</td>
+                    <td style={TD}><CallStatusBadge status={call.status} /></td>
+                    <td style={TD}>
                       {call.lead ? (
-                        <Link
-                          href={`/dashboard/leads/${call.lead.id}`}
-                          style={{ color: "#2563eb", fontWeight: 500, fontSize: "0.875rem" }}
-                        >
-                          {call.lead.full_name || (
-                            <em style={{ color: "#9ca3af" }}>Inconnu</em>
-                          )}
+                        <Link href={`/dashboard/leads/${call.lead.id}`} style={{ color: "var(--ap-primary)", fontWeight: 600, fontSize: 12, textDecoration: "none" }}>
+                          {call.lead.full_name || <em style={{ color: "#9CA3AF", fontStyle: "italic" }}>Inconnu</em>}
                         </Link>
                       ) : (
-                        <span className="lead-cell-empty">—</span>
+                        <span style={{ color: "#D1D5DB" }}>—</span>
                       )}
                     </td>
                   </tr>
@@ -307,34 +258,17 @@ export default function CallsPage() {
         </div>
 
         {pagination && pagination.total > 0 && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 24px", borderTop: "1px solid #f1f5f9", flexWrap: "wrap", gap: "12px" }}>
-            <span style={{ fontSize: "13px", color: "#64748b", fontFamily: FONT }}>
-              {pagination.total} appel{pagination.total > 1 ? "s" : ""} • page{" "}
-              {pagination.page} / {pagination.totalPages}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 20px", borderTop: "0.5px solid #E5E7EB", flexWrap: "wrap", gap: 10 }}>
+            <span style={{ fontSize: 12, color: "#94A3B8" }}>
+              {pagination.total} appel{pagination.total > 1 ? "s" : ""} · page {pagination.page}/{pagination.totalPages}
             </span>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button
-                type="button"
-                disabled={!pagination.hasPrev}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "white", fontSize: "13px", fontWeight: 500, color: "#334155", cursor: pagination.hasPrev ? "pointer" : "not-allowed", opacity: pagination.hasPrev ? 1 : 0.4, fontFamily: FONT }}
-                className="atys-pagination-btn"
-              >
-                Précédent
-              </button>
-              <button
-                type="button"
-                disabled={!pagination.hasNext}
-                onClick={() => setPage((p) => p + 1)}
-                style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "white", fontSize: "13px", fontWeight: 500, color: "#334155", cursor: pagination.hasNext ? "pointer" : "not-allowed", opacity: pagination.hasNext ? 1 : 0.4, fontFamily: FONT }}
-                className="atys-pagination-btn"
-              >
-                Suivant
-              </button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Button variant="ghost" size="sm" disabled={!pagination.hasPrev} onClick={() => setPage((p) => Math.max(1, p - 1))}>Précédent</Button>
+              <Button variant="ghost" size="sm" disabled={!pagination.hasNext} onClick={() => setPage((p) => p + 1)}>Suivant</Button>
             </div>
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

@@ -1,18 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { Lead, LeadDetailResponse, LeadStatus } from "@/types/lead";
 import { LEAD_STATUS_LABELS, formatDelay, formatType } from "@/types/lead";
 import { formatPhone } from "@/lib/utils";
-import { Phone, MessageCircle } from "lucide-react";
+import { Phone, MessageCircle, ArrowLeft, Pencil, Check, X } from "lucide-react";
 import LoadingSpinner from "@/components/dashboard/LoadingSpinner";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
+import Badge, { type BadgeVariant } from "@/components/ui/Badge";
+import ScoreCircle from "@/components/ui/ScoreCircle";
+import { useDashboard } from "@/contexts/DashboardContext";
 
 const API_BASE = "";
-const FONT = "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif";
 
 interface SmsMessage {
   id: string;
@@ -23,28 +25,13 @@ interface SmsMessage {
   created_at: string;
 }
 
-function getScoreBarClass(score: number | null): string {
-  if (score == null) return "lead-score-bar-fill--low";
-  if (score >= 70) return "lead-score-bar-fill--high";
-  if (score >= 40) return "lead-score-bar-fill--medium";
-  return "lead-score-bar-fill--critical";
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  const date = d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+  const time = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }).replace(":", "h");
+  return `${date} à ${time}`;
 }
 
-function getScoreTextClass(score: number | null): string {
-  if (score == null) return "score-cell--low";
-  if (score >= 70) return "score-cell--high";
-  if (score >= 40) return "score-cell--medium";
-  return "score-cell--critical";
-}
-
-const STATUS_BADGE_CLASSES: Record<LeadStatus, string> = {
-  new: "badge badge--neutral",
-  incomplete: "badge badge--danger",
-  to_process: "badge badge--warning",
-  processed: "badge badge--success",
-};
-
-/** Computes the estimated deadline from delay_code + created_at */
 function computeDeadline(lead: Lead): { text: string; isRed: boolean; isGray: boolean } {
   if (!lead.delay_code) return { text: "Non renseigné", isRed: false, isGray: true };
   if (lead.delay_code === 4) return { text: "Pas de date limite", isRed: false, isGray: true };
@@ -61,7 +48,6 @@ function computeDeadline(lead: Lead): { text: string; isRed: boolean; isGray: bo
     deadline = new Date(created);
     deadline.setDate(deadline.getDate() + 2);
   } else {
-    // delay_code === 3
     deadline = new Date(created);
     deadline.setDate(deadline.getDate() + 7);
   }
@@ -71,17 +57,138 @@ function computeDeadline(lead: Lead): { text: string; isRed: boolean; isGray: bo
     ? created.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
     : deadline.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 
-  let text = isUrgent
-    ? `Aujourd'hui (${dateLabel})`
-    : `Avant le ${dateLabel}`;
+  let text = isUrgent ? `Aujourd'hui (${dateLabel})` : `Avant le ${dateLabel}`;
   if (isPast) text += " (dépassée)";
-
   return { text, isRed: isUrgent || isPast, isGray: false };
+}
+
+// Inline-editable field
+function EditableField({
+  label,
+  value,
+  onSave,
+  placeholder = "Non renseigné",
+}: {
+  label: string;
+  value: string | null | undefined;
+  onSave: (val: string) => Promise<void>;
+  placeholder?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? "");
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  const commit = async () => {
+    setSaving(true);
+    try {
+      await onSave(draft.trim());
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const cancel = () => {
+    setDraft(value ?? "");
+    setEditing(false);
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+        {label}
+      </div>
+      {editing ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <input
+            ref={inputRef}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") void commit(); if (e.key === "Escape") cancel(); }}
+            disabled={saving}
+            style={{
+              flex: 1,
+              height: 34,
+              padding: "0 10px",
+              border: "1.5px solid var(--ap-primary)",
+              borderRadius: 8,
+              fontSize: 13,
+              fontFamily: "var(--font-sans)",
+              color: "#0F172A",
+              outline: "none",
+              background: "#fff",
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => void commit()}
+            disabled={saving}
+            style={{ width: 30, height: 30, borderRadius: 8, background: "#16A34A", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}
+          >
+            <Check size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={cancel}
+            style={{ width: 30, height: 30, borderRadius: 8, background: "#F1F5F9", border: "1px solid #E2E8F0", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748B" }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      ) : (
+        <div
+          onClick={() => setEditing(true)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            cursor: "pointer",
+            padding: "6px 8px",
+            borderRadius: 8,
+            transition: "background 0.15s",
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "#F8FAFC"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
+        >
+          <span style={{ fontSize: 13, color: value ? "#0F172A" : "#9CA3AF", fontStyle: value ? "normal" : "italic" }}>
+            {value || placeholder}
+          </span>
+          <Pencil size={12} color="#CBD5E1" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ padding: "16px 24px 0", borderTop: "0.5px solid #F1F5F9" }}>
+      <h3 style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94A3B8", margin: 0, paddingBottom: 14 }}>
+        {children}
+      </h3>
+    </div>
+  );
+}
+
+function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 12, alignItems: "start", padding: "6px 24px" }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: "#94A3B8", paddingTop: 2 }}>{label}</div>
+      <div style={{ fontSize: 13, color: "#0F172A" }}>{children}</div>
+    </div>
+  );
 }
 
 export default function LeadDetailPage() {
   const params = useParams();
   const id = typeof params.id === "string" ? params.id : "";
+  const { skin } = useDashboard();
+
   const [lead, setLead] = useState<Lead | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -89,12 +196,9 @@ export default function LeadDetailPage() {
   const [saving, setSaving] = useState(false);
   const [markingProcessed, setMarkingProcessed] = useState(false);
   const [saveMessage, setSaveMessage] = useState<"success" | "error" | null>(null);
-  const [markHovered, setMarkHovered] = useState(false);
-
   const [smsMessages, setSmsMessages] = useState<SmsMessage[]>([]);
   const [smsLoading, setSmsLoading] = useState(false);
 
-  // Auto-clear save message after 3s
   useEffect(() => {
     if (!saveMessage) return;
     const t = setTimeout(() => setSaveMessage(null), 3000);
@@ -107,38 +211,25 @@ export default function LeadDetailPage() {
     setLoading(true);
     setError(null);
 
-    fetch(`${API_BASE}/api/leads/${id}`)
+    fetch(`${API_BASE}/api/leads/${id}`, { credentials: "include" })
       .then((res) => res.json())
       .then((json: LeadDetailResponse & { error?: string }) => {
         if (cancelled) return;
-        if (!json.success) {
-          setError(json.error || "Lead non trouvé");
-          setLead(null);
-          return;
-        }
+        if (!json.success) { setError(json.error || "Lead non trouvé"); return; }
         const l = json.data;
         setLead(l);
         setStatus(l.status);
       })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err.message || "Erreur réseau");
-          setLead(null);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      .catch((err: Error) => { if (!cancelled) setError(err.message || "Erreur réseau"); })
+      .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
   }, [id]);
 
-  // Fetch SMS history
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
     setSmsLoading(true);
-
     fetch(`${API_BASE}/api/leads/${id}/sms`, { credentials: "include" })
       .then((r) => r.json())
       .then((json: { success: boolean; data?: SmsMessage[] }) => {
@@ -147,56 +238,42 @@ export default function LeadDetailPage() {
       })
       .catch(() => {})
       .finally(() => { if (!cancelled) setSmsLoading(false); });
-
     return () => { cancelled = true; };
   }, [id]);
 
-  const handleSaveStatus = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!id) return;
-    setSaving(true);
-    setSaveMessage(null);
-
-    fetch(`${API_BASE}/api/leads/${id}`, {
+  const patchLead = async (payload: Record<string, unknown>) => {
+    const res = await fetch(`${API_BASE}/api/leads/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    })
-      .then((res) => res.json())
-      .then((json: { success?: boolean; data?: Lead; error?: string }) => {
-        if (json.success && json.data) {
-          setLead(json.data);
-          setSaveMessage("success");
-        } else {
-          setSaveMessage("error");
-        }
-      })
-      .catch(() => setSaveMessage("error"))
-      .finally(() => setSaving(false));
+      body: JSON.stringify(payload),
+      credentials: "include",
+    });
+    const json = (await res.json()) as { success?: boolean; data?: Lead; error?: string };
+    if (json.success && json.data) {
+      setLead(json.data);
+      setStatus(json.data.status);
+      return true;
+    }
+    return false;
   };
 
-  const handleMarkProcessed = () => {
-    if (!id) return;
-    setMarkingProcessed(true);
-    setSaveMessage(null);
+  const handleSaveStatus = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    const ok = await patchLead({ status });
+    setSaveMessage(ok ? "success" : "error");
+    setSaving(false);
+  };
 
-    fetch(`${API_BASE}/api/leads/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "processed" }),
-    })
-      .then((res) => res.json())
-      .then((json: { success?: boolean; data?: Lead; error?: string }) => {
-        if (json.success && json.data) {
-          setLead(json.data);
-          setStatus("processed");
-          setSaveMessage("success");
-        } else {
-          setSaveMessage("error");
-        }
-      })
-      .catch(() => setSaveMessage("error"))
-      .finally(() => setMarkingProcessed(false));
+  const handleMarkProcessed = async () => {
+    setMarkingProcessed(true);
+    const ok = await patchLead({ status: "processed" });
+    setSaveMessage(ok ? "success" : "error");
+    setMarkingProcessed(false);
+  };
+
+  const handleSaveField = async (field: string, value: string) => {
+    await patchLead({ [field]: value || null });
   };
 
   if (loading && !lead) {
@@ -209,274 +286,210 @@ export default function LeadDetailPage() {
 
   if (error || !lead) {
     return (
-      <div style={{ maxWidth: "768px", margin: "0 auto", fontFamily: FONT }}>
-        <Link href="/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "14px", fontWeight: 600, color: "#64748b", textDecoration: "none", marginBottom: "16px" }}>
-          ← Retour aux leads
+      <div style={{ fontFamily: "var(--font-sans)" }}>
+        <Link href="/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#64748B", textDecoration: "none", marginBottom: 16 }}>
+          <ArrowLeft size={14} /> Retour aux leads
         </Link>
-        <div style={{ padding: "16px", borderRadius: "8px", backgroundColor: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", fontSize: "14px" }}>{error || "Lead non trouvé"}</div>
+        <div style={{ padding: 16, borderRadius: 10, background: "#FEF2F2", border: "1px solid #FECACA", color: "#DC2626", fontSize: 13 }}>{error || "Lead non trouvé"}</div>
       </div>
     );
   }
 
   const deadline = computeDeadline(lead);
+  const badgeStatus = lead.status === "to_process" ? "a-traiter"
+    : lead.status === "incomplete" ? "incomplet"
+    : lead.status === "processed" ? "traite"
+    : "nouveau";
+
+  void skin;
 
   return (
-    <div style={{ maxWidth: "768px", margin: "0 auto", fontFamily: FONT }}>
-      <div>
-        <Link href="/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "14px", fontWeight: 600, color: "#64748b", textDecoration: "none", marginBottom: "16px" }}>
-          ← Retour aux leads
-        </Link>
+    <div style={{ fontFamily: "var(--font-sans)", maxWidth: 820 }}>
+      {/* Back + breadcrumb */}
+      <Link href="/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#64748B", textDecoration: "none", marginBottom: 20 }}>
+        <ArrowLeft size={14} /> Retour aux leads
+      </Link>
 
-        <Card padding="none">
-          {/* Header: name + status badge */}
-          <div className="lead-detail-section">
-            <div className="lead-detail-header">
-              <h2 className="lead-detail-title">
-                {lead.full_name || (
-                  <span style={{ color: "#9ca3af", fontStyle: "italic" }}>Inconnu</span>
-                )}
-              </h2>
-              <span className={STATUS_BADGE_CLASSES[lead.status]}>
-                {LEAD_STATUS_LABELS[lead.status]}
-              </span>
-            </div>
+      {/* Page header */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0F172A", margin: 0, letterSpacing: "-0.02em" }}>
+            {lead.full_name || <span style={{ color: "#9CA3AF", fontStyle: "italic" }}>Inconnu</span>}
+          </h1>
+          {lead.client_phone && (
+            <div style={{ fontSize: 13, color: "#64748B", marginTop: 4 }}>{formatPhone(lead.client_phone)}</div>
+          )}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Badge variant={badgeStatus as BadgeVariant}>{LEAD_STATUS_LABELS[lead.status]}</Badge>
+          {lead.priority_score != null && <ScoreCircle score={lead.priority_score} size="md" />}
+        </div>
+      </div>
 
-            {lead.client_phone && (
-              <div className="lead-action-buttons">
-                <a href={`tel:${lead.client_phone}`} className="lead-action-btn lead-action-btn--call">
-                  <Phone size={15} />
-                  Appeler
-                </a>
-                <a
-                  href={`https://wa.me/${lead.client_phone.replace("+", "")}`}
-                  className="lead-action-btn lead-action-btn--whatsapp"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <MessageCircle size={15} />
-                  WhatsApp
-                </a>
-              </div>
-            )}
+      {/* Action buttons */}
+      {lead.client_phone && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+          <a
+            href={`tel:${lead.client_phone}`}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 36, padding: "0 14px", borderRadius: 8, background: "var(--ap-primary)", color: "#fff", fontSize: 13, fontWeight: 600, textDecoration: "none" }}
+          >
+            <Phone size={14} /> Appeler
+          </a>
+          <a
+            href={`https://wa.me/${lead.client_phone.replace("+", "")}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 36, padding: "0 14px", borderRadius: 8, background: "#25D366", color: "#fff", fontSize: 13, fontWeight: 600, textDecoration: "none" }}
+          >
+            <MessageCircle size={14} /> WhatsApp
+          </a>
+        </div>
+      )}
 
-            {/* Status form + mark-processed button */}
-            <form onSubmit={handleSaveStatus} style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "16px", flexWrap: "wrap" }}>
-              <label htmlFor="lead-status" style={{ fontSize: "13px", fontWeight: 600, color: "#374151", fontFamily: FONT }}>Statut</label>
-              <select
-                id="lead-status"
-                value={status}
-                onChange={(e) => setStatus(e.target.value as LeadStatus)}
-                disabled={saving || markingProcessed}
-                style={{ padding: "8px 12px", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "13px", fontFamily: FONT, color: "#374151", backgroundColor: "white", cursor: "pointer", outline: "none" }}
-              >
-                {(Object.keys(LEAD_STATUS_LABELS) as LeadStatus[]).map((s) => (
-                  <option key={s} value={s}>{LEAD_STATUS_LABELS[s]}</option>
-                ))}
-              </select>
-              <button
-                type="submit"
-                disabled={saving || markingProcessed}
-                style={{
-                  backgroundColor: "#2563eb",
-                  color: "white",
-                  borderRadius: "8px",
-                  padding: "10px 20px",
-                  fontWeight: 600,
-                  fontSize: "14px",
-                  border: "none",
-                  cursor: saving || markingProcessed ? "not-allowed" : "pointer",
-                  fontFamily: FONT,
-                }}
-              >
-                {saving ? "Enregistrement…" : "Enregistrer"}
-              </button>
-
-              {/* Mark as processed */}
-              {lead.status !== "processed" && (
-                <button
-                  type="button"
-                  onClick={handleMarkProcessed}
-                  disabled={markingProcessed || saving}
-                  style={{
-                    backgroundColor: "#16a34a",
-                    color: "white",
-                    borderRadius: "8px",
-                    padding: "10px 24px",
-                    fontWeight: 600,
-                    fontSize: "14px",
-                    border: "none",
-                    cursor: markingProcessed || saving ? "not-allowed" : "pointer",
-                    fontFamily: FONT,
-                  }}
-                >
-                  {markingProcessed ? "En cours…" : "Marquer comme traité"}
-                </button>
-              )}
-
-              {saveMessage === "success" && (
-                <span style={{ color: "#059669", fontSize: "13px", fontFamily: FONT }}>Enregistré ✓</span>
-              )}
-              {saveMessage === "error" && (
-                <span style={{ color: "#dc2626", fontSize: "13px", fontFamily: FONT }}>Erreur</span>
-              )}
-            </form>
-          </div>
-
-          {/* Contact */}
-          <div className="lead-detail-section">
-            <h3>Contact</h3>
-            <div className="lead-detail-field">
-              <div className="lead-detail-label">Téléphone</div>
-              <div className={`lead-detail-value ${!lead.client_phone ? "lead-detail-value--empty" : ""}`}>
-                {lead.client_phone ? formatPhone(lead.client_phone) : "Non renseigné"}
+      <div style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: 16, alignItems: "start" }}>
+        {/* Left column */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Identity — inline editable */}
+          <Card padding="none">
+            <div style={{ padding: "16px 24px 12px" }}>
+              <h3 style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94A3B8", margin: 0, paddingBottom: 16 }}>
+                Identité
+              </h3>
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <EditableField
+                  label="Nom complet"
+                  value={lead.full_name}
+                  onSave={(v) => handleSaveField("full_name", v)}
+                  placeholder="Non renseigné"
+                />
+                <EditableField
+                  label="Adresse"
+                  value={lead.address}
+                  onSave={(v) => handleSaveField("address", v)}
+                  placeholder="Non renseignée"
+                />
               </div>
             </div>
-            <div className="lead-detail-field">
-              <div className="lead-detail-label">Adresse</div>
-              <div className={`lead-detail-value ${!lead.address ? "lead-detail-value--empty" : ""}`}>
-                {lead.address || "Non renseignée"}
-              </div>
-            </div>
-          </div>
+          </Card>
 
           {/* Demande */}
-          <div className="lead-detail-section">
-            <h3>Demande</h3>
-            <div className="lead-detail-field">
-              <div className="lead-detail-label">Type de prestation</div>
-              <div className={`lead-detail-value ${!lead.type_code ? "lead-detail-value--empty" : ""}`}>
-                {formatType(lead)}
-              </div>
-            </div>
-            <div className="lead-detail-field">
-              <div className="lead-detail-label">Délai souhaité</div>
-              <div className="lead-detail-value">{formatDelay(lead)}</div>
-            </div>
-            <div className="lead-detail-field">
-              <div className="lead-detail-label">Date limite estimée</div>
-              <div
-                className="lead-detail-value"
-                style={{
-                  color: deadline.isRed ? "#dc2626" : deadline.isGray ? "#94a3b8" : undefined,
-                  fontStyle: deadline.isGray ? "italic" : undefined,
-                  fontWeight: deadline.isRed ? 600 : undefined,
-                }}
-              >
-                {deadline.text}
-              </div>
-            </div>
-            <div className="lead-detail-field">
-              <div className="lead-detail-label">Score de priorité</div>
-              <div className="lead-detail-value lead-score-bar-wrap">
-                <div className="lead-score-bar">
-                  <div
-                    className={`lead-score-bar-fill ${getScoreBarClass(lead.priority_score)}`}
-                    style={{ width: `${lead.priority_score ?? 0}%` }}
-                  />
-                </div>
-                <span className={`score-cell ${getScoreTextClass(lead.priority_score)}`}>
-                  {lead.priority_score != null ? lead.priority_score : "—"}
-                </span>
-              </div>
-            </div>
-            <div className="lead-detail-field">
-              <div className="lead-detail-label">Valeur estimée</div>
-              <div className="lead-detail-value">
-                {lead.value_estimate === "high"
-                  ? "Élevée"
-                  : lead.value_estimate === "medium"
-                    ? "Moyenne"
-                    : lead.value_estimate === "low"
-                      ? "Faible"
-                      : "Non estimée"}
-              </div>
-            </div>
-            <div className="lead-detail-field">
-              <div className="lead-detail-label">Description / message</div>
-              <div
-                className={`lead-detail-value ${!lead.description ? "lead-detail-value--empty" : ""}`}
-                style={{ whiteSpace: "pre-wrap" }}
-              >
-                {lead.description || lead.raw_message || "Aucun message"}
-              </div>
-            </div>
-          </div>
-
-          {/* Relances */}
-          <div className="lead-detail-section">
-            <h3>Relances</h3>
-            <div className="lead-detail-field">
-              <div className="lead-detail-label">Nombre de relances</div>
-              <div className="lead-detail-value">
-                {lead.relance_count && lead.relance_count > 0 ? (
-                  <span className="badge badge--warning">
-                    {lead.relance_count} relance{lead.relance_count > 1 ? "s" : ""}
+          <Card padding="none">
+            <div style={{ padding: "16px 24px 20px" }}>
+              <h3 style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94A3B8", margin: 0, paddingBottom: 14 }}>
+                Demande
+              </h3>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <InfoRow label="Type">{formatType(lead)}</InfoRow>
+                <InfoRow label="Délai">{formatDelay(lead)}</InfoRow>
+                <InfoRow label="Échéance">
+                  <span style={{ color: deadline.isRed ? "#DC2626" : deadline.isGray ? "#94A3B8" : "#0F172A", fontStyle: deadline.isGray ? "italic" : "normal", fontWeight: deadline.isRed ? 600 : 400 }}>
+                    {deadline.text}
                   </span>
-                ) : (
-                  "Aucune"
+                </InfoRow>
+                <InfoRow label="Valeur estimée">
+                  {lead.value_estimate === "high" ? "Élevée"
+                    : lead.value_estimate === "medium" ? "Moyenne"
+                    : lead.value_estimate === "low" ? "Faible"
+                    : <span style={{ color: "#94A3B8", fontStyle: "italic" }}>Non estimée</span>}
+                </InfoRow>
+                {(lead.description || lead.raw_message) && (
+                  <InfoRow label="Message">
+                    <span style={{ whiteSpace: "pre-wrap", color: "#374151" }}>
+                      {lead.description || lead.raw_message}
+                    </span>
+                  </InfoRow>
                 )}
               </div>
             </div>
-          </div>
+          </Card>
 
-          {/* SMS Messages */}
-          <div className="lead-detail-section">
-            <h3>Messages</h3>
-            {smsLoading ? (
-              <LoadingSpinner text="Chargement des messages…" padded={false} />
-            ) : smsMessages.length === 0 ? (
-              <p className="lead-detail-value--empty" style={{ fontSize: "0.875rem" }}>
-                Aucun message
-              </p>
-            ) : (
-              <div className="sms-history">
-                {smsMessages.map((msg) => (
-                  <div key={msg.id} className="sms-message-row">
-                    <div className="sms-message-meta">
-                      <span
-                        className={`badge ${
-                          msg.direction === "outbound"
-                            ? "badge--sms-outbound"
-                            : "badge--sms-inbound"
-                        }`}
-                      >
-                        {msg.direction === "outbound" ? "Envoyé" : "Reçu"}
-                      </span>
-                      <span className="sms-message-date">
-                        {new Date(msg.created_at).toLocaleString("fr-FR", {
-                          day: "2-digit",
-                          month: "short",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
+          {/* SMS history */}
+          <Card padding="none">
+            <div style={{ padding: "16px 24px 20px" }}>
+              <h3 style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94A3B8", margin: 0, paddingBottom: 14 }}>
+                Messages SMS
+              </h3>
+              {smsLoading ? (
+                <LoadingSpinner text="Chargement…" padded={false} />
+              ) : smsMessages.length === 0 ? (
+                <p style={{ fontSize: 13, color: "#94A3B8", fontStyle: "italic", margin: 0 }}>Aucun message</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {smsMessages.map((msg) => (
+                    <div key={msg.id} style={{ padding: "10px 14px", borderRadius: 10, background: msg.direction === "outbound" ? "#F0F9FF" : "#F8FAFC", border: `0.5px solid ${msg.direction === "outbound" ? "#BAE6FD" : "#E5E7EB"}` }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 20, letterSpacing: "0.05em",
+                          background: msg.direction === "outbound" ? "#0EA5E9" : "#E2E8F0",
+                          color: msg.direction === "outbound" ? "#fff" : "#475569",
+                        }}>
+                          {msg.direction === "outbound" ? "ENVOYÉ" : "REÇU"}
+                        </span>
+                        <span style={{ fontSize: 11, color: "#94A3B8" }}>
+                          {formatDate(msg.created_at)}
+                        </span>
+                      </div>
+                      <p style={{ fontSize: 13, color: "#334155", margin: 0, lineHeight: 1.5 }}>{msg.body || <em>— vide —</em>}</p>
                     </div>
-                    <p className="sms-message-body">{msg.body || <em>— vide —</em>}</p>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+
+        {/* Right column */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Statut */}
+          <Card padding={20}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94A3B8", marginBottom: 14 }}>Statut</div>
+            <form onSubmit={(e) => { void handleSaveStatus(e); }} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ position: "relative" }}>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as LeadStatus)}
+                  disabled={saving || markingProcessed}
+                  style={{ width: "100%", height: 36, padding: "0 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, fontFamily: "var(--font-sans)", color: "#374151", background: "#fff", appearance: "none", cursor: "pointer", outline: "none" }}
+                >
+                  {(Object.keys(LEAD_STATUS_LABELS) as LeadStatus[]).map((s) => (
+                    <option key={s} value={s}>{LEAD_STATUS_LABELS[s]}</option>
+                  ))}
+                </select>
               </div>
-            )}
-          </div>
+              <Button type="submit" variant="primary" size="sm" disabled={saving || markingProcessed} style={{ width: "100%", justifyContent: "center" }}>
+                {saving ? "Enregistrement…" : "Enregistrer le statut"}
+              </Button>
+              {lead.status !== "processed" && (
+                <Button type="button" variant="success" size="sm" onClick={() => void handleMarkProcessed()} disabled={markingProcessed || saving} style={{ width: "100%", justifyContent: "center" }}>
+                  {markingProcessed ? "En cours…" : "Marquer comme traité"}
+                </Button>
+              )}
+              {saveMessage === "success" && (
+                <div style={{ fontSize: 12, color: "#059669", textAlign: "center" }}>Enregistré ✓</div>
+              )}
+              {saveMessage === "error" && (
+                <div style={{ fontSize: 12, color: "#DC2626", textAlign: "center" }}>Erreur lors de la sauvegarde</div>
+              )}
+            </form>
+          </Card>
 
           {/* Dates */}
-          <div className="lead-detail-section">
-            <h3>Dates</h3>
-            <div className="lead-detail-field">
-              <div className="lead-detail-label">Créé le</div>
-              <div className="lead-detail-value">
-                {lead.created_at ? new Date(lead.created_at).toLocaleString("fr-FR") : "—"}
+          <Card padding={20}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94A3B8", marginBottom: 14 }}>Dates</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div>
+                <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 2 }}>Créé le</div>
+                <div style={{ fontSize: 12, color: "#374151" }}>{formatDate(lead.created_at)}</div>
               </div>
-            </div>
-            {lead.updated_at && (
-              <div className="lead-detail-field">
-                <div className="lead-detail-label">Modifié le</div>
-                <div className="lead-detail-value">
-                  {new Date(lead.updated_at).toLocaleString("fr-FR")}
+              {lead.updated_at && (
+                <div>
+                  <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 2 }}>Modifié le</div>
+                  <div style={{ fontSize: 12, color: "#374151" }}>{formatDate(lead.updated_at)}</div>
                 </div>
-              </div>
-            )}
-          </div>
-        </Card>
+              )}
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   );

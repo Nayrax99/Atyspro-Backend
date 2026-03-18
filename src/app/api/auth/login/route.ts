@@ -66,6 +66,14 @@ export async function POST(req: NextRequest) {
       maxAge: 60 * 60 * 24 * 7,
     });
 
+    response.cookies.set("sb-refresh-token", data.session.refresh_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30, // 30 jours (durée des refresh tokens Supabase)
+    });
+
     return response;
   } catch (err) {
     console.error("Erreur POST /auth/login:", err);
