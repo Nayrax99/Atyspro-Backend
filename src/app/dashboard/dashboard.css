@@ -4,7 +4,7 @@
 
 .dashboard-shell {
   display: flex;
-  min-height: 100vh;
+  min-height: 100dvh;
   background: #f8fafc;
 }
 
@@ -174,7 +174,7 @@
   position: fixed;
   top: 0;
   left: 0;
-  height: 100vh;
+  height: 100dvh;
   overflow-y: auto;
   z-index: 50;
 }

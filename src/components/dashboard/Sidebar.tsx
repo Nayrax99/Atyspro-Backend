@@ -51,7 +51,7 @@ export default function Sidebar({
         position: "fixed",
         top: 0,
         left: 0,
-        height: "100vh",
+        height: "100dvh",
         overflowY: "auto",
         zIndex: 50,
         fontFamily: FONT,

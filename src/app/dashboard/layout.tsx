@@ -120,7 +120,7 @@ export default function DashboardLayout({ children }: Readonly<DashboardLayoutPr
 
   if (status === "loading") {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--ap-bg)" }}>
+      <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--ap-bg)" }}>
         <p style={{ fontSize: 13, color: "#6B7280", fontFamily: "var(--font-sans)" }}>Chargement…</p>
       </div>
     );
@@ -130,7 +130,7 @@ export default function DashboardLayout({ children }: Readonly<DashboardLayoutPr
     <DashboardProvider
       value={{ accountName, accountEmail, skin, pendingLeads, isAdmin, onLogout: handleLogout }}
     >
-      <div style={{ minHeight: "100vh", background: "var(--ap-bg)" }}>
+      <div style={{ minHeight: "100dvh", background: "var(--ap-bg)" }}>
         <RestoreSkin />
         <Sidebar
           accountName={accountName}
@@ -143,7 +143,7 @@ export default function DashboardLayout({ children }: Readonly<DashboardLayoutPr
         <main
           style={{
             marginLeft: 220,
-            minHeight: "100vh",
+            minHeight: "100dvh",
             background: "var(--ap-bg)",
             padding: "28px 32px",
             fontFamily: "var(--font-sans)",

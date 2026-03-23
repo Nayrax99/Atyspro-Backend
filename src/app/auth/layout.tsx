@@ -13,7 +13,7 @@ const FEATURES = [
 
 export default function AuthLayout({ children }: AuthLayoutProps) {
   return (
-    <div style={{ minHeight: "100vh", display: "flex", fontFamily: "var(--font-sans, 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif)" }}>
+    <div style={{ minHeight: "100dvh", display: "flex", fontFamily: "var(--font-sans, 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif)" }}>
       {/* Left branding panel */}
       <div
         className="hidden lg:flex lg:w-[46%] xl:w-2/5"

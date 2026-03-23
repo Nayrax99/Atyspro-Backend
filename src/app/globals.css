@@ -143,7 +143,7 @@ a {
   max-width: 480px;
   margin: 0 auto;
   padding: 24px 24px 120px;
-  min-height: 100vh;
+  min-height: 100dvh;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
