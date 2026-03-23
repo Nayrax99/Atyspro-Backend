@@ -4,7 +4,7 @@
 // Override uniquement les tokens qui varient par métier
 // ═══════════════════════════════════════════════════════════════
 
-export type Skin = 'core' | 'electricien' | 'plombier' | 'serrurier' | 'immo'
+export type Skin = 'core' | 'electricien' | 'plombier' | 'serrurier' | 'immo' | 'admin'
 
 export interface SkinConfig {
   // Identité
@@ -166,6 +166,26 @@ export const SKINS: Record<Skin, SkinConfig> = {
       ctaTreated:      'Contact traité',
     },
   },
+
+  // ── Admin ─────────────────────────────────────────────────────
+  admin: {
+    metierLabel:  'Admin',
+    metierSlug:   'admin',
+    accent:       '#1A56DB',
+    accentHover:  '#1648C0',
+    accentLight:  '#EBF2FF',
+    accentBorder: '#BFDBFE',
+    icon: null,
+    wording: {
+      pageSub:         "Vue d'ensemble de la plateforme",
+      typeLabel:       'Type / Délai',
+      kpiLeads:        'Leads reçus',
+      kpiUrgent:       'Haute priorité',
+      kpiDeltaUrgent:  'Action requise',
+      ctaCall:         'Appeler',
+      ctaTreated:      'Marquer comme traité',
+    },
+  },
 }
 
 // ─── MAPPING MÉTIER → SKIN ──────────────────────────────────────
@@ -196,6 +216,7 @@ export const METIER_TO_SKIN: Record<string, Skin> = {
   kine:         'core',
   coach:        'core',
   autre:        'core',
+  admin:        'admin',
 } as const
 
 // ─── UTILS ──────────────────────────────────────────────────────

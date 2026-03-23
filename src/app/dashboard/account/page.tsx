@@ -50,6 +50,13 @@ interface AccountData {
   city: string | null;
   specialty: string | null;
   pro_phone: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  company_name: string | null;
+  welcome_message: string | null;
+  assistant_name: string | null;
+  score_threshold: number | null;
+  callback_delay: string | null;
 }
 
 interface AccountResponse {
@@ -64,7 +71,7 @@ const SPECIALTY_OPTIONS = [
   { value: "plombier", label: "Plombier" },
   { value: "serrurier", label: "Serrurier" },
   { value: "immo", label: "Agent immobilier" },
-  { value: "autre", label: "Autre" },
+  { value: "admin", label: "Admin" },
 ];
 
 export default function AccountPage() {
@@ -86,6 +93,15 @@ export default function AccountPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState("");
 
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [welcomeMessage, setWelcomeMessage] = useState("");
+  const [assistantName, setAssistantName] = useState("");
+  const [scoreThreshold, setScoreThreshold] = useState(0);
+  const [callbackDelay, setCallbackDelay] = useState("24h");
+  const [savingSettings, setSavingSettings] = useState(false);
+
   useEffect(() => {
     if (!saveMsg) return;
     const t = setTimeout(() => setSaveMsg(null), 3000);
@@ -104,6 +120,13 @@ export default function AccountPage() {
         setName(d.name ?? "");
         setCity(d.city ?? "");
         setSpecialty(d.specialty ?? "");
+        setFirstName(d.first_name ?? "");
+        setLastName(d.last_name ?? "");
+        setCompanyName(d.company_name ?? "");
+        setWelcomeMessage(d.welcome_message ?? "");
+        setAssistantName(d.assistant_name ?? "");
+        setScoreThreshold(d.score_threshold ?? 0);
+        setCallbackDelay(d.callback_delay ?? "24h");
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
@@ -119,7 +142,7 @@ export default function AccountPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ name, city, specialty, email, owner_phone: ownerPhone }),
+        body: JSON.stringify({ name, city, specialty, email, owner_phone: ownerPhone, first_name: firstName, last_name: lastName, company_name: companyName }),
       });
       const json = (await res.json()) as AccountResponse;
       if (!json.success) { setSaveMsg({ type: "err", text: json.error ?? "Erreur." }); return; }
@@ -134,6 +157,26 @@ export default function AccountPage() {
       setSaveMsg({ type: "err", text: "Erreur réseau." });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const doSaveSettings = async () => {
+    setSavingSettings(true);
+    try {
+      const res = await fetch("/api/account", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ welcome_message: welcomeMessage, assistant_name: assistantName, score_threshold: scoreThreshold, callback_delay: callbackDelay }),
+      });
+      const json = (await res.json()) as AccountResponse;
+      if (!json.success) { setSaveMsg({ type: "err", text: json.error ?? "Erreur." }); return; }
+      if (json.data) setAccount(json.data);
+      setSaveMsg({ type: "ok", text: "Paramètres sauvegardés." });
+    } catch {
+      setSaveMsg({ type: "err", text: "Erreur réseau." });
+    } finally {
+      setSavingSettings(false);
     }
   };
 
@@ -233,13 +276,23 @@ export default function AccountPage() {
             {/* Profil tab */}
             {tab === "profil" && (
               <form onSubmit={handleSave}>
-                <div style={FIELD}>
-                  <label style={LABEL}>Adresse email</label>
-                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="vous@exemple.com" style={INPUT} />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <div style={FIELD}>
+                    <label style={LABEL}>Prénom</label>
+                    <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Ex : Jean" style={INPUT} />
+                  </div>
+                  <div style={FIELD}>
+                    <label style={LABEL}>Nom</label>
+                    <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Ex : Dupont" style={INPUT} />
+                  </div>
                 </div>
                 <div style={FIELD}>
                   <label style={LABEL}>Nom de l&apos;entreprise</label>
-                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex : Électricité Dupont" style={INPUT} />
+                  <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Ex : Électricité Dupont" style={INPUT} />
+                </div>
+                <div style={FIELD}>
+                  <label style={LABEL}>Adresse email</label>
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="vous@exemple.com" style={INPUT} />
                 </div>
                 <div style={FIELD}>
                   <label style={LABEL}>Téléphone</label>
@@ -269,7 +322,7 @@ export default function AccountPage() {
                   </div>
                 </div>
 
-                {saveMsg && (
+                {saveMsg && tab === "profil" && (
                   <p style={{ fontSize: 13, marginBottom: 14, color: saveMsg.type === "ok" ? "#059669" : "#DC2626" }}>{saveMsg.text}</p>
                 )}
                 <Button type="submit" variant="primary" disabled={saving}>
@@ -291,19 +344,42 @@ export default function AccountPage() {
                   <input type="text" value={account?.id ? `#${account.id.slice(0, 8)}` : "—"} disabled style={{ ...INPUT_DISABLED, fontFamily: "monospace", fontSize: 11 }} />
                 </div>
                 <div style={{ borderLeft: "3px solid var(--ap-primary)", background: "#F8FAFC", borderRadius: "0 10px 10px 0", padding: 20 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "#0F172A" }}>Personnalisation de l&apos;assistant vocal</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: "#F1F5F9", border: "0.5px solid #E2E8F0", color: "#94A3B8" }}>Bientôt</span>
-                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#0F172A", marginBottom: 16 }}>Personnalisation de l&apos;assistant vocal</div>
                   <div style={FIELD}>
                     <label style={LABEL}>Message d&apos;accueil</label>
                     <textarea
-                      disabled
+                      value={welcomeMessage}
+                      onChange={(e) => setWelcomeMessage(e.target.value)}
                       placeholder="Ex : Bonjour, vous êtes chez Dupont Électricité…"
                       rows={4}
-                      style={{ width: "100%", padding: "10px 14px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, fontFamily: "var(--font-sans)", color: "#94A3B8", background: "#fff", outline: "none", boxSizing: "border-box", resize: "vertical", cursor: "not-allowed", lineHeight: 1.5 }}
+                      style={{ width: "100%", padding: "10px 14px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, fontFamily: "var(--font-sans)", color: "#374151", background: "#fff", outline: "none", boxSizing: "border-box" as const, resize: "vertical" as const, lineHeight: "1.5" }}
                     />
                   </div>
+                  <div style={FIELD}>
+                    <label style={LABEL}>Nom de l&apos;assistant</label>
+                    <input type="text" value={assistantName} onChange={(e) => setAssistantName(e.target.value)} placeholder="Ex : Sophie, Clara…" style={INPUT} />
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                    <div style={FIELD}>
+                      <label style={LABEL}>Seuil de score pour notifier ({scoreThreshold})</label>
+                      <input type="range" min={0} max={100} value={scoreThreshold} onChange={(e) => setScoreThreshold(Number(e.target.value))} style={{ width: "100%", accentColor: "var(--ap-primary)" }} />
+                      <p style={HELPER}>Notifier uniquement si score ≥ {scoreThreshold}</p>
+                    </div>
+                    <div style={FIELD}>
+                      <label style={LABEL}>Délai de rappel si non traité</label>
+                      <select value={callbackDelay} onChange={(e) => setCallbackDelay(e.target.value)} style={{ ...INPUT, appearance: "none" as const, paddingRight: 32 }}>
+                        {[["1h","1 heure"],["2h","2 heures"],["4h","4 heures"],["8h","8 heures"],["24h","24 heures"],["jamais","Jamais"]].map(([v,l]) => (
+                          <option key={v} value={v}>{l}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  {saveMsg && tab === "parametres" && (
+                    <p style={{ fontSize: 13, marginBottom: 14, color: saveMsg.type === "ok" ? "#059669" : "#DC2626" }}>{saveMsg.text}</p>
+                  )}
+                  <Button type="button" variant="primary" disabled={savingSettings} onClick={() => void doSaveSettings()}>
+                    {savingSettings ? "Sauvegarde…" : "Enregistrer les paramètres"}
+                  </Button>
                 </div>
               </div>
             )}

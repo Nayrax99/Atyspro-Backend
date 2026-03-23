@@ -17,6 +17,11 @@ interface LeadCountRow {
   account_id: string;
 }
 
+interface PhoneRow {
+  account_id: string;
+  phone_number: string;
+}
+
 /**
  * GET /api/admin/overview — Vue admin plateforme (authentifié, supabaseAdmin)
  * Retourne la liste de tous les comptes + stats globales.
@@ -33,19 +38,35 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Comptes
-    const { data: accounts, error: accErr } = await supabaseAdmin
-      .from("accounts")
-      .select("id, name, email, city, specialty, onboarding_completed, created_at")
-      .order("created_at", { ascending: false });
+    // Comptes + numéros pro en parallèle
+    const [
+      { data: accounts, error: accErr },
+      { data: leadRows, error: leadErr },
+      { data: phoneRows },
+      { count: completeCount },
+      { count: callCount },
+    ] = await Promise.all([
+      supabaseAdmin
+        .from("accounts")
+        .select("id, name, email, city, specialty, onboarding_completed, created_at")
+        .order("created_at", { ascending: false }),
+      supabaseAdmin
+        .from("leads")
+        .select("account_id"),
+      supabaseAdmin
+        .from("phone_numbers")
+        .select("account_id, phone_number")
+        .eq("active", true),
+      supabaseAdmin
+        .from("leads")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "traite"),
+      supabaseAdmin
+        .from("calls")
+        .select("*", { count: "exact", head: true }),
+    ]);
 
     if (accErr) throw new Error(accErr.message);
-
-    // Comptage leads par account_id
-    const { data: leadRows, error: leadErr } = await supabaseAdmin
-      .from("leads")
-      .select("account_id");
-
     if (leadErr) throw new Error(leadErr.message);
 
     const leadCountMap: Record<string, number> = {};
@@ -53,16 +74,10 @@ export async function GET(req: NextRequest) {
       leadCountMap[row.account_id] = (leadCountMap[row.account_id] ?? 0) + 1;
     }
 
-    // Comptage leads complets (pour taux de completion global)
-    const { count: completeCount } = await supabaseAdmin
-      .from("leads")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "traite");
-
-    // Appels total
-    const { count: callCount } = await supabaseAdmin
-      .from("calls")
-      .select("*", { count: "exact", head: true });
+    const phoneMap: Record<string, string> = {};
+    for (const row of (phoneRows ?? []) as PhoneRow[]) {
+      phoneMap[row.account_id] = row.phone_number;
+    }
 
     const totalLeads = (leadRows ?? []).length;
     const totalAccounts = (accounts ?? []).length;
@@ -73,6 +88,7 @@ export async function GET(req: NextRequest) {
     const accountsWithLeads = (accounts ?? [] as AccountRow[]).map((a: AccountRow) => ({
       ...a,
       lead_count: leadCountMap[a.id] ?? 0,
+      pro_phone: phoneMap[a.id] ?? null,
     }));
 
     return NextResponse.json({

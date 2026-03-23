@@ -115,7 +115,7 @@ export default function StatsPage() {
 
   const stats = view === "month" ? data.month : data.total;
   const chartBuckets = view === "month" ? data.chartData.byDay : data.chartData.byWeek;
-  const traitementPct = stats.total > 0 ? Math.round((stats.byStatus.processed / stats.total) * 100) : 0;
+  const traitementPct = stats.total > 0 ? Math.round(((stats.byStatus.processed ?? 0) / stats.total) * 100) : 0;
 
   return (
     <div style={{ fontFamily: "var(--font-sans)" }}>

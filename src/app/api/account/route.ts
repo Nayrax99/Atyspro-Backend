@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     const [{ data: account, error }, { data: phoneRecord }] = await Promise.all([
       client
         .from("accounts")
-        .select("id, name, email, owner_phone, city, specialty")
+        .select("id, name, email, owner_phone, city, specialty, first_name, last_name, company_name, welcome_message, assistant_name, score_threshold, callback_delay")
         .eq("id", account_id)
         .maybeSingle(),
       client
@@ -60,12 +60,29 @@ export async function PATCH(req: NextRequest) {
     const client = createSupabaseClient(token);
 
     const body = (await req.json()) as Record<string, unknown>;
-    const updates: Record<string, string> = {};
-    const allowed = ["name", "city", "specialty", "email", "owner_phone"] as const;
+    const updates: Record<string, string | number> = {};
 
+    // Champs string non-vides (trim requis)
+    const allowed = ["name", "city", "specialty", "email", "owner_phone", "first_name", "last_name", "company_name"] as const;
     for (const key of allowed) {
       if (typeof body[key] === "string" && (body[key] as string).trim().length > 0) {
         updates[key] = (body[key] as string).trim();
+      }
+    }
+
+    // Champs string qui peuvent être vides (ex : effacer le message d'accueil)
+    const textAllowed = ["welcome_message", "assistant_name", "callback_delay"] as const;
+    for (const key of textAllowed) {
+      if (typeof body[key] === "string") {
+        updates[key] = body[key] as string;
+      }
+    }
+
+    // Champs numériques
+    const numberAllowed = ["score_threshold"] as const;
+    for (const key of numberAllowed) {
+      if (typeof body[key] === "number") {
+        updates[key] = body[key] as number;
       }
     }
 
@@ -80,7 +97,7 @@ export async function PATCH(req: NextRequest) {
       .from("accounts")
       .update(updates)
       .eq("id", account_id)
-      .select("id, name, email, owner_phone, city, specialty")
+      .select("id, name, email, owner_phone, city, specialty, first_name, last_name, company_name, welcome_message, assistant_name, score_threshold, callback_delay")
       .maybeSingle();
 
     if (error) throw new Error(error.message);

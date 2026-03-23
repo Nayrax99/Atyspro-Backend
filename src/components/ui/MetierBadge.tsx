@@ -9,10 +9,10 @@ interface MetierBadgeProps {
 export default function MetierBadge({ metier, style }: MetierBadgeProps) {
   const config = getSkinConfig(metier);
 
-  if (!config.icon || !config.metierLabel) return null;
+  if (!config.metierLabel) return null;
 
   const iconBoxStyle = getIconBoxStyle(
-    (["electricien", "plombier", "serrurier", "immo"].includes(metier) ? metier : "core") as Parameters<typeof getIconBoxStyle>[0],
+    (["electricien", "plombier", "serrurier", "immo", "admin"].includes(metier) ? metier : "core") as Parameters<typeof getIconBoxStyle>[0],
     24
   );
 
@@ -33,15 +33,17 @@ export default function MetierBadge({ metier, style }: MetierBadgeProps) {
         ...style,
       }}
     >
-      <svg
-        width={11}
-        height={11}
-        viewBox={config.icon.viewBox}
-        fill={config.accent}
-        style={{ flexShrink: 0 }}
-      >
-        <path d={config.icon.path} />
-      </svg>
+      {config.icon && (
+        <svg
+          width={11}
+          height={11}
+          viewBox={config.icon.viewBox}
+          fill={config.accent}
+          style={{ flexShrink: 0 }}
+        >
+          <path d={config.icon.path} />
+        </svg>
+      )}
       {config.metierLabel}
     </span>
   );

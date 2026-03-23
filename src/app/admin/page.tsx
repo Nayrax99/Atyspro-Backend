@@ -14,6 +14,7 @@ interface AccountWithLeads {
   onboarding_completed: boolean | null;
   created_at: string;
   lead_count: number;
+  pro_phone: string | null;
 }
 
 interface GlobalStats {
@@ -53,6 +54,7 @@ function AccountRow({ account }: { account: AccountWithLeads }) {
       <td style={{ ...TD, color: "#64748B" }}>{account.email ?? "—"}</td>
       <td style={TD}>{account.city ?? <span style={{ color: "#9CA3AF" }}>—</span>}</td>
       <td style={TD}>{account.specialty ?? <span style={{ color: "#9CA3AF" }}>—</span>}</td>
+      <td style={{ ...TD, color: "#64748B", fontFamily: "monospace", fontSize: 12 }}>{account.pro_phone ?? <span style={{ color: "#9CA3AF" }}>—</span>}</td>
       <td style={{ ...TD, fontWeight: 700, textAlign: "center" }}>{account.lead_count}</td>
       <td style={TD}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: account.onboarding_completed ? "#059669" : "#94A3B8" }}>
@@ -133,6 +135,7 @@ export default function AdminPage() {
                       <th style={TH}>Email</th>
                       <th style={TH}>Ville</th>
                       <th style={TH}>Spécialité</th>
+                      <th style={TH}>N° Pro</th>
                       <th style={{ ...TH, textAlign: "center" }}>Leads</th>
                       <th style={TH}>Onboarding</th>
                       <th style={TH}>Inscrit le</th>
