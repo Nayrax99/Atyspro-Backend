@@ -279,7 +279,7 @@ export default function LeadDetailPage() {
   if (loading && !lead) {
     return (
       <Card padding={32}>
-        <LoadingSpinner text="Chargement du lead…" />
+        <LoadingSpinner text="Chargement de la demande…" />
       </Card>
     );
   }
@@ -288,9 +288,9 @@ export default function LeadDetailPage() {
     return (
       <div style={{ fontFamily: "var(--font-sans)" }}>
         <Link href="/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#64748B", textDecoration: "none", marginBottom: 16 }}>
-          <ArrowLeft size={14} /> Retour aux leads
+          <ArrowLeft size={14} /> Retour aux demandes
         </Link>
-        <div style={{ padding: 16, borderRadius: 10, background: "#FEF2F2", border: "1px solid #FECACA", color: "#DC2626", fontSize: 13 }}>{error || "Lead non trouvé"}</div>
+        <div style={{ padding: 16, borderRadius: 10, background: "#FEF2F2", border: "1px solid #FECACA", color: "#DC2626", fontSize: 13 }}>{error || "Demande non trouvée"}</div>
       </div>
     );
   }
@@ -307,7 +307,7 @@ export default function LeadDetailPage() {
     <div style={{ fontFamily: "var(--font-sans)", maxWidth: 820 }}>
       {/* Back + breadcrumb */}
       <Link href="/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "#64748B", textDecoration: "none", marginBottom: 20 }}>
-        <ArrowLeft size={14} /> Retour aux leads
+        <ArrowLeft size={14} /> Retour aux demandes
       </Link>
 
       {/* Page header */}

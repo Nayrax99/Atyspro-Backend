@@ -162,7 +162,7 @@ export default function DashboardPage() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div>
             <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0F172A", letterSpacing: "-0.03em", margin: 0 }}>
-              Leads
+              Demandes
             </h1>
             {/* Accent bar */}
             <div style={{ width: 40, height: 2, background: "var(--ap-primary)", borderRadius: 2, marginTop: 6 }} />
@@ -304,18 +304,18 @@ export default function DashboardPage() {
         {/* Table */}
         <div style={{ overflowX: "auto", width: "100%" }}>
           {loading && !data ? (
-            <LoadingSpinner text="Chargement des leads…" />
+            <LoadingSpinner text="Chargement des demandes…" />
           ) : error ? (
             <div style={{ padding: "32px 24px", color: "#DC2626", fontSize: 13, fontFamily: FONT }}>
               Erreur : {error}
             </div>
           ) : leads.length === 0 ? (
             <div style={{ padding: "64px 24px", textAlign: "center", fontFamily: FONT }}>
-              <h2 style={{ fontSize: 15, fontWeight: 600, color: "#0F172A", marginBottom: 8 }}>Aucun lead</h2>
+              <h2 style={{ fontSize: 15, fontWeight: 600, color: "#0F172A", marginBottom: 8 }}>Aucune demande</h2>
               <p style={{ fontSize: 13, color: "#6B7280" }}>
                 {statusFilter || search
                   ? "Aucun résultat pour ces critères."
-                  : "Les leads issus de l'assistant vocal apparaîtront ici."}
+                  : "Les demandes issues de l'assistant vocal apparaîtront ici."}
               </p>
             </div>
           ) : (
@@ -394,13 +394,34 @@ export default function DashboardPage() {
                         )}
                       </td>
                       <td style={{ ...tdCell, color: "#6B7280", fontSize: 12 }}>
-                        {lead.created_at
-                          ? new Date(lead.created_at).toLocaleDateString("fr-FR", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            })
-                          : "—"}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span>
+                            {lead.created_at
+                              ? new Date(lead.created_at).toLocaleDateString("fr-FR", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                })
+                              : "—"}
+                          </span>
+                          {lead.status === 'nouveau' && (
+                            <span style={{
+                              display: 'inline-block',
+                              padding: '2px 8px',
+                              borderRadius: 20,
+                              fontSize: 10,
+                              fontWeight: 700,
+                              letterSpacing: '0.06em',
+                              textTransform: 'uppercase' as const,
+                              background: 'linear-gradient(90deg, #1A56DB, #7c3aed)',
+                              color: '#fff',
+                              verticalAlign: 'middle',
+                              whiteSpace: 'nowrap',
+                            }}>
+                              Nouveau
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td style={{ ...tdCell, textAlign: "center" }}>
                         <Link
@@ -456,7 +477,7 @@ export default function DashboardPage() {
             }}
           >
             <span style={{ fontSize: 12, color: "#6B7280", fontFamily: FONT }}>
-              {pagination.total} lead{pagination.total > 1 ? "s" : ""} · page {pagination.page} / {pagination.totalPages}
+              {pagination.total} demande{pagination.total > 1 ? "s" : ""} · page {pagination.page} / {pagination.totalPages}
             </span>
             <div style={{ display: "flex", gap: 8 }}>
               <PaginationBtn
