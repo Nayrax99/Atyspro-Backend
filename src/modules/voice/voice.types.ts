@@ -2,6 +2,8 @@
  * Types pour le module agent vocal AtysPro
  */
 
+import type { DangerLevel, ScopeLevel } from "@/lib/scoringConfig";
+
 /** Nombre maximum de tours de conversation avant clôture forcée */
 export const MAX_VOICE_TURNS = 6;
 
@@ -13,14 +15,16 @@ export interface IncomingCallParams {
   callStatus: string;
 }
 
-/** Paramètres reçus lors d'un résultat de Gather */
+/**
+ * Paramètres reçus lors d'un résultat de Gather.
+ * Fix #3 : prevTranscripts supprimé — les transcripts sont lus depuis la DB (calls.voice_transcripts).
+ */
 export interface GatherResultParams {
   speechResult: string;
   confidence: number;
   turn: number;
   accountId: string;
   callSid: string;
-  prevTranscripts: string[];
 }
 
 /** Analyse retournée par le LLM après traitement des transcripts */
@@ -29,17 +33,19 @@ export interface VoiceAIAnalysis {
   followUpQuestion: string | null;
   parsedData: {
     type_code: number | null;
-    delay_code: number | null;
+    /** Niveau d'urgence/danger évalué par le LLM (remplace is_dangerous + delay_code pour le scoring) */
+    danger_level: DangerLevel;
+    /** Ampleur du chantier (remplace estimated_scope) */
+    scope: ScopeLevel;
     full_name: string | null;
     address: string | null;
     description: string | null;
-    /** Danger sécurité détecté (étincelles, odeur brûlé, eau + élec, etc.) */
-    is_dangerous: boolean;
-    /** Ampleur estimée du chantier */
-    estimated_scope: "small" | "medium" | "large";
-    /** Délai de rappel suggéré par le LLM */
+    /** Disponibilité mentionnée par le prospect, ex : "demain matin", "ce week-end" */
+    availability_notes: string | null;
+    /** Délai de rappel suggéré par le LLM pour le message de fin */
     callback_delay: "asap" | "within_hour" | "today" | "no_rush";
   };
+  /** Confiance auto-évaluée par le LLM (0.0–1.0) */
   confidence: number;
   /** Récapitulatif en langage naturel pour confirmation client */
   recap: string | null;
@@ -60,13 +66,14 @@ export interface VoiceTranscriptEntry {
   timestamp: string;
 }
 
-/** Paramètres pour la finalisation après confirmation client */
+/**
+ * Paramètres pour la finalisation après confirmation client.
+ * Fix #3/#6 : allTranscripts et parsedData supprimés — lus depuis la DB
+ * (calls.voice_transcripts et calls.voice_ai_result).
+ */
 export interface ConfirmationParams {
   accountId: string;
   callSid: string;
-  /** Textes user uniquement — fallback raw_message si DB vide */
-  allTranscripts: string[];
-  /** Réponse de confirmation du prospect (SpeechResult Twilio) */
+  /** Réponse de confirmation du prospect (SpeechResult Twilio, vide si timeout) */
   speechResult: string;
-  parsedData: VoiceAIAnalysis["parsedData"];
 }

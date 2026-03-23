@@ -1,11 +1,20 @@
 /**
  * Twilio domain service - business logic for webhooks
+ *
+ * Fix #5  : is_dangerous et estimated_scope détectés depuis le texte libre et passés à computeScore.
+ * Fix #7  : upsert avec ignoreDuplicates pour prévenir les doublons sur webhooks simultanés.
+ * Fix #8  : upsert lead AVANT l'envoi du SMS de relance (ordre inversé pour cohérence).
+ * Fix #13 : statut lead calculé via determineLeadStatus() partagé avec le pipeline vocal.
+ * Fix #14 : fallback scoring : is_dangerous détecté depuis description/raw_message
+ *           quand type_code et delay_code sont tous les deux null.
  */
 
 import { supabaseAdmin } from "@/lib/supabase";
 import { ApiError } from "@/lib/utils";
-import { parseSms } from "@/lib/leadParsing";
-import { computeScore } from "@/lib/leadScoring";
+import { parseSms, assessDangerLevelFromText, estimateScopeFromText } from "@/lib/leadParsing";
+import { computeScore, computeParsingConfidence } from "@/lib/leadScoring";
+import { getScoringConfig } from "@/lib/scoringConfig";
+import { determineLeadStatus } from "@/lib/leadStatus";
 import { sendSMS } from "@/lib/twilioClient";
 import { QUALIFICATION_SMS, RELANCE_CORRECTION_SMS } from "@/lib/smsTemplates";
 import type { TwilioSmsWebhookParams, TwilioVoiceWebhookParams, TwilioVoiceResult } from "./twilio.types";
@@ -148,16 +157,59 @@ export async function handleSmsWebhook(
   console.log("[SMS webhook] SMS parsé:", parsed);
 
   const exploitable = isReponseExploitable(parsed);
-  const scored = computeScore(parsed.type_code, parsed.delay_code);
 
-  const { data: existingLead } = await supabaseAdmin
-    .from("leads")
-    .select("id, relance_count")
-    .eq("account_id", account_id)
-    .eq("client_phone", From)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // Paralléliser les lectures account + existingLead (indépendantes)
+  const [accountData, existingLeadResult] = await Promise.all([
+    supabaseAdmin
+      .from("accounts")
+      .select("specialty")
+      .eq("id", account_id)
+      .maybeSingle(),
+    supabaseAdmin
+      .from("leads")
+      .select("id, relance_count")
+      .eq("account_id", account_id)
+      .eq("client_phone", From)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const existingLead = existingLeadResult.data ?? null;
+
+  // Fix #5 et #14 : scoring V2 data-driven — danger_level et scope extraits du texte.
+  const textForDanger = [parsed.description, parsed.raw_message].filter(Boolean).join(" ");
+  const danger_level = assessDangerLevelFromText(textForDanger, parsed.type_code, parsed.delay_code);
+  const scope = estimateScopeFromText(parsed.description || "") ?? "small" as const;
+
+  const config = await getScoringConfig((accountData.data?.specialty as string) || "electricien");
+  const parsing_confidence = computeParsingConfidence({
+    type_code: parsed.type_code,
+    danger_level,
+    full_name: parsed.full_name,
+    address: parsed.address,
+    description: parsed.description,
+  });
+  const scored = computeScore(
+    {
+      type_code: parsed.type_code,
+      danger_level,
+      scope,
+      address: parsed.address,
+      full_name: parsed.full_name,
+      availability_notes: null,
+      relance_count: existingLead?.relance_count ?? 0,
+    },
+    config
+  );
+
+  // Fix #13 : statut via le helper unifié (cohérent avec pipeline vocal)
+  const lead_status = determineLeadStatus(
+    parsed.type_code,
+    parsed.delay_code,
+    parsed.address,
+    parsed.full_name
+  );
 
   const leadData: Record<string, unknown> = {
     account_id,
@@ -168,7 +220,11 @@ export async function handleSmsWebhook(
     full_name: parsed.full_name,
     description: parsed.description,
     raw_message: parsed.raw_message,
-    status: parsed.lead_status,
+    danger_level,
+    scope,
+    availability_notes: null,
+    parsing_confidence,
+    status: lead_status,
     priority_score: scored.priority_score,
     value_estimate: scored.value_estimate,
     last_inbound_sms_at: new Date().toISOString(),
@@ -183,23 +239,46 @@ export async function handleSmsWebhook(
       if (updateError) throw new Error(`Erreur update lead: ${updateError.message}`);
       console.log("[SMS webhook] Lead mis à jour (réponse exploitable):", existingLead.id);
     } else {
-      (leadData as Record<string, unknown>).relance_count = 0;
-      const { error: insertError } = await supabaseAdmin.from("leads").insert(leadData);
+      // Fix #7 : upsert avec ignoreDuplicates pour éviter les doublons sur webhooks simultanés.
+      // La contrainte unique (account_id, client_phone) est définie dans la migration 005.
+      const { error: insertError } = await supabaseAdmin
+        .from("leads")
+        .upsert({ ...leadData, relance_count: 0 }, { onConflict: "account_id,client_phone", ignoreDuplicates: true });
       if (insertError) throw new Error(`Erreur création lead: ${insertError.message}`);
       console.log("[SMS webhook] Nouveau lead créé (réponse exploitable):", From);
     }
     return { ok: true, parsed, scored, relance: false };
   }
 
+  // Chemin non exploitable — gestion des relances correction
   const currentRelanceCount = existingLead?.relance_count ?? 0;
 
   if (currentRelanceCount < 2) {
     const newRelanceCount = currentRelanceCount + 1;
     leadData.relance_count = newRelanceCount;
-    leadData.status = newRelanceCount >= 2 ? "a_traiter" : parsed.lead_status;
+    leadData.status = newRelanceCount >= 2 ? "a_traiter" : lead_status;
 
-    console.log("Relance correction (immédiate), relance_count:", newRelanceCount);
+    console.log("Relance correction, relance_count:", newRelanceCount);
 
+    // Fix #8 : upsert lead AVANT l'envoi du SMS de relance.
+    // Garantit la cohérence du relance_count même si l'envoi SMS échoue.
+    if (existingLead) {
+      const { error: updateError } = await supabaseAdmin
+        .from("leads")
+        .update(leadData)
+        .eq("id", existingLead.id);
+      if (updateError) throw new Error(`Erreur update lead (relance): ${updateError.message}`);
+      console.log("[SMS webhook] Lead mis à jour avant relance correction:", existingLead.id);
+    } else {
+      // Fix #7 : upsert pour éviter les doublons sur webhooks simultanés
+      const { error: insertError } = await supabaseAdmin
+        .from("leads")
+        .upsert(leadData, { onConflict: "account_id,client_phone", ignoreDuplicates: true });
+      if (insertError) throw new Error(`Erreur création lead (relance): ${insertError.message}`);
+      console.log("[SMS webhook] Nouveau lead créé (réponse inexploitable, relance à envoyer):", From);
+    }
+
+    // Fix #8 : envoi SMS après upsert DB (ordre précédemment inversé)
     const toE164 = toE164ForSending(From);
     console.log("[SMS webhook] Envoi relance correction, normalisé E.164: %s (original: %s)", toE164, From);
     const result = await sendSMS(toE164, To, RELANCE_CORRECTION_SMS);
@@ -216,19 +295,6 @@ export async function handleSmsWebhook(
       console.warn("Impossible d'enregistrer SMS outbound (relance correction):", err);
     }
 
-    if (existingLead) {
-      const { error: updateError } = await supabaseAdmin
-        .from("leads")
-        .update(leadData)
-        .eq("id", existingLead.id);
-      if (updateError) throw new Error(`Erreur update lead: ${updateError.message}`);
-      console.log("[SMS webhook] Lead mis à jour après relance correction:", existingLead.id);
-    } else {
-      const { error: insertError } = await supabaseAdmin.from("leads").insert(leadData);
-      if (insertError) throw new Error(`Erreur création lead: ${insertError.message}`);
-      console.log("[SMS webhook] Nouveau lead créé (réponse inexploitable, relance envoyée):", From);
-    }
-
     return {
       ok: true,
       parsed,
@@ -238,8 +304,8 @@ export async function handleSmsWebhook(
     };
   }
 
+  // Quota de relances atteint — lead en a_traiter, plus de SMS
   leadData.status = "a_traiter";
-  leadData.raw_message = parsed.raw_message;
 
   if (existingLead) {
     const { error: updateError } = await supabaseAdmin
@@ -247,10 +313,11 @@ export async function handleSmsWebhook(
       .update(leadData)
       .eq("id", existingLead.id);
     if (updateError) throw new Error(`Erreur update lead: ${updateError.message}`);
-    console.log("[SMS webhook] Lead mis à jour (needs_review, plus de relance):", existingLead.id);
+    console.log("[SMS webhook] Lead mis à jour (a_traiter, plus de relance):", existingLead.id);
   } else {
-    (leadData as Record<string, unknown>).relance_count = 2;
-    const { error: insertError } = await supabaseAdmin.from("leads").insert(leadData);
+    const { error: insertError } = await supabaseAdmin
+      .from("leads")
+      .upsert({ ...leadData, relance_count: 2 }, { onConflict: "account_id,client_phone", ignoreDuplicates: true });
     if (insertError) throw new Error(`Erreur création lead: ${insertError.message}`);
     console.log("[SMS webhook] Nouveau lead créé (inexploitable, quota relances atteint):", From);
   }
@@ -320,9 +387,6 @@ export async function handleVoiceWebhook(
 
   const canPlayTwiML = !endedStatuses.includes(CallStatus);
   const isMissedCall = missedStatuses.includes(CallStatus);
-  // completed = TwiML <Hangup/> exécuté. Le webhook ringing aurait dû envoyer le SMS,
-  // mais si seul completed arrive (Status Callback sans Voice URL, ou ringing raté),
-  // on envoie le SMS ici. Le dedup 5 min évite le doublon si ringing a déjà tout fait.
   const isCompleted = CallStatus === "completed";
 
   if (canPlayTwiML || isMissedCall || isCompleted) {
@@ -355,8 +419,6 @@ export async function handleVoiceWebhook(
     }
 
     // Éviter le double envoi si Twilio appelle answer URL puis status callback.
-    // On filtre sur le body exact pour ne pas bloquer une QUALIFICATION_SMS
-    // si une RELANCE_CORRECTION_SMS a été envoyée récemment.
     const { data: recentSms } = await supabaseAdmin!
       .from("sms_messages")
       .select("id")

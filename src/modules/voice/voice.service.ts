@@ -2,15 +2,19 @@
  * Service agent vocal AtysPro — orchestration complète de la conversation vocale.
  * Toute la logique métier est ici ; les routes sont de simples délégués.
  *
- * voice_transcripts (DB) : VoiceTranscriptEntry[] — échange complet IA + prospect
- * allTranscripts (mémoire) : string[] (user only) — utilisé par le LLM pour analyser
+ * Fix #2  : upsert leads (account_id, twilio_call_sid) pour éviter les doublons sur retry Twilio.
+ * Fix #3  : transcripts lus depuis DB (calls.voice_transcripts) plutôt que depuis les URLs.
+ * Fix #6  : parsedData lu depuis DB (calls.voice_ai_result) plutôt que depuis les URLs.
+ * Fix #13 : statut lead calculé via determineLeadStatus() partagé avec le pipeline SMS.
  */
 
 import { supabaseAdmin } from "@/lib/supabase";
 import { analyzeVoiceTranscripts } from "@/lib/voiceAI";
-import { computeScore } from "@/lib/leadScoring";
+import { computeScore, computeParsingConfidence } from "@/lib/leadScoring";
+import { getScoringConfig } from "@/lib/scoringConfig";
 import { sendSMS } from "@/lib/twilioClient";
 import { VOICE_CONFIRMATION_SMS } from "@/lib/smsTemplates";
+import { determineLeadStatus } from "@/lib/leadStatus";
 import {
   buildWelcomeTwiml,
   buildFollowUpTwiml,
@@ -82,16 +86,6 @@ function buildE164Candidates(value: string): string[] {
   const withPlus = trimmed.startsWith("+") ? trimmed : `+${trimmed}`;
   const withoutPlus = withPlus.replace(/^\+/, "");
   return [...new Set([trimmed, withPlus, withoutPlus])];
-}
-
-/** Détermine le statut du lead selon les données parsées */
-function determineLeadStatus(
-  parsedData: VoiceAIAnalysis["parsedData"]
-): "nouveau" | "incomplet" | "a_traiter" {
-  const { type_code, delay_code, full_name } = parsedData;
-  if (type_code && delay_code && full_name) return "nouveau";
-  if (type_code || delay_code) return "incomplet";
-  return "a_traiter";
 }
 
 /**
@@ -190,33 +184,19 @@ export async function handleIncomingCall(
 
 /**
  * Gère un résultat de Gather (transcript STT reçu de Twilio).
- * Met à jour voice_transcripts avec l'entrée user + la réponse IA.
+ * Fix #3 : les transcripts user sont dérivés des entries DB, plus passés via URL.
  */
 export async function handleGatherResult(
   params: GatherResultParams
 ): Promise<string> {
-  const { speechResult, turn, accountId, callSid, prevTranscripts } = params;
+  const { speechResult, turn, accountId, callSid } = params;
 
   if (!supabaseAdmin) {
     console.error("[voice.service] supabaseAdmin non configuré");
     return buildErrorTwiml();
   }
 
-  // Textes user uniquement — utilisés par le LLM pour analyser la conversation
-  const allTranscripts: string[] = [
-    ...prevTranscripts.filter((t): t is string => typeof t === "string"),
-    speechResult,
-  ];
-
-  console.log(
-    "[voice.service] Gather tour %d/%d — call_sid: %s — transcripts user: %d",
-    turn,
-    MAX_VOICE_TURNS,
-    callSid,
-    allTranscripts.length
-  );
-
-  // Fetch parallèle : artisan + entrées existantes de la conversation
+  // Fetch parallèle : artisan + conversation existante en DB
   const [artisan, callResult] = await Promise.all([
     loadArtisanContext(accountId),
     supabaseAdmin
@@ -232,6 +212,23 @@ export async function handleGatherResult(
   }
 
   const existingEntries = parseTranscriptEntries(callResult.data?.voice_transcripts);
+
+  // Fix #3 : dériver allTranscripts depuis les entries DB (textes user uniquement)
+  // plutôt que depuis les query params URL (qui pouvaient dépasser 2KB).
+  const allTranscripts: string[] = [
+    ...existingEntries
+      .filter((e) => e.role === "user")
+      .map((e) => e.text),
+    speechResult,
+  ];
+
+  console.log(
+    "[voice.service] Gather tour %d/%d — call_sid: %s — transcripts user: %d",
+    turn,
+    MAX_VOICE_TURNS,
+    callSid,
+    allTranscripts.length
+  );
 
   const analysis = await analyzeVoiceTranscripts(
     allTranscripts,
@@ -265,11 +262,18 @@ export async function handleGatherResult(
   ];
 
   // Mise à jour progressive des entries en DB
+  // Fix #6 : si l'analyse est terminée, persister aussi voice_ai_result pour que
+  // /confirm puisse le lire sans avoir à le passer en URL.
+  const callUpdate: Record<string, unknown> = { voice_transcripts: updatedEntries };
+  if (!analysis.needsFollowUp) {
+    callUpdate.voice_ai_result = analysis.parsedData;
+  }
+
   const { data: updateData, error: transcriptError } = await supabaseAdmin
     .from("calls")
-    .update({ voice_transcripts: updatedEntries })
+    .update(callUpdate)
     .eq("twilio_call_sid", callSid)
-    .select("twilio_call_sid, voice_transcripts");
+    .select("twilio_call_sid");
 
   if (transcriptError) {
     console.error(
@@ -296,8 +300,7 @@ export async function handleGatherResult(
       analysis.followUpQuestion,
       turn + 1,
       accountId,
-      callSid,
-      allTranscripts
+      callSid
     );
   }
 
@@ -308,31 +311,24 @@ export async function handleGatherResult(
       artisan.name,
       analysis.parsedData.callback_delay,
       accountId,
-      callSid,
-      allTranscripts,
-      analysis.parsedData as unknown as Record<string, unknown>
+      callSid
     );
   }
 
   // Fallback : pas de récap (ex. LLM timeout) → finaliser directement
-  await finalizeLead(accountId, callSid, allTranscripts, updatedEntries, analysis, artisan);
+  await finalizeLead(accountId, callSid, updatedEntries, analysis, artisan);
   return buildGoodbyeTwiml(artisan.name, analysis.parsedData.callback_delay);
 }
 
 /**
  * Gère la confirmation client après le récapitulatif.
- * Ajoute l'entrée de confirmation user + le message de fin IA, puis crée le lead.
+ * Fix #3/#6 : parsedData et transcripts lus depuis la DB (calls), plus passés via URL.
+ * Fix #2 : upsert lead avec (account_id, twilio_call_sid) pour éviter les doublons sur retry.
  */
 export async function handleConfirmation(
   params: ConfirmationParams
 ): Promise<string> {
-  const {
-    accountId,
-    callSid,
-    allTranscripts: fallbackTranscripts,
-    speechResult,
-    parsedData,
-  } = params;
+  const { accountId, callSid, speechResult } = params;
 
   if (!supabaseAdmin) {
     console.error("[voice.service] supabaseAdmin non configuré");
@@ -345,25 +341,64 @@ export async function handleConfirmation(
     return buildErrorTwiml();
   }
 
-  const status = determineLeadStatus(parsedData);
-  const scored = computeScore(
-    parsedData.type_code,
-    parsedData.delay_code,
-    parsedData.is_dangerous,
-    parsedData.estimated_scope
-  );
-
-  // Récupérer les numéros ET la conversation complète depuis la DB
+  // Fix #3/#6 : lire parsedData et transcripts depuis la DB
   const { data: callRow } = await supabaseAdmin
     .from("calls")
-    .select("from_number, to_number, voice_transcripts")
+    .select("from_number, to_number, voice_transcripts, voice_ai_result")
     .eq("twilio_call_sid", callSid)
     .maybeSingle();
 
   const clientPhone = (callRow?.from_number as string) || null;
   const atysProPhone = (callRow?.to_number as string) || null;
 
+  // Fix #6 : parsedData depuis DB, fallback aux valeurs par défaut si absent
+  const parsedData: VoiceAIAnalysis["parsedData"] = (callRow?.voice_ai_result as VoiceAIAnalysis["parsedData"] | null) ?? {
+    type_code: null,
+    danger_level: "none",
+    scope: "small",
+    full_name: null,
+    address: null,
+    description: null,
+    availability_notes: null,
+    callback_delay: "today",
+  };
+
+  if (!callRow?.voice_ai_result) {
+    console.warn(
+      "[voice.service] voice_ai_result absent pour call_sid=%s — utilisation des valeurs par défaut",
+      callSid
+    );
+  }
+
   const existingEntries = parseTranscriptEntries(callRow?.voice_transcripts);
+
+  // Fix #13 : statut via le helper unifié (pas de delay_code dans le pipeline vocal)
+  const status = determineLeadStatus(
+    parsedData.type_code,
+    null,
+    parsedData.address,
+    parsedData.full_name
+  );
+
+  const config = await getScoringConfig(artisan.specialty);
+  const parsing_confidence = computeParsingConfidence({
+    type_code: parsedData.type_code,
+    danger_level: parsedData.danger_level,
+    full_name: parsedData.full_name,
+    address: parsedData.address,
+    description: parsedData.description,
+  });
+  const scored = computeScore(
+    {
+      type_code: parsedData.type_code,
+      danger_level: parsedData.danger_level,
+      scope: parsedData.scope,
+      address: parsedData.address,
+      full_name: parsedData.full_name,
+      availability_notes: parsedData.availability_notes,
+    },
+    config
+  );
 
   // Ajouter la confirmation du prospect + le message de fin de l'IA
   const goodbyeText = `Merci beaucoup. ${artisan.name} vous rappelle ${delayTextPlain(parsedData.callback_delay)}. Bonne journée !`;
@@ -376,46 +411,49 @@ export async function handleConfirmation(
     { role: "assistant", text: goodbyeText, turn: confirmTurn, timestamp: now },
   ];
 
-  // raw_message = textes user uniquement (compatibilité parsing existant)
+  // raw_message = textes user uniquement (compatibilité dashboard)
   const userTexts = existingEntries.filter((e) => e.role === "user").map((e) => e.text);
-  const rawMessage =
-    userTexts.length > 0 ? userTexts.join(" | ") : fallbackTranscripts.join(" | ");
+  const rawMessage = userTexts.length > 0 ? userTexts.join(" | ") : "";
 
   console.log(
-    "[voice.service] Confirmation — entries DB: %d, user texts: %d, raw_message: %s",
+    "[voice.service] Confirmation — entries DB: %d, user texts: %d",
     existingEntries.length,
-    userTexts.length,
-    rawMessage.slice(0, 60)
+    userTexts.length
   );
 
-  // Créer le lead avec scoring V2
-  const { error: leadError } = await supabaseAdmin.from("leads").insert({
-    account_id: accountId,
-    client_phone: clientPhone,
-    status,
-    type_code: parsedData.type_code,
-    delay_code: parsedData.delay_code,
-    full_name: parsedData.full_name,
-    contact_name: parsedData.full_name,
-    address: parsedData.address,
-    description: parsedData.description,
-    is_dangerous: parsedData.is_dangerous,
-    estimated_scope: parsedData.estimated_scope,
-    callback_delay: parsedData.callback_delay,
-    priority_score: scored.priority_score,
-    value_estimate: scored.value_estimate,
-    raw_message: rawMessage,
-  });
+  // Fix #2 : upsert avec (account_id, twilio_call_sid) — idempotent sur retry Twilio
+  const { error: leadError } = await supabaseAdmin.from("leads").upsert(
+    {
+      account_id: accountId,
+      client_phone: clientPhone,
+      twilio_call_sid: callSid,
+      status,
+      type_code: parsedData.type_code,
+      danger_level: parsedData.danger_level,
+      scope: parsedData.scope,
+      availability_notes: parsedData.availability_notes,
+      parsing_confidence,
+      full_name: parsedData.full_name,
+      contact_name: parsedData.full_name,
+      address: parsedData.address,
+      description: parsedData.description,
+      callback_delay: parsedData.callback_delay,
+      priority_score: scored.priority_score,
+      value_estimate: scored.value_estimate,
+      raw_message: rawMessage,
+    },
+    { onConflict: "account_id,twilio_call_sid" }
+  );
 
   if (leadError) {
-    console.error("[voice.service] Erreur création lead (confirmation):", leadError.message);
+    console.error("[voice.service] Erreur upsert lead (confirmation):", leadError.message);
   } else {
     console.log(
       "[voice.service] Lead confirmé — artisan: %s, status: %s, score: %d, danger: %s",
       artisan.name,
       status,
       scored.priority_score,
-      parsedData.is_dangerous
+      parsedData.danger_level
     );
   }
 
@@ -424,7 +462,7 @@ export async function handleConfirmation(
     .from("calls")
     .update({
       status: "completed",
-      ended_at: new Date().toISOString(),
+      ended_at: now,
       voice_transcripts: finalEntries,
     })
     .eq("twilio_call_sid", callSid);
@@ -458,12 +496,12 @@ export async function handleConfirmation(
 
 /**
  * Crée le lead et met à jour l'appel — utilisé quand le LLM ne génère pas de récap.
- * Reçoit les entries déjà mises à jour (incluant le message de fin IA).
+ * Fix #2 : upsert avec (account_id, twilio_call_sid).
+ * Fix #13 : statut via determineLeadStatus().
  */
 async function finalizeLead(
   accountId: string,
   callSid: string,
-  allTranscripts: string[],
   updatedEntries: VoiceTranscriptEntry[],
   analysis: VoiceAIAnalysis,
   artisan: ArtisanContext
@@ -471,12 +509,33 @@ async function finalizeLead(
   if (!supabaseAdmin) return;
 
   const { parsedData } = analysis;
-  const status = determineLeadStatus(parsedData);
-  const scored = computeScore(
+
+  // Fix #13 : helper unifié (pas de delay_code dans le pipeline vocal)
+  const status = determineLeadStatus(
     parsedData.type_code,
-    parsedData.delay_code,
-    parsedData.is_dangerous,
-    parsedData.estimated_scope
+    null,
+    parsedData.address,
+    parsedData.full_name
+  );
+
+  const config = await getScoringConfig(artisan.specialty);
+  const parsing_confidence = computeParsingConfidence({
+    type_code: parsedData.type_code,
+    danger_level: parsedData.danger_level,
+    full_name: parsedData.full_name,
+    address: parsedData.address,
+    description: parsedData.description,
+  });
+  const scored = computeScore(
+    {
+      type_code: parsedData.type_code,
+      danger_level: parsedData.danger_level,
+      scope: parsedData.scope,
+      address: parsedData.address,
+      full_name: parsedData.full_name,
+      availability_notes: parsedData.availability_notes,
+    },
+    config
   );
 
   const { data: callRow } = await supabaseAdmin
@@ -489,28 +548,34 @@ async function finalizeLead(
 
   // raw_message = textes user uniquement
   const userTexts = updatedEntries.filter((e) => e.role === "user").map((e) => e.text);
-  const rawMessage = userTexts.length > 0 ? userTexts.join(" | ") : allTranscripts.join(" | ");
+  const rawMessage = userTexts.join(" | ");
 
-  const { error: leadError } = await supabaseAdmin.from("leads").insert({
-    account_id: accountId,
-    client_phone: clientPhone,
-    status,
-    type_code: parsedData.type_code,
-    delay_code: parsedData.delay_code,
-    full_name: parsedData.full_name,
-    contact_name: parsedData.full_name,
-    address: parsedData.address,
-    description: parsedData.description,
-    is_dangerous: parsedData.is_dangerous,
-    estimated_scope: parsedData.estimated_scope,
-    callback_delay: parsedData.callback_delay,
-    priority_score: scored.priority_score,
-    value_estimate: scored.value_estimate,
-    raw_message: rawMessage,
-  });
+  // Fix #2 : upsert idempotent
+  const { error: leadError } = await supabaseAdmin.from("leads").upsert(
+    {
+      account_id: accountId,
+      client_phone: clientPhone,
+      twilio_call_sid: callSid,
+      status,
+      type_code: parsedData.type_code,
+      danger_level: parsedData.danger_level,
+      scope: parsedData.scope,
+      availability_notes: parsedData.availability_notes,
+      parsing_confidence,
+      full_name: parsedData.full_name,
+      contact_name: parsedData.full_name,
+      address: parsedData.address,
+      description: parsedData.description,
+      callback_delay: parsedData.callback_delay,
+      priority_score: scored.priority_score,
+      value_estimate: scored.value_estimate,
+      raw_message: rawMessage,
+    },
+    { onConflict: "account_id,twilio_call_sid" }
+  );
 
   if (leadError) {
-    console.error("[voice.service] Erreur création lead (fallback):", leadError.message);
+    console.error("[voice.service] Erreur upsert lead (fallback):", leadError.message);
   } else {
     console.log(
       "[voice.service] Lead créé (fallback) — artisan: %s, status: %s, score: %d",

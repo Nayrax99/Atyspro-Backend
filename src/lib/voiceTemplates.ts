@@ -5,6 +5,9 @@
  * Voix : Polly.Lea-Generative (Amazon Polly Generative AI, naturelle et expressive)
  * SSML : supporté nativement dans <Say> pour les voix Polly
  * speechTimeout="2" : Twilio détecte la fin de parole après 2s de silence (réduit la latence)
+ *
+ * Fix #3/#6 : les transcripts et parsedData ne sont PLUS encodés dans les URLs.
+ * Seuls account_id et call_sid sont passés en query params ; les données sont lues en DB.
  */
 
 const VOICE = "Polly.Lea-Generative";
@@ -62,17 +65,15 @@ export function buildWelcomeTwiml(
 
 /**
  * Génère le TwiML d'une question de suivi avec Gather pour le tour suivant.
- * Pas de SSML complexe : les voix Generative adaptent déjà la prosodie au texte de Claude.
+ * Fix #3 : plus de prev_transcripts dans l'URL — les transcripts sont lus depuis la DB.
  */
 export function buildFollowUpTwiml(
   question: string,
   nextTurn: number,
   accountId: string,
-  callSid: string,
-  prevTranscripts: string[]
+  callSid: string
 ): string {
-  const encodedTranscripts = encodeURIComponent(JSON.stringify(prevTranscripts));
-  const gatherAction = `${getBaseUrl()}/api/webhooks/twilio/voice/gather?turn=${nextTurn}&account_id=${encodeURIComponent(accountId)}&call_sid=${encodeURIComponent(callSid)}&prev_transcripts=${encodedTranscripts}`;
+  const gatherAction = `${getBaseUrl()}/api/webhooks/twilio/voice/gather?turn=${nextTurn}&account_id=${encodeURIComponent(accountId)}&call_sid=${encodeURIComponent(callSid)}`;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
@@ -84,7 +85,8 @@ export function buildFollowUpTwiml(
 }
 
 /**
- * Génère le TwiML de récapitulatif avec SSML (pauses entre les phrases pour clarté).
+ * Génère le TwiML de récapitulatif.
+ * Fix #3/#6 : plus de prev_transcripts ni parsedData dans l'URL — données lues depuis la DB.
  * En cas de timeout (pas de réponse), la route confirm considère la demande comme confirmée.
  */
 export function buildRecapTwiml(
@@ -92,13 +94,9 @@ export function buildRecapTwiml(
   artisanName: string,
   callbackDelay: string,
   accountId: string,
-  callSid: string,
-  prevTranscripts: string[],
-  parsedData: Record<string, unknown>
+  callSid: string
 ): string {
-  const encodedTranscripts = encodeURIComponent(JSON.stringify(prevTranscripts));
-  const encodedParsedData = encodeURIComponent(JSON.stringify(parsedData));
-  const confirmAction = `${getBaseUrl()}/api/webhooks/twilio/voice/confirm?account_id=${encodeURIComponent(accountId)}&call_sid=${encodeURIComponent(callSid)}&prev_transcripts=${encodedTranscripts}&parsed_data=${encodedParsedData}`;
+  const confirmAction = `${getBaseUrl()}/api/webhooks/twilio/voice/confirm?account_id=${encodeURIComponent(accountId)}&call_sid=${encodeURIComponent(callSid)}`;
   const delayText = callbackDelayText(callbackDelay);
 
   return `<?xml version="1.0" encoding="UTF-8"?>

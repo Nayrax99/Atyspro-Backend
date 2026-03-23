@@ -4,7 +4,11 @@ import { validateTwilioSignature } from "@/lib/twilioClient";
 import { buildErrorTwiml } from "@/lib/voiceTemplates";
 
 /**
- * POST /api/webhooks/twilio/voice/gather - Réception des résultats Gather (jusqu'à MAX_VOICE_TURNS tours)
+ * POST /api/webhooks/twilio/voice/gather
+ * Réception des résultats Gather STT (jusqu'à MAX_VOICE_TURNS tours).
+ *
+ * Fix #3 : prev_transcripts supprimé des query params — les transcripts sont
+ * lus depuis la DB (calls.voice_transcripts) dans handleGatherResult.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -15,7 +19,6 @@ export async function POST(req: NextRequest) {
     const turn = parseInt(url.searchParams.get("turn") || "1", 10);
     const accountId = url.searchParams.get("account_id") || "";
     const callSid = url.searchParams.get("call_sid") || "";
-    const rawPrevTranscripts = url.searchParams.get("prev_transcripts") || "[]";
 
     // Validation des paramètres obligatoires
     if (!accountId || !callSid) {
@@ -30,7 +33,6 @@ export async function POST(req: NextRequest) {
     if (process.env.NODE_ENV !== "development") {
       const signature = req.headers.get("x-twilio-signature") ?? "";
       const baseUrl = process.env.TWILIO_WEBHOOK_BASE_URL;
-      // Reconstruire l'URL complète avec query string (turn, account_id, call_sid, prev_transcripts)
       const webhookUrl = baseUrl
         ? `${baseUrl.replace(/\/$/, "")}/api/webhooks/twilio/voice/gather${url.search}`
         : req.url;
@@ -52,23 +54,12 @@ export async function POST(req: NextRequest) {
     const speechResult = formData.get("SpeechResult")?.toString() || "";
     const confidence = parseFloat(formData.get("Confidence")?.toString() || "0");
 
-    // Décoder les transcripts précédents
-    // Note : url.searchParams.get() décode déjà les valeurs percent-encodées
-    let prevTranscripts: string[] = [];
-    try {
-      prevTranscripts = JSON.parse(rawPrevTranscripts);
-      if (!Array.isArray(prevTranscripts)) prevTranscripts = [];
-    } catch {
-      prevTranscripts = [];
-    }
-
     const twiml = await handleGatherResult({
       speechResult,
       confidence,
       turn,
       accountId,
       callSid,
-      prevTranscripts,
     });
 
     return new Response(twiml, {

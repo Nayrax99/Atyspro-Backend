@@ -2,12 +2,14 @@ import { NextRequest } from "next/server";
 import { handleConfirmation } from "@/modules/voice/voice.service";
 import { validateTwilioSignature } from "@/lib/twilioClient";
 import { buildErrorTwiml } from "@/lib/voiceTemplates";
-import type { VoiceAIAnalysis } from "@/modules/voice/voice.types";
 
 /**
  * POST /api/webhooks/twilio/voice/confirm
  * Réception de la confirmation client après récapitulatif vocal.
  * En V1, toute réponse (ou absence de réponse via Redirect) est traitée comme une confirmation.
+ *
+ * Fix #3/#6 : prev_transcripts et parsed_data supprimés des query params.
+ * Les données sont lues directement depuis la DB (calls.voice_transcripts, calls.voice_ai_result).
  */
 export async function POST(req: NextRequest) {
   try {
@@ -16,8 +18,6 @@ export async function POST(req: NextRequest) {
     const url = new URL(req.url);
     const accountId = url.searchParams.get("account_id") || "";
     const callSid = url.searchParams.get("call_sid") || "";
-    const rawPrevTranscripts = url.searchParams.get("prev_transcripts") || "[]";
-    const rawParsedData = url.searchParams.get("parsed_data") || "{}";
 
     if (!accountId || !callSid) {
       return new Response(buildErrorTwiml(), {
@@ -47,43 +47,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Décoder les transcripts précédents
-    // Note : url.searchParams.get() décode déjà les valeurs percent-encodées
-    let allTranscripts: string[] = [];
-    try {
-      const decoded = JSON.parse(rawPrevTranscripts);
-      if (Array.isArray(decoded)) allTranscripts = decoded;
-    } catch {
-      allTranscripts = [];
-    }
-
-    // Décoder les données parsées
-    let parsedData: VoiceAIAnalysis["parsedData"] = {
-      type_code: null,
-      delay_code: null,
-      full_name: null,
-      address: null,
-      description: null,
-      is_dangerous: false,
-      estimated_scope: "medium",
-      callback_delay: "today",
-    };
-    try {
-      const decoded = JSON.parse(rawParsedData) as VoiceAIAnalysis["parsedData"];
-      if (decoded && typeof decoded === "object") parsedData = decoded;
-    } catch {
-      // parsedData reste aux valeurs par défaut
-    }
-
     // Réponse de confirmation du prospect (vide si timeout → Redirect)
     const speechResult = formData.get("SpeechResult")?.toString() || "";
 
     const twiml = await handleConfirmation({
       accountId,
       callSid,
-      allTranscripts,
       speechResult,
-      parsedData,
     });
 
     return new Response(twiml, {
