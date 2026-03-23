@@ -22,19 +22,19 @@ type SortDir = "asc" | "desc";
 type StatusFilterValue = "active" | LeadStatus | "";
 
 const STATUS_FILTER_OPTIONS: { value: StatusFilterValue; label: string }[] = [
-  { value: "active",     label: "Actifs" },
-  { value: "",           label: "Tous" },
-  { value: "new",        label: "Nouveau" },
-  { value: "incomplete", label: "Incomplet" },
-  { value: "to_process", label: "À traiter" },
-  { value: "processed",  label: "Traité" },
+  { value: "active",    label: "Actifs" },
+  { value: "",          label: "Tous" },
+  { value: "nouveau",   label: "Nouveau" },
+  { value: "incomplet", label: "Incomplet" },
+  { value: "a_traiter", label: "À traiter" },
+  { value: "traite",    label: "Traité" },
 ];
 
 const STATUS_TO_BADGE: Record<LeadStatus, BadgeVariant> = {
-  new:        "nouveau",
-  incomplete: "incomplet",
-  to_process: "a-traiter",
-  processed:  "traite",
+  nouveau:   "nouveau",
+  incomplet: "incomplet",
+  a_traiter: "a-traiter",
+  traite:    "traite",
 };
 
 function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: SortField | null; sortDir: SortDir }) {
@@ -48,7 +48,7 @@ interface StatsData {
   total: { total: number };
   month: {
     total: number;
-    byStatus: { new: number; to_process: number; incomplete: number; processed: number };
+    byStatus: { nouveau: number; a_traiter: number; incomplet: number; traite: number };
     avgScore: number | null;
     urgent: number;
   };
@@ -129,7 +129,7 @@ export default function DashboardPage() {
   }, [leads, sortField, sortDir]);
 
   // Contextual banner data
-  const pendingCount = (statsData?.month.byStatus.to_process ?? 0) + (statsData?.month.byStatus.new ?? 0);
+  const pendingCount = (statsData?.month.byStatus.a_traiter ?? 0) + (statsData?.month.byStatus.nouveau ?? 0);
   const urgentCount = statsData?.month.urgent ?? 0;
   const skinConfig = SKINS[skin];
 

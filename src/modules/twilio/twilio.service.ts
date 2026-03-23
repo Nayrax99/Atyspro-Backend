@@ -196,7 +196,7 @@ export async function handleSmsWebhook(
   if (currentRelanceCount < 2) {
     const newRelanceCount = currentRelanceCount + 1;
     leadData.relance_count = newRelanceCount;
-    leadData.status = newRelanceCount >= 2 ? "to_process" : parsed.lead_status;
+    leadData.status = newRelanceCount >= 2 ? "a_traiter" : parsed.lead_status;
 
     console.log("Relance correction (immédiate), relance_count:", newRelanceCount);
 
@@ -238,7 +238,7 @@ export async function handleSmsWebhook(
     };
   }
 
-  leadData.status = "to_process";
+  leadData.status = "a_traiter";
   leadData.raw_message = parsed.raw_message;
 
   if (existingLead) {
@@ -346,7 +346,7 @@ export async function handleVoiceWebhook(
         account_id,
         client_phone: From,
         raw_message: null,
-        status: "incomplete",
+        status: "incomplet",
         relance_count: 0,
       });
       console.log("Lead minimal créé pour:", From);

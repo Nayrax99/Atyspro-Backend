@@ -192,7 +192,7 @@ export default function LeadDetailPage() {
   const [lead, setLead] = useState<Lead | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<LeadStatus>("new");
+  const [status, setStatus] = useState<LeadStatus>("nouveau");
   const [saving, setSaving] = useState(false);
   const [markingProcessed, setMarkingProcessed] = useState(false);
   const [saveMessage, setSaveMessage] = useState<"success" | "error" | null>(null);
@@ -267,7 +267,7 @@ export default function LeadDetailPage() {
 
   const handleMarkProcessed = async () => {
     setMarkingProcessed(true);
-    const ok = await patchLead({ status: "processed" });
+    const ok = await patchLead({ status: "traite" });
     setSaveMessage(ok ? "success" : "error");
     setMarkingProcessed(false);
   };
@@ -296,9 +296,9 @@ export default function LeadDetailPage() {
   }
 
   const deadline = computeDeadline(lead);
-  const badgeStatus = lead.status === "to_process" ? "a-traiter"
-    : lead.status === "incomplete" ? "incomplet"
-    : lead.status === "processed" ? "traite"
+  const badgeStatus = lead.status === "a_traiter" ? "a-traiter"
+    : lead.status === "incomplet" ? "incomplet"
+    : lead.status === "traite" ? "traite"
     : "nouveau";
 
   void skin;
@@ -459,7 +459,7 @@ export default function LeadDetailPage() {
               <Button type="submit" variant="primary" size="sm" disabled={saving || markingProcessed} style={{ width: "100%", justifyContent: "center" }}>
                 {saving ? "Enregistrement…" : "Enregistrer le statut"}
               </Button>
-              {lead.status !== "processed" && (
+              {lead.status !== "traite" && (
                 <Button type="button" variant="success" size="sm" onClick={() => void handleMarkProcessed()} disabled={markingProcessed || saving} style={{ width: "100%", justifyContent: "center" }}>
                   {markingProcessed ? "En cours…" : "Marquer comme traité"}
                 </Button>
