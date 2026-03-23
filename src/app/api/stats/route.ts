@@ -13,7 +13,7 @@ interface LeadRow {
 
 interface StatsResult {
   total: number;
-  byStatus: { new: number; incomplete: number; to_process: number; processed: number };
+  byStatus: { nouveau: number; incomplet: number; a_traiter: number; traite: number };
   byType: {
     depannage: number;
     installation: number;
@@ -40,7 +40,7 @@ interface ChartBucket {
 }
 
 function aggregate(arr: LeadRow[]): StatsResult {
-  const byStatus = { new: 0, incomplete: 0, to_process: 0, processed: 0 };
+  const byStatus = { nouveau: 0, incomplet: 0, a_traiter: 0, traite: 0 };
   const byType = [0, 0, 0, 0, 0]; // index 0 = null, 1-4 = type_code
   const byDelay = [0, 0, 0, 0, 0]; // index 0 = null, 1-4 = delay_code
   let scoreSum = 0;
@@ -50,10 +50,10 @@ function aggregate(arr: LeadRow[]): StatsResult {
   let lowPriority = 0;
 
   for (const l of arr) {
-    if (l.status === "new") byStatus.new++;
-    else if (l.status === "incomplete") byStatus.incomplete++;
-    else if (l.status === "to_process") byStatus.to_process++;
-    else if (l.status === "processed") byStatus.processed++;
+    if (l.status === "nouveau") byStatus.nouveau++;
+    else if (l.status === "incomplet") byStatus.incomplet++;
+    else if (l.status === "a_traiter") byStatus.a_traiter++;
+    else if (l.status === "traite") byStatus.traite++;
 
     const t = l.type_code ?? 0;
     if (t >= 0 && t <= 4) byType[t]++;

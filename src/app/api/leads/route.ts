@@ -29,8 +29,8 @@ export async function GET(request: NextRequest) {
     }
 
     // "active" is a virtual filter for new + incomplete + to_process
-    const ACTIVE_STATUSES = ["new", "incomplete", "to_process"];
-    const validStatuses = ["new", "incomplete", "to_process", "processed", "active"];
+    const ACTIVE_STATUSES = ["nouveau", "incomplet", "a_traiter"];
+    const validStatuses = ["nouveau", "incomplet", "a_traiter", "traite", "active"];
     if (status && !validStatuses.includes(status)) {
       return NextResponse.json(
         { success: false, error: "Statut invalide" },

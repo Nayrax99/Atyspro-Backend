@@ -23,7 +23,7 @@ const ALLOWED_FIELDS = [
   "score",
 ] as const;
 
-const VALID_STATUSES = ["new", "incomplete", "to_process", "processed"];
+const VALID_STATUSES = ["nouveau", "incomplet", "a_traiter", "traite"];
 
 /**
  * GET /api/leads/:id - Get lead by id (authentifié)

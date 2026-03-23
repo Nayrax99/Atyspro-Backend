@@ -87,11 +87,11 @@ function buildE164Candidates(value: string): string[] {
 /** Détermine le statut du lead selon les données parsées */
 function determineLeadStatus(
   parsedData: VoiceAIAnalysis["parsedData"]
-): "new" | "incomplete" | "to_process" {
+): "nouveau" | "incomplet" | "a_traiter" {
   const { type_code, delay_code, full_name } = parsedData;
-  if (type_code && delay_code && full_name) return "new";
-  if (type_code || delay_code) return "incomplete";
-  return "to_process";
+  if (type_code && delay_code && full_name) return "nouveau";
+  if (type_code || delay_code) return "incomplet";
+  return "a_traiter";
 }
 
 /**

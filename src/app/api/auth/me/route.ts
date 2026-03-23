@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
       .from("leads")
       .select("*", { count: "exact", head: true })
       .eq("account_id", account_id)
-      .in("status", ["new", "to_process"])
+      .in("status", ["nouveau", "a_traiter"])
       .gt("priority_score", 0);
 
     return NextResponse.json({
