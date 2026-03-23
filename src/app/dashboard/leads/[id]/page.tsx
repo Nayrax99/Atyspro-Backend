@@ -393,7 +393,7 @@ export default function LeadDetailPage() {
                     : <span style={{ color: "#94A3B8", fontStyle: "italic" }}>Non estimée</span>}
                 </InfoRow>
                 {(lead.description || lead.raw_message) && (
-                  <InfoRow label="Message">
+                  <InfoRow label="Transcription de l'appel">
                     <span style={{ whiteSpace: "pre-wrap", color: "#374151" }}>
                       {lead.description || lead.raw_message}
                     </span>
@@ -407,7 +407,7 @@ export default function LeadDetailPage() {
           <Card padding="none">
             <div style={{ padding: "16px 24px 20px" }}>
               <h3 style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94A3B8", margin: 0, paddingBottom: 14 }}>
-                Messages SMS
+                Récapitulatif envoyé au client
               </h3>
               {smsLoading ? (
                 <LoadingSpinner text="Chargement…" padded={false} />
