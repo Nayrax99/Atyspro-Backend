@@ -12,6 +12,12 @@
 -- IMPORTANT : respecter cet ordre pour éviter les collisions
 -- Utiliser une colonne temporaire pour éviter les conflits de clés
 
+-- PREREQUISITE: The `status` column must be plain TEXT (no CHECK constraint, no ENUM).
+-- Verify with: SELECT constraint_name FROM information_schema.table_constraints WHERE table_name = 'leads';
+-- If constraints exist, drop them first before running this migration.
+
+BEGIN;
+
 -- Étape 1 : Marquer les valeurs source avec un préfixe temporaire
 UPDATE public.leads SET status = 'tmp_' || status WHERE status IN ('new', 'to_process', 'incomplete', 'processed', 'needs_review', 'complete');
 
@@ -23,6 +29,20 @@ UPDATE public.leads SET status = 'traite' WHERE status = 'tmp_processed';
 UPDATE public.leads SET status = 'a_traiter' WHERE status = 'tmp_needs_review';
 UPDATE public.leads SET status = 'traite' WHERE status = 'tmp_complete';
 
--- Étape 3 : Vérification — doit retourner 0 lignes si tout est OK
--- (vérifier qu'il n'y a plus de statuts avec le préfixe temporaire)
+COMMIT;
+
+-- Étape 3 : Vérification — doit retourner 0 lignes (tous les préfixes tmp_ résolus)
 SELECT id, status FROM public.leads WHERE status LIKE 'tmp_%';
+
+-- Vérification distributive — revoir les comptages
+SELECT status, COUNT(*) as count FROM public.leads GROUP BY status ORDER BY status;
+
+-- ============================================================
+-- ROLLBACK (if needed — run manually):
+-- BEGIN;
+-- UPDATE public.leads SET status = 'new'        WHERE status = 'nouveau';
+-- UPDATE public.leads SET status = 'to_process' WHERE status = 'a_traiter';
+-- UPDATE public.leads SET status = 'incomplete' WHERE status = 'incomplet';
+-- UPDATE public.leads SET status = 'processed'  WHERE status = 'traite';
+-- COMMIT;
+-- ============================================================
