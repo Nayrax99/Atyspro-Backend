@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { Eye, EyeOff } from "lucide-react";
 
 type AuthMode = "login" | "signup";
 
@@ -41,6 +42,8 @@ export default function AuthPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [btnHover, setBtnHover] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
 
   const isSignup = mode === "signup";
 
@@ -152,12 +155,56 @@ export default function AuthPage() {
             </div>
             <div style={FIELD}>
               <label style={LABEL}>Mot de passe</label>
-              <input id="password" type="password" autoComplete={isSignup ? "new-password" : "current-password"} required value={password} onChange={(e) => setPassword(e.target.value)} style={INPUT} className="ap-auth-input" placeholder={isSignup ? "Minimum 6 caractères" : "Votre mot de passe"} />
+              <div style={{ position: "relative" }}>
+                <input id="password" type={showPassword ? "text" : "password"} autoComplete={isSignup ? "new-password" : "current-password"} required value={password} onChange={(e) => setPassword(e.target.value)} style={{ ...INPUT, paddingRight: 42 }} className="ap-auth-input" placeholder={isSignup ? "Minimum 6 caractères" : "Votre mot de passe"} />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  style={{
+                    position: "absolute",
+                    right: 12,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: 0,
+                    color: "#94A3B8",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                  aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
             {isSignup && (
               <div style={FIELD}>
                 <label style={LABEL}>Confirmer le mot de passe</label>
-                <input id="password-confirm" type="password" autoComplete="new-password" required value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} style={INPUT} className="ap-auth-input" placeholder="Répétez le mot de passe" />
+                <div style={{ position: "relative" }}>
+                  <input id="password-confirm" type={showPasswordConfirm ? "text" : "password"} autoComplete="new-password" required value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} style={{ ...INPUT, paddingRight: 42 }} className="ap-auth-input" placeholder="Répétez le mot de passe" />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordConfirm((v) => !v)}
+                    style={{
+                      position: "absolute",
+                      right: 12,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: 0,
+                      color: "#94A3B8",
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                    aria-label={showPasswordConfirm ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                  >
+                    {showPasswordConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
             )}
 
