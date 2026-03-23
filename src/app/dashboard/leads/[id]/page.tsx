@@ -16,6 +16,10 @@ import { useDashboard } from "@/contexts/DashboardContext";
 
 const API_BASE = "";
 
+function shortId(id: string): string {
+  return `#${id.slice(0, 8)}`;
+}
+
 interface SmsMessage {
   id: string;
   from_number: string | null;
@@ -319,6 +323,9 @@ export default function LeadDetailPage() {
           {lead.client_phone && (
             <div style={{ fontSize: 13, color: "#64748B", marginTop: 4 }}>{formatPhone(lead.client_phone)}</div>
           )}
+          <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 4 }}>
+            {shortId(lead.id)}
+          </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Badge variant={badgeStatus as BadgeVariant}>{LEAD_STATUS_LABELS[lead.status]}</Badge>

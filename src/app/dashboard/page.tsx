@@ -17,6 +17,10 @@ import { SKINS } from "@/theme";
 const FONT = "var(--font-sans, 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif)";
 const API_BASE = "";
 
+function shortId(id: string): string {
+  return `#${id.slice(0, 8)}`;
+}
+
 type SortField = "priority_score" | "created_at";
 type SortDir = "asc" | "desc";
 type StatusFilterValue = "active" | LeadStatus | "";
@@ -361,9 +365,14 @@ export default function DashboardPage() {
                       onMouseLeave={() => setHoveredRow(null)}
                     >
                       <td style={{ ...tdCell, fontWeight: 500 }}>
-                        {lead.full_name || (
-                          <span style={{ color: "#9CA3AF", fontStyle: "italic" }}>Inconnu</span>
-                        )}
+                        <div>
+                          {lead.full_name || (
+                            <span style={{ color: "#9CA3AF", fontStyle: "italic" }}>Inconnu</span>
+                          )}
+                        </div>
+                        <span style={{ fontSize: 11, color: "#CBD5E1", fontFamily: FONT, display: "block", marginTop: 4 }}>
+                          {shortId(lead.id)}
+                        </span>
                       </td>
                       <td style={{ ...tdCell, color: "#6B7280" }}>
                         {formatPhone(lead.client_phone)}
