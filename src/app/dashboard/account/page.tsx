@@ -288,7 +288,7 @@ export default function AccountPage() {
                 </div>
                 <div style={{ ...FIELD, marginBottom: 28 }}>
                   <label style={{ ...LABEL, color: "#CBD5E1" }}>Identifiant technique</label>
-                  <input type="text" value={account?.id ?? "—"} disabled style={{ ...INPUT_DISABLED, fontFamily: "monospace", fontSize: 11 }} />
+                  <input type="text" value={account?.id ? `#${account.id.slice(0, 8)}` : "—"} disabled style={{ ...INPUT_DISABLED, fontFamily: "monospace", fontSize: 11 }} />
                 </div>
                 <div style={{ borderLeft: "3px solid var(--ap-primary)", background: "#F8FAFC", borderRadius: "0 10px 10px 0", padding: 20 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>

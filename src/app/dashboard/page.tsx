@@ -17,9 +17,6 @@ import { SKINS } from "@/theme";
 const FONT = "var(--font-sans, 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif)";
 const API_BASE = "";
 
-function shortId(id: string): string {
-  return `#${id.slice(0, 8)}`;
-}
 
 type SortField = "priority_score" | "created_at";
 type SortDir = "asc" | "desc";
@@ -28,7 +25,6 @@ type StatusFilterValue = "active" | LeadStatus | "";
 const STATUS_FILTER_OPTIONS: { value: StatusFilterValue; label: string }[] = [
   { value: "active",    label: "Actifs" },
   { value: "",          label: "Tous" },
-  { value: "nouveau",   label: "Nouveau" },
   { value: "incomplet", label: "Incomplet" },
   { value: "a_traiter", label: "À traiter" },
   { value: "traite",    label: "Traité" },
@@ -365,14 +361,9 @@ export default function DashboardPage() {
                       onMouseLeave={() => setHoveredRow(null)}
                     >
                       <td style={{ ...tdCell, fontWeight: 500 }}>
-                        <div>
-                          {lead.full_name || (
-                            <span style={{ color: "#9CA3AF", fontStyle: "italic" }}>Inconnu</span>
-                          )}
-                        </div>
-                        <span style={{ fontSize: 11, color: "#CBD5E1", fontFamily: FONT, display: "block", marginTop: 4 }}>
-                          {shortId(lead.id)}
-                        </span>
+                        {lead.full_name || (
+                          <span style={{ color: "#9CA3AF", fontStyle: "italic" }}>Inconnu</span>
+                        )}
                       </td>
                       <td style={{ ...tdCell, color: "#6B7280" }}>
                         {formatPhone(lead.client_phone)}
@@ -413,7 +404,7 @@ export default function DashboardPage() {
                                 })
                               : "—"}
                           </span>
-                          {lead.status === 'nouveau' && (
+                          {lead.created_at && (Date.now() - new Date(lead.created_at).getTime() < 24 * 60 * 60 * 1000) && (
                             <span style={{
                               display: 'inline-block',
                               padding: '2px 8px',

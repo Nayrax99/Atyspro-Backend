@@ -16,9 +16,6 @@ import { useDashboard } from "@/contexts/DashboardContext";
 
 const API_BASE = "";
 
-function shortId(id: string): string {
-  return `#${id.slice(0, 8)}`;
-}
 
 interface SmsMessage {
   id: string;
@@ -196,7 +193,7 @@ export default function LeadDetailPage() {
   const [lead, setLead] = useState<Lead | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<LeadStatus>("nouveau");
+  const [status, setStatus] = useState<LeadStatus>("a_traiter");
   const [saving, setSaving] = useState(false);
   const [markingProcessed, setMarkingProcessed] = useState(false);
   const [saveMessage, setSaveMessage] = useState<"success" | "error" | null>(null);
@@ -323,9 +320,6 @@ export default function LeadDetailPage() {
           {lead.client_phone && (
             <div style={{ fontSize: 13, color: "#64748B", marginTop: 4 }}>{formatPhone(lead.client_phone)}</div>
           )}
-          <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 4 }}>
-            {shortId(lead.id)}
-          </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Badge variant={badgeStatus as BadgeVariant}>{LEAD_STATUS_LABELS[lead.status]}</Badge>
@@ -458,7 +452,7 @@ export default function LeadDetailPage() {
                   disabled={saving || markingProcessed}
                   style={{ width: "100%", height: 36, padding: "0 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, fontFamily: "var(--font-sans)", color: "#374151", background: "#fff", appearance: "none", cursor: "pointer", outline: "none" }}
                 >
-                  {(Object.keys(LEAD_STATUS_LABELS) as LeadStatus[]).map((s) => (
+                  {(Object.keys(LEAD_STATUS_LABELS) as LeadStatus[]).filter((s) => s !== "nouveau").map((s) => (
                     <option key={s} value={s}>{LEAD_STATUS_LABELS[s]}</option>
                   ))}
                 </select>
