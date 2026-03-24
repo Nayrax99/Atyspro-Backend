@@ -9,7 +9,6 @@ interface LeadRow {
   delay_code: number | null;
   priority_score: number | null;
   created_at: string;
-  updated_at: string | null;
 }
 
 interface StatsResult {
@@ -108,7 +107,6 @@ const TYPE_LABELS: Record<number, string> = {
 interface EnhancedMonthStats extends StatsResult {
   avgScoreByType: { depannage: number | null; installation: number | null; devis: number | null; autre: number | null };
   conversionRate: number;
-  avgTreatmentDelayDays: number | null;
   top3Types: { type: string; count: number }[];
 }
 
@@ -118,10 +116,7 @@ function aggregateEnhanced(arr: LeadRow[]): EnhancedMonthStats {
   // A) Score moyen par type d'intervention
   const scoreByType: Record<number, { sum: number; count: number }> = { 1: { sum: 0, count: 0 }, 2: { sum: 0, count: 0 }, 3: { sum: 0, count: 0 }, 4: { sum: 0, count: 0 } };
   // B) Taux de traitement — calculé depuis byStatus.traite / total
-  // C) Délai moyen de traitement
-  let delaySum = 0;
-  let delayCount = 0;
-  // D) Top 3 types — reuse byType counts
+  // C) Top 3 types — reuse byType counts
   const typeCounts: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
 
   for (const l of arr) {
@@ -131,16 +126,6 @@ function aggregateEnhanced(arr: LeadRow[]): EnhancedMonthStats {
       scoreByType[t].count++;
     }
     if (t >= 0 && t <= 4) typeCounts[t]++;
-
-    if (l.status === "traite" && l.updated_at) {
-      const created = new Date(l.created_at).getTime();
-      const updated = new Date(l.updated_at).getTime();
-      const diffDays = (updated - created) / (1000 * 60 * 60 * 24);
-      if (!isNaN(diffDays)) {
-        delaySum += diffDays;
-        delayCount++;
-      }
-    }
   }
 
   const avgScoreByType = {
@@ -152,15 +137,13 @@ function aggregateEnhanced(arr: LeadRow[]): EnhancedMonthStats {
 
   const conversionRate = base.total > 0 ? Math.round((base.byStatus.traite / base.total) * 100) : 0;
 
-  const avgTreatmentDelayDays = delayCount > 0 ? Math.round((delaySum / delayCount) * 10) / 10 : null;
-
   const top3Types = Object.entries(typeCounts)
     .filter(([, count]) => count > 0)
     .map(([code, count]) => ({ type: TYPE_LABELS[Number(code)] ?? "Non renseigné", count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 3);
 
-  return { ...base, avgScoreByType, conversionRate, avgTreatmentDelayDays, top3Types };
+  return { ...base, avgScoreByType, conversionRate, top3Types };
 }
 
 const MONTHS_FR = ["jan", "fév", "mar", "avr", "mai", "jun", "jul", "aoû", "sep", "oct", "nov", "déc"];
@@ -220,7 +203,7 @@ export async function GET(req: NextRequest) {
 
     const { data: leads, error } = await client
       .from("leads")
-      .select("status, type_code, delay_code, priority_score, created_at, updated_at")
+      .select("status, type_code, delay_code, priority_score, created_at")
       .eq("account_id", account_id);
 
     if (error) throw new Error(error.message);

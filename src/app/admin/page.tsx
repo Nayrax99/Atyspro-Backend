@@ -163,7 +163,7 @@ export default function AdminPage() {
           {stats && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
               <KpiCard label="Artisans inscrits" value={stats.totalAccounts} sub={`${stats.onboardedAccounts} onboardés`} />
-              <KpiCard label="Leads totaux" value={stats.totalLeads} sub={`${stats.completeLeads} traités`} />
+              <KpiCard label="Demandes totales" value={stats.totalLeads} sub={`${stats.completeLeads} traitées`} />
               <KpiCard label="Taux de traitement" value={`${stats.completionRate}%`} />
               <KpiCard label="Appels traités" value={stats.totalCalls} />
             </div>

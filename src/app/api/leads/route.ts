@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
 
       let query = client
         .from("leads")
-        .select("full_name, contact_name, client_phone, phone, type_code, delay_code, priority_score, status, address, transcript, created_at")
+        .select("full_name, contact_name, client_phone, phone, type_code, delay_code, priority_score, status, address, description, created_at")
         .eq("account_id", account_id)
         .order("created_at", { ascending: false })
         .limit(1000);
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
         priority_score: number | null;
         status: string | null;
         address: string | null;
-        transcript: string | null;
+        description: string | null;
         created_at: string | null;
       }>;
 
@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
         const score = escapeCSV(l.priority_score != null ? String(l.priority_score) : "");
         const statut = escapeCSV(l.status ? (STATUS_LABELS[l.status] ?? l.status) : "");
         const adresse = escapeCSV(l.address);
-        const transcription = escapeCSV(l.transcript);
+        const transcription = escapeCSV(l.description);
         const date = escapeCSV(l.created_at ? new Date(l.created_at).toLocaleDateString("fr-FR") : "");
         return [nom, tel, type, delai, score, statut, adresse, transcription, date].join(",");
       });
