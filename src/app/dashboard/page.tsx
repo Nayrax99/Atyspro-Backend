@@ -18,7 +18,7 @@ const FONT = "var(--font-sans, 'Plus Jakarta Sans', ui-sans-serif, system-ui, sa
 const API_BASE = "";
 
 
-type SortField = "priority_score" | "created_at";
+type SortField = "priority_score" | "created_at" | "status";
 type SortDir = "asc" | "desc";
 type StatusFilterValue = "active" | LeadStatus | "";
 
@@ -29,6 +29,13 @@ const STATUS_FILTER_OPTIONS: { value: StatusFilterValue; label: string }[] = [
   { value: "a_traiter", label: "À traiter" },
   { value: "traite",    label: "Traité" },
 ];
+
+const STATUS_SORT_ORDER: Record<string, number> = {
+  nouveau:   0,
+  a_traiter: 1,
+  incomplet: 2,
+  traite:    3,
+};
 
 const STATUS_TO_BADGE: Record<LeadStatus, BadgeVariant> = {
   nouveau:   "nouveau",
@@ -67,6 +74,33 @@ export default function DashboardPage() {
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
+
+  // Chargement des filtres persistés (après mount uniquement — localStorage indisponible côté SSR)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("ap_dash_filters_v1");
+      if (!raw) return;
+      const saved = JSON.parse(raw) as {
+        statusFilter?: StatusFilterValue;
+        sortField?: SortField | null;
+        sortDir?: SortDir;
+      };
+      if (saved.statusFilter !== undefined) setStatusFilter(saved.statusFilter);
+      if (saved.sortField !== undefined) setSortField(saved.sortField);
+      if (saved.sortDir !== undefined) setSortDir(saved.sortDir);
+    } catch { /* JSON corrompu ou quota, ignorer */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionnellement vide — mount uniquement
+
+  // Persistance des filtres à chaque changement
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        "ap_dash_filters_v1",
+        JSON.stringify({ statusFilter, sortField, sortDir })
+      );
+    } catch { /* quota exceeded, ignorer */ }
+  }, [statusFilter, sortField, sortDir]);
   const [exportLoading, setExportLoading] = useState(false);
   const limit = 10;
 
@@ -160,6 +194,11 @@ export default function DashboardPage() {
         return sortDir === "asc"
           ? (a.priority_score ?? -1) - (b.priority_score ?? -1)
           : (b.priority_score ?? -1) - (a.priority_score ?? -1);
+      }
+      if (sortField === "status") {
+        const aOrd = STATUS_SORT_ORDER[a.status] ?? 99;
+        const bOrd = STATUS_SORT_ORDER[b.status] ?? 99;
+        return sortDir === "asc" ? aOrd - bOrd : bOrd - aOrd;
       }
       const aDate = new Date(a.created_at).getTime();
       const bDate = new Date(b.created_at).getTime();
@@ -372,7 +411,14 @@ export default function DashboardPage() {
                   <th style={thHeader}>Contact</th>
                   <th style={thHeader}>Téléphone</th>
                   <th style={thHeader}>{skinConfig.wording.typeLabel}</th>
-                  <th style={thHeader}>Statut</th>
+                  <th
+                    style={{ ...thHeader, cursor: "pointer", userSelect: "none" }}
+                    onClick={() => handleSort("status")}
+                  >
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      Statut <SortIcon field="status" sortField={sortField} sortDir={sortDir} />
+                    </span>
+                  </th>
                   <th
                     style={{ ...thHeader, cursor: "pointer", userSelect: "none" }}
                     onClick={() => handleSort("priority_score")}
