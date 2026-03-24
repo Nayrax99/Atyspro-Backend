@@ -18,6 +18,7 @@ import { determineLeadStatus } from "@/lib/leadStatus";
 import { sendSMS } from "@/lib/twilioClient";
 import { QUALIFICATION_SMS, RELANCE_CORRECTION_SMS } from "@/lib/smsTemplates";
 import type { TwilioSmsWebhookParams, TwilioVoiceWebhookParams, TwilioVoiceResult } from "./twilio.types";
+import { sendPushNotification } from "@/modules/notifications/notifications.service";
 
 function isReponseExploitable(parsed: {
   type_code: number | null;
@@ -162,7 +163,7 @@ export async function handleSmsWebhook(
   const [accountData, existingLeadResult] = await Promise.all([
     supabaseAdmin
       .from("accounts")
-      .select("specialty")
+      .select("specialty, score_threshold")
       .eq("id", account_id)
       .maybeSingle(),
     supabaseAdmin
@@ -176,6 +177,7 @@ export async function handleSmsWebhook(
   ]);
 
   const existingLead = existingLeadResult.data ?? null;
+  const score_threshold = (accountData.data?.score_threshold as number | null) ?? 0;
 
   // Fix #5 et #14 : scoring V2 data-driven — danger_level et scope extraits du texte.
   const textForDanger = [parsed.description, parsed.raw_message].filter(Boolean).join(" ");
@@ -247,6 +249,16 @@ export async function handleSmsWebhook(
       if (insertError) throw new Error(`Erreur création lead: ${insertError.message}`);
       console.log("[SMS webhook] Nouveau lead créé (réponse exploitable):", From);
     }
+    // Notification push si le score dépasse le seuil du compte
+    if (scored.priority_score >= score_threshold) {
+      const leadName = parsed.full_name || "Inconnu";
+      void sendPushNotification(account_id, {
+        title: "Nouvelle demande qualifiée",
+        body:  `${leadName} — score ${scored.priority_score}`,
+        url:   "/dashboard",
+      });
+    }
+
     return { ok: true, parsed, scored, relance: false };
   }
 
