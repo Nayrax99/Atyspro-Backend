@@ -1,0 +1,5 @@
+-- 009 : Champs notification et délai (alias fonctionnels de score_threshold et callback_delay)
+-- Les champs score_threshold et callback_delay ajoutés en 007 sont utilisés avec ces noms fonctionnels
+-- Aucune modification de schéma nécessaire — documenté ici pour traçabilité
+-- notification_score_threshold = score_threshold
+-- reminder_delay = callback_delay
