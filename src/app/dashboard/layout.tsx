@@ -10,6 +10,8 @@ import { applySkin, METIER_TO_SKIN } from "@/theme";
 import type { Skin } from "@/theme";
 import "./dashboard.css";
 
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
+
 interface DashboardLayoutProps {
   children: ReactNode;
 }
@@ -117,6 +119,40 @@ export default function DashboardLayout({ children }: Readonly<DashboardLayoutPr
     void checkAuth();
     return () => { isMounted = false; };
   }, [router]);
+
+  // Enregistrement SW + demande permission push (après auth confirmée)
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    if (!VAPID_PUBLIC_KEY) return;
+    if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+
+    void (async () => {
+      try {
+        const reg = await navigator.serviceWorker.register("/sw.js");
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") return;
+
+        // Décoder la clé VAPID publique (base64url → Uint8Array)
+        const base64 = VAPID_PUBLIC_KEY.replace(/-/g, "+").replace(/_/g, "/");
+        const raw = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: raw,
+        });
+
+        await fetch("/api/push/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ subscription: sub.toJSON(), platform: "web" }),
+        });
+      } catch (err) {
+        // Silencieux — push non critique
+        console.warn("[Push] Erreur setup:", err);
+      }
+    })();
+  }, [status]);
 
   if (status === "loading") {
     return (
