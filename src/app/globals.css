@@ -58,6 +58,11 @@
   to   { opacity: 1; }
 }
 
+@keyframes ap-slide-in-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
 @keyframes ap-fade-down {
   from { opacity: 0; transform: translateY(-12px); }
   to   { opacity: 1; transform: translateY(0); }
