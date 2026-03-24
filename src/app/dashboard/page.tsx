@@ -67,6 +67,7 @@ export default function DashboardPage() {
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
+  const [exportLoading, setExportLoading] = useState(false);
   const limit = 10;
 
   useEffect(() => {
@@ -83,14 +84,28 @@ export default function DashboardPage() {
     if (statusFilter) params.set("status", statusFilter);
     if (search.trim()) params.set("search", search.trim());
 
-    fetch(`${API_BASE}/api/leads?${params.toString()}`)
-      .then((r) => r.json())
-      .then((json: LeadsResponse & { error?: string }) => {
-        if (cancelled) return;
+    fetch(`${API_BASE}/api/leads?${params.toString()}`, { credentials: "include" })
+      .then((r) => {
+        if (r.status === 401) {
+          window.location.href = "/auth?reason=session_expired";
+          return null;
+        }
+        return r.json();
+      })
+      .then((json: (LeadsResponse & { error?: string }) | null) => {
+        if (!json || cancelled) return;
         if (!json.success) { setError(json.error ?? "Erreur inconnue"); setData(null); return; }
         setData(json as LeadsResponse);
       })
-      .catch((err: Error) => { if (!cancelled) { setError(err.message); setData(null); } })
+      .catch((err: Error) => {
+        if (!cancelled) {
+          const msg = err.message.toLowerCase().includes("fetch")
+            ? "Impossible de joindre le serveur. Vérifiez votre connexion internet."
+            : err.message;
+          setError(msg);
+          setData(null);
+        }
+      })
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
@@ -100,12 +115,36 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetch("/api/stats", { credentials: "include" })
-      .then((r) => r.json())
-      .then((json: { success: boolean; data?: StatsData }) => {
-        if (json.success && json.data) setStatsData(json.data);
+      .then((r) => {
+        if (r.status === 401) {
+          window.location.href = "/auth?reason=session_expired";
+          return null;
+        }
+        return r.json();
+      })
+      .then((json: { success: boolean; data?: StatsData } | null) => {
+        if (json && json.success && json.data) setStatsData(json.data);
       })
       .catch(() => {});
   }, []);
+
+  const handleExportCSV = async () => {
+    setExportLoading(true);
+    try {
+      const params = new URLSearchParams({ format: "csv" });
+      if (statusFilter) params.set("status", statusFilter);
+      if (search.trim()) params.set("search", search.trim());
+      const res = await fetch(`/api/leads?${params.toString()}`, { credentials: "include" });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "demandes.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { /* silent */ }
+    finally { setExportLoading(false); }
+  };
 
   function handleSort(field: SortField) {
     if (sortField === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -167,8 +206,25 @@ export default function DashboardPage() {
             {/* Accent bar */}
             <div style={{ width: 40, height: 2, background: "var(--ap-primary)", borderRadius: 2, marginTop: 6 }} />
           </div>
-          {/* Skin badge — droite */}
-          {skin !== "core" && <MetierBadge metier={skin} />}
+          {/* Right side: export button + skin badge */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              onClick={() => void handleExportCSV()}
+              disabled={exportLoading}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "8px 14px", borderRadius: 8,
+                border: "1px solid #E2E8F0", background: "#fff",
+                fontSize: 12, fontWeight: 600, color: "#374151",
+                cursor: exportLoading ? "not-allowed" : "pointer",
+                opacity: exportLoading ? 0.7 : 1,
+                fontFamily: "var(--font-sans)",
+              }}
+            >
+              {exportLoading ? "Export…" : "⬇ Exporter CSV"}
+            </button>
+            {skin !== "core" && <MetierBadge metier={skin} />}
+          </div>
         </div>
 
         {/* Contextual banner */}
@@ -309,15 +365,6 @@ export default function DashboardPage() {
             <div style={{ padding: "32px 24px", color: "#DC2626", fontSize: 13, fontFamily: FONT }}>
               Erreur : {error}
             </div>
-          ) : leads.length === 0 ? (
-            <div style={{ padding: "64px 24px", textAlign: "center", fontFamily: FONT }}>
-              <h2 style={{ fontSize: 15, fontWeight: 600, color: "#0F172A", marginBottom: 8 }}>Aucune demande</h2>
-              <p style={{ fontSize: 13, color: "#6B7280" }}>
-                {statusFilter || search
-                  ? "Aucun résultat pour ces critères."
-                  : "Les demandes issues de l'assistant vocal apparaîtront ici."}
-              </p>
-            </div>
           ) : (
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
@@ -347,117 +394,131 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {sortedLeads.map((lead: Lead, idx) => {
-                  const isHovered = hoveredRow === lead.id;
-                  return (
-                    <tr
-                      key={lead.id}
-                      style={{
-                        background: isHovered ? "#F8FAFE" : "#fff",
-                        transition: "background 0.12s ease",
-                        animation: `ap-row-in 350ms ease ${300 + idx * 60}ms both`,
-                      }}
-                      onMouseEnter={() => setHoveredRow(lead.id)}
-                      onMouseLeave={() => setHoveredRow(null)}
-                    >
-                      <td style={{ ...tdCell, fontWeight: 500 }}>
-                        {lead.full_name || (
-                          <span style={{ color: "#9CA3AF", fontStyle: "italic" }}>Inconnu</span>
-                        )}
-                      </td>
-                      <td style={{ ...tdCell, color: "#6B7280" }}>
-                        {formatPhone(lead.client_phone)}
-                      </td>
-                      <td style={tdCell}>
-                        <span style={{ fontWeight: 600, fontSize: 13, color: "#0F172A" }}>
-                          {formatType(lead)}
-                        </span>
-                        <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>
-                          {formatDelay(lead)}
-                        </div>
-                      </td>
-                      <td style={tdCell}>
-                        <Badge variant={STATUS_TO_BADGE[lead.status]}>
-                          {LEAD_STATUS_LABELS[lead.status]}
-                        </Badge>
-                      </td>
-                      <td style={{ ...tdCell, textAlign: "center" }}>
-                        <ScoreCircle score={lead.priority_score} size="md" />
-                      </td>
-                      <td style={{ ...tdCell, textAlign: "center" }}>
-                        {lead.relance_count != null && lead.relance_count > 0 ? (
-                          <Badge variant="relance">
-                            {lead.relance_count} relance{lead.relance_count > 1 ? "s" : ""}
-                          </Badge>
-                        ) : (
-                          <span style={{ color: "#D1D5DB" }}>0</span>
-                        )}
-                      </td>
-                      <td style={{ ...tdCell, color: "#6B7280", fontSize: 12 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span>
-                            {lead.created_at
-                              ? new Date(lead.created_at).toLocaleDateString("fr-FR", {
-                                  day: "2-digit",
-                                  month: "short",
-                                  year: "numeric",
-                                })
-                              : "—"}
-                          </span>
-                          {lead.created_at && (Date.now() - new Date(lead.created_at).getTime() < 24 * 60 * 60 * 1000) && (
-                            <span style={{
-                              display: 'inline-block',
-                              padding: '2px 8px',
-                              borderRadius: 20,
-                              fontSize: 10,
-                              fontWeight: 700,
-                              letterSpacing: '0.06em',
-                              textTransform: 'uppercase' as const,
-                              background: 'linear-gradient(90deg, #1A56DB, #7c3aed)',
-                              color: '#fff',
-                              verticalAlign: 'middle',
-                              whiteSpace: 'nowrap',
-                            }}>
-                              Nouveau
-                            </span>
+                {!loading && !error && sortedLeads.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{ padding: "64px 24px", textAlign: "center" }}>
+                      <div style={{ fontSize: 32, marginBottom: 12 }}>📋</div>
+                      <div style={{ fontSize: 15, fontWeight: 600, color: "#374151", marginBottom: 6 }}>
+                        Aucune demande pour le moment
+                      </div>
+                      <div style={{ fontSize: 13, color: "#9CA3AF" }}>
+                        Vos prochains clients apparaîtront ici une fois que votre assistant vocal aura qualifié leurs appels.
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  sortedLeads.map((lead: Lead, idx) => {
+                    const isHovered = hoveredRow === lead.id;
+                    return (
+                      <tr
+                        key={lead.id}
+                        style={{
+                          background: isHovered ? "#F8FAFE" : "#fff",
+                          transition: "background 0.12s ease",
+                          animation: `ap-row-in 350ms ease ${300 + idx * 60}ms both`,
+                        }}
+                        onMouseEnter={() => setHoveredRow(lead.id)}
+                        onMouseLeave={() => setHoveredRow(null)}
+                      >
+                        <td style={{ ...tdCell, fontWeight: 500 }}>
+                          {lead.full_name || (
+                            <span style={{ color: "#9CA3AF", fontStyle: "italic" }}>Inconnu</span>
                           )}
-                        </div>
-                      </td>
-                      <td style={{ ...tdCell, textAlign: "center" }}>
-                        <Link
-                          href={`/dashboard/leads/${lead.id}`}
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: 28,
-                            height: 28,
-                            borderRadius: "50%",
-                            border: "0.5px solid #E5E7EB",
-                            color: "#9CA3AF",
-                            textDecoration: "none",
-                            transition: "all 0.15s",
-                            transform: isHovered ? "translateX(3px)" : "none",
-                          }}
-                          onMouseEnter={(e) => {
-                            const el = e.currentTarget as HTMLAnchorElement;
-                            el.style.background = "var(--ap-primary-light)";
-                            el.style.color = "var(--ap-primary)";
-                            el.style.borderColor = "var(--ap-primary-border)";
-                          }}
-                          onMouseLeave={(e) => {
-                            const el = e.currentTarget as HTMLAnchorElement;
-                            el.style.background = "transparent";
-                            el.style.color = "#9CA3AF";
-                            el.style.borderColor = "#E5E7EB";
-                          }}
-                        >
-                          <ChevronRight size={13} />
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        </td>
+                        <td style={{ ...tdCell, color: "#6B7280" }}>
+                          {formatPhone(lead.client_phone)}
+                        </td>
+                        <td style={tdCell}>
+                          <span style={{ fontWeight: 600, fontSize: 13, color: "#0F172A" }}>
+                            {formatType(lead)}
+                          </span>
+                          <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>
+                            {formatDelay(lead)}
+                          </div>
+                        </td>
+                        <td style={tdCell}>
+                          <Badge variant={STATUS_TO_BADGE[lead.status]}>
+                            {LEAD_STATUS_LABELS[lead.status]}
+                          </Badge>
+                        </td>
+                        <td style={{ ...tdCell, textAlign: "center" }}>
+                          <ScoreCircle score={lead.priority_score} size="md" />
+                        </td>
+                        <td style={{ ...tdCell, textAlign: "center" }}>
+                          {lead.relance_count != null && lead.relance_count > 0 ? (
+                            <Badge variant="relance">
+                              {lead.relance_count} relance{lead.relance_count > 1 ? "s" : ""}
+                            </Badge>
+                          ) : (
+                            <span style={{ color: "#D1D5DB" }}>0</span>
+                          )}
+                        </td>
+                        <td style={{ ...tdCell, color: "#6B7280", fontSize: 12 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span>
+                              {lead.created_at
+                                ? new Date(lead.created_at).toLocaleDateString("fr-FR", {
+                                    day: "2-digit",
+                                    month: "short",
+                                    year: "numeric",
+                                  })
+                                : "—"}
+                            </span>
+                            {lead.created_at && (Date.now() - new Date(lead.created_at).getTime() < 24 * 60 * 60 * 1000) && (
+                              <span style={{
+                                display: "inline-block",
+                                padding: "2px 8px",
+                                borderRadius: 20,
+                                fontSize: 10,
+                                fontWeight: 700,
+                                letterSpacing: "0.06em",
+                                textTransform: "uppercase" as const,
+                                background: "linear-gradient(90deg, #1A56DB, #7c3aed)",
+                                color: "#fff",
+                                verticalAlign: "middle",
+                                whiteSpace: "nowrap",
+                              }}>
+                                Nouveau
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td style={{ ...tdCell, textAlign: "center" }}>
+                          <Link
+                            href={`/dashboard/leads/${lead.id}`}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              width: 28,
+                              height: 28,
+                              borderRadius: "50%",
+                              border: "0.5px solid #E5E7EB",
+                              color: "#9CA3AF",
+                              textDecoration: "none",
+                              transition: "all 0.15s",
+                              transform: isHovered ? "translateX(3px)" : "none",
+                            }}
+                            onMouseEnter={(e) => {
+                              const el = e.currentTarget as HTMLAnchorElement;
+                              el.style.background = "var(--ap-primary-light)";
+                              el.style.color = "var(--ap-primary)";
+                              el.style.borderColor = "var(--ap-primary-border)";
+                            }}
+                            onMouseLeave={(e) => {
+                              const el = e.currentTarget as HTMLAnchorElement;
+                              el.style.background = "transparent";
+                              el.style.color = "#9CA3AF";
+                              el.style.borderColor = "#E5E7EB";
+                            }}
+                          >
+                            <ChevronRight size={13} />
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           )}

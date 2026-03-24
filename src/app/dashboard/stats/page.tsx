@@ -8,13 +8,18 @@ import { useDashboard } from "@/contexts/DashboardContext";
 
 interface StatsResult {
   total: number;
-  byStatus: { new: number; incomplete: number; to_process: number; processed: number };
+  byStatus: { nouveau: number; incomplet: number; a_traiter: number; traite: number };
   byType: { depannage: number; installation: number; devis: number; autre: number; nonRenseigne: number };
   byDelay: { urgent: number; h48: number; semaine: number; flexible: number; nonRenseigne: number };
   avgScore: number | null;
   highPriority: number;
   mediumPriority: number;
   lowPriority: number;
+  // Métriques enrichies (mois uniquement)
+  avgScoreByType?: { depannage: number | null; installation: number | null; devis: number | null; autre: number | null };
+  conversionRate?: number;
+  avgTreatmentDelayDays?: number | null;
+  top3Types?: { type: string; count: number }[];
 }
 
 interface ChartBucket { label: string; count: number }
@@ -115,7 +120,7 @@ export default function StatsPage() {
 
   const stats = view === "month" ? data.month : data.total;
   const chartBuckets = view === "month" ? data.chartData.byDay : data.chartData.byWeek;
-  const traitementPct = stats.total > 0 ? Math.round(((stats.byStatus.processed ?? 0) / stats.total) * 100) : 0;
+  const traitementPct = stats.conversionRate ?? (stats.total > 0 ? Math.round(((stats.byStatus.traite ?? 0) / stats.total) * 100) : 0);
 
   return (
     <div style={{ fontFamily: "var(--font-sans)" }}>
@@ -144,7 +149,7 @@ export default function StatsPage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
             <KpiCard label="Leads reçus" value={stats.total} />
             <KpiCard label="Score moyen" value={stats.avgScore ?? "—"} sub="sur 100" />
-            <KpiCard label="Taux de traitement" value={`${traitementPct}%`} sub={`${stats.byStatus.processed} traité${stats.byStatus.processed > 1 ? "s" : ""}`} />
+            <KpiCard label="Taux de traitement" value={`${traitementPct}%`} sub={`${stats.byStatus.traite} traité${stats.byStatus.traite > 1 ? "s" : ""}`} />
             <KpiCard label="Haute priorité" value={stats.highPriority} sub={`${pct(stats.highPriority, stats.total)}% du total`} />
           </div>
 
@@ -176,6 +181,57 @@ export default function StatsPage() {
             </div>
             <BarChart buckets={chartBuckets} />
           </Card>
+
+          {/* Analyses avancées — affichées uniquement si données enrichies disponibles */}
+          {view === "month" && (stats.top3Types || stats.avgScoreByType || stats.avgTreatmentDelayDays != null) && (
+            <Card padding={20} style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#0F172A", marginBottom: 18 }}>Analyses avancées du mois</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+
+                {/* Top 3 types */}
+                {stats.top3Types && stats.top3Types.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "#94A3B8", marginBottom: 12 }}>Top 3 types ce mois</div>
+                    {stats.top3Types.map((t, i) => (
+                      <div key={t.type} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                        <span style={{ width: 20, height: 20, borderRadius: "50%", background: i === 0 ? "var(--ap-primary)" : "#F1F5F9", color: i === 0 ? "#fff" : "#64748B", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</span>
+                        <span style={{ flex: 1, fontSize: 13, color: "#374151" }}>{t.type}</span>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: "#0F172A" }}>{t.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Score moyen par type */}
+                {stats.avgScoreByType && (
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "#94A3B8", marginBottom: 12 }}>Score moyen par type</div>
+                    {(["depannage", "installation", "devis", "autre"] as const).map((key) => {
+                      const val = stats.avgScoreByType![key];
+                      const label = { depannage: "Dépannage", installation: "Installation", devis: "Devis", autre: "Autre" }[key];
+                      return (
+                        <div key={key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 0", borderBottom: "0.5px solid #F8FAFC" }}>
+                          <span style={{ fontSize: 12, color: "#64748B", flex: 1 }}>{label}</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: val != null ? "#0F172A" : "#CBD5E1" }}>{val != null ? val : "—"}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Délai moyen de traitement */}
+                {stats.avgTreatmentDelayDays != null && (
+                  <div style={{ gridColumn: "1 / -1", paddingTop: 12, borderTop: "0.5px solid #E5E7EB" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "#94A3B8", marginBottom: 6 }}>Délai moyen de traitement</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: "#0F172A" }}>
+                      {stats.avgTreatmentDelayDays === 0 ? "< 1 jour" : `${stats.avgTreatmentDelayDays} jour${stats.avgTreatmentDelayDays > 1 ? "s" : ""}`}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 2 }}>Entre la réception et le passage en "Traité"</div>
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
         </>
       )}
     </div>

@@ -32,6 +32,14 @@ interface OverviewResponse {
   error?: string;
 }
 
+const SPECIALTY_OPTIONS: { value: string; label: string }[] = [
+  { value: "admin", label: "Admin" },
+  { value: "electricien", label: "Électricien" },
+  { value: "plombier", label: "Plombier" },
+  { value: "serrurier", label: "Serrurier" },
+  { value: "immo", label: "Immobilier" },
+];
+
 function KpiCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
     <Card padding={20} style={{ position: "relative", overflow: "hidden" }}>
@@ -46,14 +54,52 @@ function KpiCard({ label, value, sub }: { label: string; value: string | number;
 const TH: React.CSSProperties = { padding: "10px 16px", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#94A3B8", textAlign: "left", background: "#F8FAFC", borderBottom: "0.5px solid #E5E7EB", whiteSpace: "nowrap" };
 const TD: React.CSSProperties = { padding: "12px 16px", fontSize: 13, color: "#374151", borderBottom: "0.5px solid #F1F5F9", verticalAlign: "middle" };
 
-function AccountRow({ account }: { account: AccountWithLeads }) {
+function AccountRow({
+  account,
+  onSpecialtyChange,
+}: {
+  account: AccountWithLeads;
+  onSpecialtyChange: (id: string, specialty: string) => void;
+}) {
   const [hovered, setHovered] = useState(false);
+
+  function handleSpecialtyChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const newSpecialty = e.target.value;
+    fetch(`/api/admin/accounts/${account.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ specialty: newSpecialty }),
+    })
+      .then((r) => {
+        if (r.ok) {
+          onSpecialtyChange(account.id, newSpecialty);
+        } else {
+          console.error("Erreur lors de la mise à jour de la spécialité", r.status);
+        }
+      })
+      .catch((err: Error) => {
+        console.error("Erreur réseau lors de la mise à jour de la spécialité", err.message);
+      });
+  }
+
   return (
     <tr onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} style={{ background: hovered ? "#F8FAFC" : "#fff", transition: "background 0.1s" }}>
       <td style={{ ...TD, fontWeight: 600, color: "#0F172A" }}>{account.name ?? <span style={{ color: "#9CA3AF", fontStyle: "italic" }}>—</span>}</td>
       <td style={{ ...TD, color: "#64748B" }}>{account.email ?? "—"}</td>
       <td style={TD}>{account.city ?? <span style={{ color: "#9CA3AF" }}>—</span>}</td>
-      <td style={TD}>{account.specialty ?? <span style={{ color: "#9CA3AF" }}>—</span>}</td>
+      <td style={TD}>
+        <select
+          value={account.specialty ?? ""}
+          onChange={handleSpecialtyChange}
+          style={{ fontSize: 12, padding: "3px 8px", borderRadius: 6, border: "1px solid #E2E8F0", background: "#fff", cursor: "pointer" }}
+        >
+          <option value="">—</option>
+          {SPECIALTY_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      </td>
       <td style={{ ...TD, color: "#64748B", fontFamily: "monospace", fontSize: 12 }}>{account.pro_phone ?? <span style={{ color: "#9CA3AF" }}>—</span>}</td>
       <td style={{ ...TD, fontWeight: 700, textAlign: "center" }}>{account.lead_count}</td>
       <td style={TD}>
@@ -90,6 +136,12 @@ export default function AdminPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  function handleSpecialtyChange(id: string, specialty: string) {
+    setAccounts((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, specialty } : a))
+    );
+  }
+
   const totalPages = Math.max(1, Math.ceil(accounts.length / PAGE_SIZE));
   const paged = accounts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -123,8 +175,14 @@ export default function AdminPage() {
             </div>
 
             {accounts.length === 0 ? (
-              <div style={{ padding: "48px 24px", textAlign: "center" }}>
-                <p style={{ fontSize: 13, color: "#94A3B8", margin: 0 }}>Aucun artisan inscrit.</p>
+              <div style={{ padding: "64px 24px", textAlign: "center" }}>
+                <div style={{ fontSize: 32, marginBottom: 12 }}>👥</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#374151", marginBottom: 6 }}>
+                  Aucun compte trouvé
+                </div>
+                <div style={{ fontSize: 13, color: "#9CA3AF" }}>
+                  Les comptes utilisateurs apparaîtront ici une fois créés.
+                </div>
               </div>
             ) : (
               <div style={{ overflowX: "auto" }}>
@@ -134,7 +192,7 @@ export default function AdminPage() {
                       <th style={TH}>Entreprise</th>
                       <th style={TH}>Email</th>
                       <th style={TH}>Ville</th>
-                      <th style={TH}>Spécialité</th>
+                      <th style={TH}>Métier</th>
                       <th style={TH}>N° Pro</th>
                       <th style={{ ...TH, textAlign: "center" }}>Leads</th>
                       <th style={TH}>Onboarding</th>
@@ -143,7 +201,11 @@ export default function AdminPage() {
                   </thead>
                   <tbody>
                     {paged.map((account) => (
-                      <AccountRow key={account.id} account={account} />
+                      <AccountRow
+                        key={account.id}
+                        account={account}
+                        onSpecialtyChange={handleSpecialtyChange}
+                      />
                     ))}
                   </tbody>
                 </table>

@@ -113,8 +113,12 @@ export default function CallsPage() {
     setError(null);
 
     fetch(`/api/calls?page=${page}&limit=${limit}`, { credentials: "include" })
-      .then((r) => r.json())
-      .then((json: CallsResponse) => {
+      .then((r) => {
+        if (r.status === 401) { window.location.href = "/auth?reason=session_expired"; return null; }
+        return r.json();
+      })
+      .then((json: CallsResponse | null) => {
+        if (!json) return;
         if (cancelled) return;
         if (!json.success) { setError(json.error ?? "Erreur inconnue"); return; }
         setCalls(json.data ?? []);
