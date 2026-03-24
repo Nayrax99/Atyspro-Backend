@@ -43,12 +43,12 @@ export async function GET(request: NextRequest) {
       ),
     ];
 
-    const leadsByPhone: Record<string, { id: string; full_name: string | null }> = {};
+    const leadsByPhone: Record<string, { id: string; full_name: string | null; description: string | null }> = {};
 
     if (fromNumbers.length > 0) {
       const { data: matchedLeads } = await client
         .from("leads")
-        .select("id, full_name, client_phone")
+        .select("id, full_name, client_phone, description")
         .eq("account_id", account_id)
         .in("client_phone", fromNumbers)
         .order("created_at", { ascending: false });
@@ -59,6 +59,7 @@ export async function GET(request: NextRequest) {
           leadsByPhone[phone] = {
             id: lead.id as string,
             full_name: lead.full_name as string | null,
+            description: lead.description as string | null,
           };
         }
       }
