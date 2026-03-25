@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 
     const { data: account } = await supabaseAdmin
       .from("accounts")
-      .select("id, name, first_name, last_name, company_name, email, onboarding_completed, owner_phone, city, is_admin")
+      .select("id, name, first_name, last_name, company_name, email, onboarding_completed, owner_phone, city, is_admin, pro_phone")
       .eq("id", account_id)
       .maybeSingle();
 
@@ -45,6 +45,7 @@ export async function GET(req: NextRequest) {
             owner_phone: account.owner_phone ?? null,
             city: account.city ?? null,
             is_admin: account.is_admin ?? false,
+            pro_phone: account.pro_phone ?? null,
             pending_leads: pendingLeads ?? 0,
           }
         : {
@@ -57,6 +58,7 @@ export async function GET(req: NextRequest) {
             owner_phone: null,
             city: null,
             is_admin: false,
+            pro_phone: null,
             pending_leads: 0,
           },
     });

@@ -11,28 +11,17 @@ export async function GET(req: NextRequest) {
     const { account_id, token } = await requireAuth(req);
     const client = createSupabaseClient(token);
 
-    const [{ data: account, error }, { data: phoneRecord }] = await Promise.all([
-      client
-        .from("accounts")
-        .select("id, name, email, owner_phone, city, specialty, first_name, last_name, company_name, welcome_message, assistant_name, score_threshold, callback_delay")
-        .eq("id", account_id)
-        .maybeSingle(),
-      client
-        .from("phone_numbers")
-        .select("phone_number")
-        .eq("account_id", account_id)
-        .eq("active", true)
-        .maybeSingle(),
-    ]);
+    const { data: account, error } = await client
+      .from("accounts")
+      .select("id, name, email, owner_phone, city, specialty, first_name, last_name, company_name, welcome_message, assistant_name, score_threshold, callback_delay, pro_phone")
+      .eq("id", account_id)
+      .maybeSingle();
 
     if (error) throw new Error(error.message);
 
     return NextResponse.json({
       success: true,
-      data: {
-        ...account,
-        pro_phone: phoneRecord?.phone_number ?? null,
-      },
+      data: account,
     });
   } catch (error) {
     if (error instanceof ApiError) {
@@ -97,22 +86,14 @@ export async function PATCH(req: NextRequest) {
       .from("accounts")
       .update(updates)
       .eq("id", account_id)
-      .select("id, name, email, owner_phone, city, specialty, first_name, last_name, company_name, welcome_message, assistant_name, score_threshold, callback_delay")
+      .select("id, name, email, owner_phone, city, specialty, first_name, last_name, company_name, welcome_message, assistant_name, score_threshold, callback_delay, pro_phone")
       .maybeSingle();
 
     if (error) throw new Error(error.message);
 
-    // Re-fetch pro_phone to include in response
-    const { data: phoneRecord } = await client
-      .from("phone_numbers")
-      .select("phone_number")
-      .eq("account_id", account_id)
-      .eq("active", true)
-      .maybeSingle();
-
     return NextResponse.json({
       success: true,
-      data: { ...data, pro_phone: phoneRecord?.phone_number ?? null },
+      data,
     });
   } catch (error) {
     if (error instanceof ApiError) {

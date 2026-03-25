@@ -123,6 +123,19 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [testPushState, setTestPushState] = useState<"idle" | "sending" | "ok" | "err">("idle");
+
+  async function handleTestPush() {
+    setTestPushState("sending");
+    try {
+      const res = await fetch("/api/admin/test-push", { method: "POST", credentials: "include" });
+      const json = (await res.json()) as { success: boolean };
+      setTestPushState(json.success ? "ok" : "err");
+    } catch {
+      setTestPushState("err");
+    }
+    setTimeout(() => setTestPushState("idle"), 3000);
+  }
 
   useEffect(() => {
     fetch("/api/admin/overview", { credentials: "include" })
@@ -152,6 +165,18 @@ export default function AdminPage() {
         <h1 style={{ fontSize: 22, fontWeight: 800, color: "#0F172A", letterSpacing: "-0.02em", margin: 0 }}>Administration</h1>
         <div style={{ width: 32, height: 2, background: "var(--ap-primary)", borderRadius: 2, marginTop: 6, marginBottom: 6 }} />
         <p style={{ fontSize: 13, color: "#64748B", margin: 0 }}>Vue d&apos;ensemble de la plateforme</p>
+      </div>
+
+      {/* Actions admin */}
+      <div style={{ marginBottom: 20, display: "flex", gap: 10 }}>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={testPushState === "sending"}
+          onClick={() => void handleTestPush()}
+        >
+          {testPushState === "sending" ? "Envoi…" : testPushState === "ok" ? "✓ Envoyée" : testPushState === "err" ? "✗ Erreur" : "Tester la notification push"}
+        </Button>
       </div>
 
       {loading ? (
