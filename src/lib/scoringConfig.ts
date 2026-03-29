@@ -48,6 +48,7 @@ export const ELECTRICIEN_CONFIG: ScoringConfig = {
   specialty: "electricien",
   type_weights: {
     tableau_complet: 30,
+    depannage_large: 25,
     installation_neuve: 22,
     depannage_technique: 18,
     petite_reparation: 8,
@@ -74,7 +75,7 @@ export const ELECTRICIEN_CONFIG: ScoringConfig = {
   type_code_map: {
     "1_small": "petite_reparation",
     "1_medium": "depannage_technique",
-    "1_large": "depannage_technique",
+    "1_large": "depannage_large",
     "2_small": "installation_neuve",
     "2_medium": "installation_neuve",
     "2_large": "tableau_complet",

@@ -54,7 +54,8 @@ function deriveValueEstimate(
   scope: ScopeLevel | null
 ): "low" | "medium" | "high" | null {
   if (!typeKey) return null;
-  if (typeKey === "tableau_complet") return "high";
+  // Mod 5 : depannage_large (tout logement) = valeur high, au même niveau que tableau_complet
+  if (typeKey === "tableau_complet" || typeKey === "depannage_large") return "high";
   if (typeKey === "installation_neuve" || typeKey === "depannage_technique") {
     return scope === "large" ? "high" : "medium";
   }
@@ -134,6 +135,10 @@ export function computeScore(
   if (danger_level === "critical") {
     priority_score = Math.max(priority_score, config.special_rules.min_score_critical ?? 85);
   }
+  // Mod 3 : score minimum pour danger élevé — un client sans courant ne passe pas derrière un devis
+  if (danger_level === "high") {
+    priority_score = Math.max(priority_score, 60);
+  }
 
   return {
     priority_score,
@@ -155,7 +160,7 @@ export function computeParsingConfidence(params: {
 }): number {
   let confidence = 1.0;
   if (!params.type_code) confidence -= 0.2;
-  if (params.danger_level === "none") confidence -= 0.2;
+  // Mod 4 : danger_level=none est légitime (devis planifié) — pas une pénalité de qualité
   if (!params.full_name) confidence -= 0.2;
   if (!params.address) confidence -= 0.2;
   if (!params.description) confidence -= 0.2;
