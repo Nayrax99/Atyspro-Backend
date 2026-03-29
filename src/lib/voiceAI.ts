@@ -81,6 +81,80 @@ function addressHasCity(address: string): boolean {
 
 // ---------------------------------------------------------------------------
 
+/** Retourne un élément aléatoire du tableau (Mod 3) */
+export function pickRandom<T>(arr: readonly T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+/** Pools de variations pour rendre l'agent vocal plus naturel (Mod 3) */
+export const VOICE_VARIATIONS = {
+  acknowledgement: [
+    "D'accord,",
+    "Je vois,",
+    "Très bien,",
+    "Compris,",
+    "Entendu,",
+    "Noté,",
+    "Je comprends,",
+  ],
+  acknowledgement_urgent: [
+    "Je comprends que c'est urgent,",
+    "On va s'en occuper rapidement,",
+    "Je transmets ça en priorité,",
+    "C'est une situation prioritaire,",
+  ],
+  clarification_intro: [
+    "Pour bien comprendre votre situation,",
+    "Juste pour préciser,",
+    "Permettez-moi de vérifier un point :",
+    "Une petite question supplémentaire :",
+  ],
+  name_address_request: [
+    "Je note ça pour vous. C'est à quel nom et à quelle adresse pour l'intervention ?",
+    "Parfait. Pour que je puisse transmettre votre demande, j'aurais besoin de votre nom et de l'adresse d'intervention.",
+    "Très bien. À quel nom et à quelle adresse dois-je enregistrer votre demande ?",
+  ],
+  city_followup: [
+    "Et c'est dans quelle ville ?",
+    "Vous êtes dans quelle ville ?",
+    "La ville, s'il vous plaît ?",
+  ],
+  closing: [
+    "Parfait, j'ai tout ce qu'il me faut. Votre demande est transmise — ARTISAN_NAME vous rappellera dès que possible.",
+    "Très bien, c'est noté. Je transmets votre demande immédiatement à ARTISAN_NAME.",
+    "C'est enregistré. ARTISAN_NAME prendra contact avec vous très prochainement.",
+    "Votre demande est bien prise en charge. ARTISAN_NAME vous recontactera au plus vite.",
+  ],
+  closing_urgent: [
+    "C'est transmis en urgence absolue. ARTISAN_NAME vous rappelle dans les plus brefs délais.",
+    "Je transmets ça immédiatement en priorité. Restez disponible sur ce numéro.",
+    "Votre demande urgente est transmise. ARTISAN_NAME intervient dès que possible.",
+  ],
+} as const;
+
+/**
+ * Génère une phrase d'accroche naturelle et variée pour le premier tour (Mod 1).
+ */
+export function buildGreeting(account: {
+  assistant_name?: string;
+  first_name?: string;
+  company_name?: string;
+}): string {
+  const assistantName = account.assistant_name || "votre assistante";
+  const artisanName = account.first_name || "l'artisan";
+  const company = account.company_name ? ` chez ${account.company_name}` : "";
+
+  const greetings = [
+    `Bonjour ! Je suis ${assistantName}, l'assistante de ${artisanName}${company}. Il est en intervention en ce moment, mais je prends votre demande en charge. Pouvez-vous me décrire la raison de votre appel ?`,
+    `Bonjour ! ${assistantName} à l'appareil, je gère les appels de ${artisanName}${company}. Il n'est pas disponible pour le moment, je suis là pour prendre votre demande. Qu'est-ce qui vous amène ?`,
+    `Bonjour ! Vous avez bien joint ${artisanName}${company}. Je suis son assistante vocale. Il est actuellement en intervention — dites-moi, qu'est-ce que je peux faire pour vous ?`,
+  ];
+
+  return greetings[Math.floor(Math.random() * greetings.length)];
+}
+
+// ---------------------------------------------------------------------------
+
 /** Fallback retourné si le parsing JSON du LLM échoue */
 function buildFallbackAnalysis(rawText: string): VoiceAIAnalysis {
   return {
@@ -159,7 +233,7 @@ STYLE :
 - Vouvoiement systématique
 - Parle comme un assistant humain au téléphone, naturel et professionnel
 - Accuse toujours réception de ce que dit le client avant de poser ta question suivante
-- Varie les accusés de réception : "Bien sûr,", "Noté,", "Je comprends,", "C'est noté,", etc.
+- Varie systématiquement tes backchannels — ne répète jamais le même deux fois dans le même appel. Neutres : "D'accord,", "Je vois,", "Compris,", "Entendu,", "Noté,", "Je comprends,". Urgents : "Je comprends que c'est urgent,", "On va s'en occuper rapidement,", "Je transmets ça en priorité,".
 - Ne jamais dire "je suis une IA" ou "je suis un robot" — tu es "l'assistant de ${artisanContext.name}"
 
 QUAND needsFollowUp est false → fournis un "recap" : résumé naturel de la demande.
@@ -215,7 +289,7 @@ FORMAT DE RÉPONSE — JSON uniquement, aucun autre texte :
       currentTurn < maxTurns
     ) {
       parsed.needsFollowUp = true;
-      parsed.followUpQuestion = "Et dans quelle ville se trouve l'adresse ?";
+      parsed.followUpQuestion = pickRandom(VOICE_VARIATIONS.city_followup);
     }
 
     return parsed;

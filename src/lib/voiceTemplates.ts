@@ -40,23 +40,30 @@ function callbackDelayText(callbackDelay: string): string {
 export function buildWelcomeTwiml(
   artisanName: string,
   accountId: string,
-  callSid: string
+  callSid: string,
+  greetingText?: string
 ): string {
   const gatherAction = `${getBaseUrl()}/api/webhooks/twilio/voice/gather?turn=1&account_id=${encodeURIComponent(accountId)}&call_sid=${encodeURIComponent(callSid)}`;
 
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Gather input="speech" language="${LANGUAGE}" speechTimeout="2" timeout="10" action="${escapeXml(gatherAction)}">
-    <Say voice="${VOICE}" language="${LANGUAGE}">
-      <prosody rate="95%">
-        Bonjour, vous êtes bien chez ${escapeXml(artisanName)}, électricien.
+  // Mod 1 : texte d'accueil dynamique si fourni, sinon fallback
+  const speechContent = greetingText
+    ? `<prosody rate="95%">${escapeXml(greetingText)}</prosody>`
+    : `<prosody rate="95%">
+        Bonjour, vous êtes bien chez ${escapeXml(artisanName)}.
         <break time="400ms"/>
         Il est actuellement en intervention.
         <break time="300ms"/>
         Je suis son assistant, et je prends votre demande pour qu&apos;il vous rappelle rapidement.
         <break time="500ms"/>
         Pouvez-vous me décrire votre problème, et me dire si c&apos;est urgent ?
-      </prosody>
+      </prosody>`;
+
+  // Mod 2 : speechTimeout="auto" + speechModel + enhanced + actionOnEmptyResult
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Gather input="speech" language="${LANGUAGE}" speechTimeout="auto" speechModel="phone_call" enhanced="true" actionOnEmptyResult="true" timeout="8" action="${escapeXml(gatherAction)}">
+    <Say voice="${VOICE}" language="${LANGUAGE}">
+      ${speechContent}
     </Say>
   </Gather>
   <Say voice="${VOICE}" language="${LANGUAGE}">Je n&apos;ai pas entendu votre réponse. Au revoir.</Say>
@@ -75,9 +82,10 @@ export function buildFollowUpTwiml(
 ): string {
   const gatherAction = `${getBaseUrl()}/api/webhooks/twilio/voice/gather?turn=${nextTurn}&account_id=${encodeURIComponent(accountId)}&call_sid=${encodeURIComponent(callSid)}`;
 
+  // Mod 2 : speechTimeout="auto" + speechModel + enhanced + actionOnEmptyResult
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather input="speech" language="${LANGUAGE}" speechTimeout="2" timeout="10" action="${escapeXml(gatherAction)}">
+  <Gather input="speech" language="${LANGUAGE}" speechTimeout="auto" speechModel="phone_call" enhanced="true" actionOnEmptyResult="true" timeout="8" action="${escapeXml(gatherAction)}">
     <Say voice="${VOICE}" language="${LANGUAGE}">${escapeXml(question)}</Say>
   </Gather>
   <Say voice="${VOICE}" language="${LANGUAGE}">Je n&apos;ai pas entendu votre réponse. Je vais transmettre votre demande à l&apos;artisan.</Say>

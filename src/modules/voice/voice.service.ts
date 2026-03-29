@@ -9,7 +9,7 @@
  */
 
 import { supabaseAdmin } from "@/lib/supabase";
-import { analyzeVoiceTranscripts } from "@/lib/voiceAI";
+import { analyzeVoiceTranscripts, buildGreeting, pickRandom, VOICE_VARIATIONS } from "@/lib/voiceAI";
 import { computeScore, computeParsingConfidence } from "@/lib/leadScoring";
 import { getScoringConfig } from "@/lib/scoringConfig";
 import { sendSMS } from "@/lib/twilioClient";
@@ -146,8 +146,8 @@ export async function handleIncomingCall(
     return buildErrorTwiml();
   }
 
-  // Texte brut du message d'accueil (sans SSML/XML) — stocké en premier dans voice_transcripts
-  const welcomeText = `Bonjour, vous êtes bien chez ${artisan.name}, électricien. Il est actuellement en intervention. Je suis son assistant, et je prends votre demande pour qu'il vous rappelle rapidement. Pouvez-vous me décrire votre problème, et me dire si c'est urgent ?`;
+  // Texte brut du message d'accueil — généré dynamiquement (Mod 1)
+  const welcomeText = buildGreeting({ first_name: artisan.name });
 
   const welcomeEntry: VoiceTranscriptEntry = {
     role: "assistant",
@@ -179,7 +179,7 @@ export async function handleIncomingCall(
 
   console.log("[voice.service] Appel entrant — artisan:", artisan.name, "call_sid:", callSid);
 
-  return buildWelcomeTwiml(artisan.name, accountId, callSid);
+  return buildWelcomeTwiml(artisan.name, accountId, callSid, welcomeText);
 }
 
 /**
@@ -251,7 +251,14 @@ export async function handleGatherResult(
   } else if (analysis.recap) {
     assistantText = `Parfait, je récapitule. Vous avez besoin de ${analysis.recap}. ${artisan.name} vous rappelle ${delayTextPlain(analysis.parsedData.callback_delay)}. Est-ce que c'est correct ?`;
   } else {
-    assistantText = `Merci beaucoup. ${artisan.name} vous rappelle ${delayTextPlain(analysis.parsedData.callback_delay)}. Bonne journée !`;
+    // Mod 4 : closing varié selon danger_level
+    const isUrgent =
+      analysis.parsedData.danger_level === "critical" ||
+      analysis.parsedData.danger_level === "high";
+    const closingTemplate = pickRandom(
+      isUrgent ? VOICE_VARIATIONS.closing_urgent : VOICE_VARIATIONS.closing
+    );
+    assistantText = closingTemplate.replace("ARTISAN_NAME", artisan.name);
   }
 
   const now = new Date().toISOString();
