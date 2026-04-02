@@ -10,8 +10,33 @@
  * Seuls account_id et call_sid sont passés en query params ; les données sont lues en DB.
  */
 
-const VOICE = "Polly.Lea-Generative";
+const TTS_PROVIDER = process.env.TTS_PROVIDER ?? "polly";
 const LANGUAGE = "fr-FR";
+
+/**
+ * Retourne les attributs TTS selon TTS_PROVIDER.
+ * Configurable sans redéploiement via variables d'env Vercel :
+ *   TTS_PROVIDER=polly|google|openai
+ *   TWILIO_TTS_VOICE, GOOGLE_TTS_VOICE, OPENAI_TTS_VOICE (optionnels)
+ */
+function buildSayAttributes(): { voice?: string } {
+  switch (TTS_PROVIDER) {
+    case "polly":
+      return { voice: process.env.TWILIO_TTS_VOICE ?? "Polly.Lea-Neural" };
+    case "google":
+      return { voice: process.env.GOOGLE_TTS_VOICE ?? "Google.fr-FR-Chirp3-HD-Aoede" };
+    case "openai":
+      return { voice: process.env.OPENAI_TTS_VOICE ?? "openai-nova" };
+    default:
+      return { voice: "Polly.Lea-Neural" };
+  }
+}
+
+/** Génère l'attribut voice pour les balises <Say> XML */
+function voiceAttr(): string {
+  const { voice } = buildSayAttributes();
+  return voice ? `voice="${voice}"` : "";
+}
 
 /** Construit l'URL de base pour les webhooks Gather */
 function getBaseUrl(): string {
@@ -62,11 +87,11 @@ export function buildWelcomeTwiml(
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Gather input="speech" language="${LANGUAGE}" speechTimeout="auto" speechModel="phone_call" enhanced="true" actionOnEmptyResult="true" timeout="8" action="${escapeXml(gatherAction)}">
-    <Say voice="${VOICE}" language="${LANGUAGE}">
+    <Say ${voiceAttr()} language="${LANGUAGE}">
       ${speechContent}
     </Say>
   </Gather>
-  <Say voice="${VOICE}" language="${LANGUAGE}">Je n&apos;ai pas entendu votre réponse. Au revoir.</Say>
+  <Say ${voiceAttr()} language="${LANGUAGE}">Je n&apos;ai pas entendu votre réponse. Au revoir.</Say>
 </Response>`;
 }
 
@@ -86,9 +111,9 @@ export function buildFollowUpTwiml(
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Gather input="speech" language="${LANGUAGE}" speechTimeout="auto" speechModel="phone_call" enhanced="true" actionOnEmptyResult="true" timeout="8" action="${escapeXml(gatherAction)}">
-    <Say voice="${VOICE}" language="${LANGUAGE}">${escapeXml(question)}</Say>
+    <Say ${voiceAttr()} language="${LANGUAGE}">${escapeXml(question)}</Say>
   </Gather>
-  <Say voice="${VOICE}" language="${LANGUAGE}">Je n&apos;ai pas entendu votre réponse. Je vais transmettre votre demande à l&apos;artisan.</Say>
+  <Say ${voiceAttr()} language="${LANGUAGE}">Je n&apos;ai pas entendu votre réponse. Je vais transmettre votre demande à l&apos;artisan.</Say>
 </Response>`;
 }
 
@@ -110,7 +135,7 @@ export function buildRecapTwiml(
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Gather input="speech" language="${LANGUAGE}" speechTimeout="2" timeout="5" action="${escapeXml(confirmAction)}">
-    <Say voice="${VOICE}" language="${LANGUAGE}">
+    <Say ${voiceAttr()} language="${LANGUAGE}">
       Parfait, je récapitule.
       <break time="400ms"/>
       Vous avez besoin de ${escapeXml(recap)}.
@@ -132,7 +157,7 @@ export function buildGoodbyeTwiml(artisanName: string, callbackDelay?: string): 
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="${VOICE}" language="${LANGUAGE}">
+  <Say ${voiceAttr()} language="${LANGUAGE}">
     Merci beaucoup. ${escapeXml(artisanName)} vous rappelle ${escapeXml(delayText)}.
     <break time="300ms"/>
     Bonne journée !
@@ -147,7 +172,7 @@ export function buildGoodbyeTwiml(artisanName: string, callbackDelay?: string): 
 export function buildErrorTwiml(): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="${VOICE}" language="${LANGUAGE}">Une erreur est survenue. Veuillez rappeler directement l&apos;artisan. Au revoir.</Say>
+  <Say ${voiceAttr()} language="${LANGUAGE}">Une erreur est survenue. Veuillez rappeler directement l&apos;artisan. Au revoir.</Say>
   <Hangup/>
 </Response>`;
 }

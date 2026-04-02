@@ -50,9 +50,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Extraire le transcript STT
+    // Extraire le transcript STT et l'URL audio (pour Deepgram)
     const speechResult = formData.get("SpeechResult")?.toString() || "";
     const confidence = parseFloat(formData.get("Confidence")?.toString() || "0");
+    const recordingUrl = formData.get("RecordingUrl")?.toString() || undefined;
 
     const twiml = await handleGatherResult({
       speechResult,
@@ -60,6 +61,7 @@ export async function POST(req: NextRequest) {
       turn,
       accountId,
       callSid,
+      recordingUrl,
     });
 
     return new Response(twiml, {

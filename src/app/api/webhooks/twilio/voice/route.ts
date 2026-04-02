@@ -3,6 +3,9 @@ import { handleIncomingCall } from "@/modules/voice/voice.service";
 import { validateTwilioSignature } from "@/lib/twilioClient";
 import { buildErrorTwiml } from "@/lib/voiceTemplates";
 
+// Edge runtime incompatible : twilio SDK utilise crypto Node.js natif (HMAC-SHA1)
+export const dynamic = "force-dynamic";
+
 /**
  * POST /api/webhooks/twilio/voice - Point d'entrée appel entrant (accueil + Gather tour 1)
  */

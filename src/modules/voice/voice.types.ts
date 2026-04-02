@@ -18,6 +18,7 @@ export interface IncomingCallParams {
 /**
  * Paramètres reçus lors d'un résultat de Gather.
  * Fix #3 : prevTranscripts supprimé — les transcripts sont lus depuis la DB (calls.voice_transcripts).
+ * Deepgram : recordingUrl optionnel — si présent et DEEPGRAM_API_KEY défini, utilisé pour la transcription.
  */
 export interface GatherResultParams {
   speechResult: string;
@@ -25,6 +26,8 @@ export interface GatherResultParams {
   turn: number;
   accountId: string;
   callSid: string;
+  /** URL audio Twilio (RecordingUrl) — utilisé pour la transcription Deepgram si disponible */
+  recordingUrl?: string;
 }
 
 /** Analyse retournée par le LLM après traitement des transcripts */

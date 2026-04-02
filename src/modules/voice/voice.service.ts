@@ -36,6 +36,44 @@ import { MAX_VOICE_TURNS } from "./voice.types";
 // Helpers internes
 // ---------------------------------------------------------------------------
 
+/**
+ * Transcrit un fichier audio via Deepgram Nova-2 (fr, ponctuation + smart_format).
+ * Retourne le transcript ou null si Deepgram est indisponible / en erreur.
+ * Fallback automatique sur le SpeechResult Twilio dans handleGatherResult.
+ */
+async function transcribeWithDeepgram(audioUrl: string): Promise<string | null> {
+  const apiKey = process.env.DEEPGRAM_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const response = await fetch(
+      "https://api.deepgram.com/v1/listen?model=nova-2&language=fr&punctuate=true&smart_format=true&filler_words=false",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Token ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ url: audioUrl }),
+      }
+    );
+
+    if (!response.ok) {
+      console.warn("[voice.service] Deepgram HTTP error:", response.status);
+      return null;
+    }
+
+    const data = await response.json() as {
+      results?: { channels?: Array<{ alternatives?: Array<{ transcript?: string }> }> };
+    };
+    const transcript = data?.results?.channels?.[0]?.alternatives?.[0]?.transcript;
+    return typeof transcript === "string" && transcript ? transcript : null;
+  } catch (err) {
+    console.warn("[voice.service] Deepgram exception (fallback Twilio STT):", err);
+    return null;
+  }
+}
+
 /** Résout l'account_id depuis le numéro Twilio appelé (e164) */
 async function resolveAccountFromPhone(
   phoneE164: string
@@ -189,7 +227,7 @@ export async function handleIncomingCall(
 export async function handleGatherResult(
   params: GatherResultParams
 ): Promise<string> {
-  const { speechResult, turn, accountId, callSid } = params;
+  const { speechResult, turn, accountId, callSid, recordingUrl } = params;
 
   if (!supabaseAdmin) {
     console.error("[voice.service] supabaseAdmin non configuré");
@@ -211,6 +249,18 @@ export async function handleGatherResult(
     return buildErrorTwiml();
   }
 
+  // Résolution du transcript : Deepgram Nova-2 si RecordingUrl disponible, sinon fallback Twilio STT
+  let finalTranscript = speechResult;
+  if (process.env.DEEPGRAM_API_KEY && recordingUrl) {
+    const deepgramTranscript = await transcribeWithDeepgram(recordingUrl);
+    if (deepgramTranscript) {
+      finalTranscript = deepgramTranscript;
+      console.log("[voice.service] Transcript Deepgram Nova-2 utilisé — tour %d", turn);
+    } else {
+      console.log("[voice.service] Deepgram indisponible — fallback Twilio STT tour %d", turn);
+    }
+  }
+
   const existingEntries = parseTranscriptEntries(callResult.data?.voice_transcripts);
 
   // Fix #3 : dériver allTranscripts depuis les entries DB (textes user uniquement)
@@ -219,7 +269,7 @@ export async function handleGatherResult(
     ...existingEntries
       .filter((e) => e.role === "user")
       .map((e) => e.text),
-    speechResult,
+    finalTranscript,
   ];
 
   console.log(
@@ -264,7 +314,7 @@ export async function handleGatherResult(
   const now = new Date().toISOString();
   const updatedEntries: VoiceTranscriptEntry[] = [
     ...existingEntries,
-    { role: "user", text: speechResult, turn, timestamp: now },
+    { role: "user", text: finalTranscript, turn, timestamp: now },
     { role: "assistant", text: assistantText, turn, timestamp: now },
   ];
 
