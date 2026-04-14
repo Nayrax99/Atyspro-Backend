@@ -16,9 +16,8 @@ export async function synthesizeWithMistral(text: string): Promise<Buffer | null
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'voxtral-mini-tts-2603',
         input: text,
-        voice,
+        voice_id: voice,
         response_format: 'mp3'
       })
     })
