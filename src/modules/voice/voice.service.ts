@@ -44,10 +44,10 @@ import { MAX_VOICE_TURNS } from "./voice.types";
  */
 async function uploadTtsAudio(buffer: Buffer, callSid: string): Promise<string | null> {
   if (!supabaseAdmin) return null;
-  const path = `${callSid}-${Date.now()}.mp3`;
+  const path = `${callSid}-${Date.now()}.wav`;
   const { error } = await supabaseAdmin.storage
     .from("tts-audio")
-    .upload(path, buffer, { contentType: "audio/mpeg" });
+    .upload(path, buffer, { contentType: "audio/wav" });
   if (error) {
     console.error("[voice.service] Erreur upload TTS audio:", error.message);
     return null;
