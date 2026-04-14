@@ -10,23 +10,24 @@
  * Seuls account_id et call_sid sont passés en query params ; les données sont lues en DB.
  */
 
-const TTS_PROVIDER = process.env.TTS_PROVIDER ?? "polly";
 const LANGUAGE = "fr-FR";
+
+/** Lit TTS_PROVIDER à chaque appel (runtime) — évite le gel à l'init du module. */
+function getTTSProvider(): string {
+  return process.env.TTS_PROVIDER ?? "polly";
+}
 
 /**
  * Retourne les attributs TTS selon TTS_PROVIDER.
- * Configurable sans redéploiement via variables d'env Vercel :
- *   TTS_PROVIDER=polly|google|openai
- *   TWILIO_TTS_VOICE, GOOGLE_TTS_VOICE, OPENAI_TTS_VOICE (optionnels)
+ * polly   → Polly.Lea-Neural (ou TWILIO_TTS_VOICE)
+ * mistral → fallback Polly si l'upload audio Mistral échoue
+ * default → Polly.Lea-Neural
  */
 function buildSayAttributes(): { voice?: string } {
-  switch (TTS_PROVIDER) {
+  switch (getTTSProvider()) {
     case "polly":
+    case "mistral":
       return { voice: process.env.TWILIO_TTS_VOICE ?? "Polly.Lea-Neural" };
-    case "google":
-      return { voice: process.env.GOOGLE_TTS_VOICE ?? "Google.fr-FR-Chirp3-HD-Aoede" };
-    case "openai":
-      return { voice: process.env.OPENAI_TTS_VOICE ?? "openai-nova" };
     default:
       return { voice: "Polly.Lea-Neural" };
   }
@@ -139,15 +140,15 @@ export function buildRecapTwiml(
   artisanName: string,
   callbackDelay: string,
   accountId: string,
-  callSid: string
+  callSid: string,
+  audioUrl?: string
 ): string {
   const confirmAction = `${getBaseUrl()}/api/webhooks/twilio/voice/confirm?account_id=${encodeURIComponent(accountId)}&call_sid=${encodeURIComponent(callSid)}`;
   const delayText = callbackDelayText(callbackDelay);
 
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Gather input="speech" language="${LANGUAGE}" speechTimeout="2" timeout="5" action="${escapeXml(confirmAction)}">
-    <Say ${voiceAttr()} language="${LANGUAGE}">
+  const gatherContent = audioUrl
+    ? `<Play>${escapeXml(audioUrl)}</Play>`
+    : `<Say ${voiceAttr()} language="${LANGUAGE}">
       Parfait, je récapitule.
       <break time="400ms"/>
       Vous avez besoin de ${escapeXml(recap)}.
@@ -155,7 +156,12 @@ export function buildRecapTwiml(
       ${escapeXml(artisanName)} vous rappelle ${escapeXml(delayText)}.
       <break time="300ms"/>
       Est-ce que c&apos;est correct ?
-    </Say>
+    </Say>`;
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Gather input="speech" language="${LANGUAGE}" speechTimeout="2" timeout="5" action="${escapeXml(confirmAction)}">
+    ${gatherContent}
   </Gather>
   <Redirect method="POST">${escapeXml(confirmAction)}</Redirect>
 </Response>`;
@@ -164,8 +170,16 @@ export function buildRecapTwiml(
 /**
  * Génère le TwiML de fin de conversation avec pause naturelle avant "Bonne journée".
  */
-export function buildGoodbyeTwiml(artisanName: string, callbackDelay?: string): string {
+export function buildGoodbyeTwiml(artisanName: string, callbackDelay?: string, audioUrl?: string): string {
   const delayText = callbackDelay ? callbackDelayText(callbackDelay) : "dès que possible";
+
+  if (audioUrl) {
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Play>${escapeXml(audioUrl)}</Play>
+  <Hangup/>
+</Response>`;
+  }
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>

@@ -391,18 +391,45 @@ export async function handleGatherResult(
 
   // Qualification terminée — récapitulatif si disponible, sinon finalisation directe
   if (analysis.recap) {
+    let recapAudioUrl: string | undefined;
+    if (process.env.TTS_PROVIDER === "mistral") {
+      const delayText = delayTextPlain(analysis.parsedData.callback_delay);
+      const recapText = `Parfait, je récapitule. Vous avez besoin de ${analysis.recap}. ${artisan.name} vous rappelle ${delayText}. Est-ce que c'est correct ?`;
+      const buffer = await synthesizeWithMistral(recapText);
+      if (buffer) {
+        recapAudioUrl = (await uploadTtsAudio(buffer, callSid)) ?? undefined;
+      }
+      console.log("[TTS] AudioUrl result (recap):", recapAudioUrl);
+      if (!recapAudioUrl) {
+        console.warn("[voice.service] Mistral TTS échec — fallback Polly (recap)");
+      }
+    }
     return buildRecapTwiml(
       analysis.recap,
       artisan.name,
       analysis.parsedData.callback_delay,
       accountId,
-      callSid
+      callSid,
+      recapAudioUrl
     );
   }
 
   // Fallback : pas de récap (ex. LLM timeout) → finaliser directement
   await finalizeLead(accountId, callSid, updatedEntries, analysis, artisan);
-  return buildGoodbyeTwiml(artisan.name, analysis.parsedData.callback_delay);
+  let goodbyeAudioUrl: string | undefined;
+  if (process.env.TTS_PROVIDER === "mistral") {
+    const delayText = delayTextPlain(analysis.parsedData.callback_delay);
+    const goodbyeText = `Merci beaucoup. ${artisan.name} vous rappelle ${delayText}. Bonne journée !`;
+    const buffer = await synthesizeWithMistral(goodbyeText);
+    if (buffer) {
+      goodbyeAudioUrl = (await uploadTtsAudio(buffer, callSid)) ?? undefined;
+    }
+    console.log("[TTS] AudioUrl result (goodbye):", goodbyeAudioUrl);
+    if (!goodbyeAudioUrl) {
+      console.warn("[voice.service] Mistral TTS échec — fallback Polly (goodbye)");
+    }
+  }
+  return buildGoodbyeTwiml(artisan.name, analysis.parsedData.callback_delay, goodbyeAudioUrl);
 }
 
 /**
@@ -580,10 +607,22 @@ export async function handleConfirmation(
     }
   }
 
+  let goodbyeAudioUrl: string | undefined;
+  if (process.env.TTS_PROVIDER === "mistral") {
+    const buffer = await synthesizeWithMistral(goodbyeText);
+    if (buffer) {
+      goodbyeAudioUrl = (await uploadTtsAudio(buffer, callSid)) ?? undefined;
+    }
+    console.log("[TTS] AudioUrl result (goodbye confirmation):", goodbyeAudioUrl);
+    if (!goodbyeAudioUrl) {
+      console.warn("[voice.service] Mistral TTS échec — fallback Polly (goodbye confirmation)");
+    }
+  }
+
   // Nettoyage fichiers TTS audio Supabase Storage (non bloquant)
   void cleanupTtsAudio(callSid);
 
-  return buildGoodbyeTwiml(artisan.name, parsedData.callback_delay);
+  return buildGoodbyeTwiml(artisan.name, parsedData.callback_delay, goodbyeAudioUrl);
 }
 
 // ---------------------------------------------------------------------------
