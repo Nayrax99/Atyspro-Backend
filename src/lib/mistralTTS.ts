@@ -6,6 +6,7 @@ export async function synthesizeWithMistral(text: string): Promise<Buffer | null
   if (!process.env.MISTRAL_API_KEY) return null
 
   const voice = process.env.MISTRAL_TTS_VOICE ?? 'fr_female'
+  console.log('[MistralTTS] Starting synthesis, voice:', voice)
 
   try {
     const response = await fetch('https://api.mistral.ai/v1/audio/speech', {
@@ -22,13 +23,17 @@ export async function synthesizeWithMistral(text: string): Promise<Buffer | null
       })
     })
 
+    console.log('[MistralTTS] Response status:', response.status)
+
     if (!response.ok) {
       console.error('[MistralTTS] Error:', response.status, await response.text())
       return null
     }
 
     const arrayBuffer = await response.arrayBuffer()
-    return Buffer.from(arrayBuffer)
+    const buffer = Buffer.from(arrayBuffer)
+    console.log('[MistralTTS] Buffer size:', buffer.length)
+    return buffer
 
   } catch (error) {
     console.error('[MistralTTS] Error:', error)

@@ -1,9 +1,19 @@
 /**
- * Transcrit un audio via Voxtral Realtime (Mistral)
- * Retourne le transcript texte ou null si échec
+ * Transcrit un audio via Voxtral (Mistral)
+ *
+ * - Si audioUrl fourni → télécharge l'audio Twilio et envoie à Mistral STT (flow avec enregistrement)
+ * - Si seulement speechResult fourni → retourne speechResult directement (flow actuel input="speech")
+ *
+ * Le vrai gain Mistral STT sera actif quand Twilio sera configuré avec input="speech recording".
  */
-export async function transcribeWithMistral(audioUrl: string): Promise<string | null> {
-  if (!process.env.MISTRAL_API_KEY) return null
+export async function transcribeWithMistral(
+  audioUrl?: string,
+  speechResult?: string
+): Promise<string | null> {
+  if (!process.env.MISTRAL_API_KEY) return speechResult ?? null
+
+  // Pas d'URL audio → retourner le SpeechResult Twilio directement
+  if (!audioUrl) return speechResult ?? null
 
   try {
     // 1. Télécharger le fichier audio depuis l'URL Twilio
@@ -15,7 +25,10 @@ export async function transcribeWithMistral(audioUrl: string): Promise<string | 
       }
     })
 
-    if (!audioResponse.ok) return null
+    if (!audioResponse.ok) {
+      console.error('[MistralSTT] Échec téléchargement audio Twilio:', audioResponse.status)
+      return speechResult ?? null
+    }
 
     const audioBuffer = await audioResponse.arrayBuffer()
     const audioBlob = new Blob([audioBuffer], { type: 'audio/wav' })
@@ -35,15 +48,15 @@ export async function transcribeWithMistral(audioUrl: string): Promise<string | 
     })
 
     if (!response.ok) {
-      console.error('[MistralSTT] Error:', response.status)
-      return null
+      console.error('[MistralSTT] Erreur API:', response.status)
+      return speechResult ?? null
     }
 
     const data = await response.json()
-    return data.text ?? null
+    return data.text ?? speechResult ?? null
 
   } catch (error) {
-    console.error('[MistralSTT] Error:', error)
-    return null
+    console.error('[MistralSTT] Exception:', error)
+    return speechResult ?? null
   }
 }

@@ -219,11 +219,13 @@ export async function handleIncomingCall(
 
   // TTS Mistral : synthèse + upload Supabase Storage si TTS_PROVIDER=mistral
   let welcomeAudioUrl: string | undefined;
+  console.log("[TTS] Provider:", process.env.TTS_PROVIDER);
   if (process.env.TTS_PROVIDER === "mistral") {
     const buffer = await synthesizeWithMistral(welcomeText);
     if (buffer) {
       welcomeAudioUrl = (await uploadTtsAudio(buffer, callSid)) ?? undefined;
     }
+    console.log("[TTS] AudioUrl result (welcome):", welcomeAudioUrl);
     if (!welcomeAudioUrl) {
       console.warn("[voice.service] Mistral TTS échec — fallback Polly (welcome)");
     }
@@ -261,11 +263,13 @@ export async function handleGatherResult(
     return buildErrorTwiml();
   }
 
-  // Résolution du transcript : Mistral STT si MISTRAL_API_KEY + recordingUrl disponibles, sinon fallback Twilio STT
+  // Résolution du transcript :
+  // - Si recordingUrl fourni (futur : input="speech recording") → Mistral STT sur l'audio
+  // - Sinon → SpeechResult Twilio directement
   let finalTranscript = speechResult;
   if (process.env.MISTRAL_API_KEY && recordingUrl) {
-    const mistralTranscript = await transcribeWithMistral(recordingUrl);
-    if (mistralTranscript) {
+    const mistralTranscript = await transcribeWithMistral(recordingUrl, speechResult);
+    if (mistralTranscript && mistralTranscript !== speechResult) {
       finalTranscript = mistralTranscript;
       console.log("[voice.service] Transcript Mistral STT utilisé — tour %d", turn);
     } else {
@@ -371,6 +375,7 @@ export async function handleGatherResult(
       if (buffer) {
         followUpAudioUrl = (await uploadTtsAudio(buffer, callSid)) ?? undefined;
       }
+      console.log("[TTS] AudioUrl result (follow-up tour %d):", turn, followUpAudioUrl);
       if (!followUpAudioUrl) {
         console.warn("[voice.service] Mistral TTS échec — fallback Polly (follow-up tour %d)", turn);
       }
@@ -502,30 +507,39 @@ export async function handleConfirmation(
   );
 
   // Fix #2 : upsert avec (account_id, twilio_call_sid) — idempotent sur retry Twilio
+  console.log("[Lead] Starting lead creation for callSid:", callSid);
+  console.log("[Lead] Account:", accountId);
+  console.log("[Lead] ParsedData:", JSON.stringify(parsedData));
+
+  const leadPayload = {
+    account_id: accountId,
+    client_phone: clientPhone,
+    twilio_call_sid: callSid,
+    status,
+    type_code: parsedData.type_code,
+    danger_level: parsedData.danger_level,
+    scope: parsedData.scope,
+    availability_notes: parsedData.availability_notes,
+    parsing_confidence,
+    full_name: parsedData.full_name,
+    contact_name: parsedData.full_name,
+    address: parsedData.address,
+    description: parsedData.description,
+    callback_delay: parsedData.callback_delay,
+    priority_score: scored.priority_score,
+    value_estimate: scored.value_estimate,
+    raw_message: rawMessage,
+  };
+
   const { error: leadError } = await supabaseAdmin.from("leads").upsert(
-    {
-      account_id: accountId,
-      client_phone: clientPhone,
-      twilio_call_sid: callSid,
-      status,
-      type_code: parsedData.type_code,
-      danger_level: parsedData.danger_level,
-      scope: parsedData.scope,
-      availability_notes: parsedData.availability_notes,
-      parsing_confidence,
-      full_name: parsedData.full_name,
-      contact_name: parsedData.full_name,
-      address: parsedData.address,
-      description: parsedData.description,
-      callback_delay: parsedData.callback_delay,
-      priority_score: scored.priority_score,
-      value_estimate: scored.value_estimate,
-      raw_message: rawMessage,
-    },
+    leadPayload,
     { onConflict: "account_id,twilio_call_sid" }
   );
 
+  console.log("[Lead] Upsert result:", leadError ? `ERROR: ${leadError.message}` : "OK");
+
   if (leadError) {
+    console.error("[Lead] Error:", leadError);
     console.error("[voice.service] Erreur upsert lead (confirmation):", leadError.message);
   } else {
     console.log(
@@ -634,30 +648,39 @@ async function finalizeLead(
   const rawMessage = userTexts.join(" | ");
 
   // Fix #2 : upsert idempotent
+  console.log("[Lead] Starting lead creation (fallback) for callSid:", callSid);
+  console.log("[Lead] Account:", accountId);
+  console.log("[Lead] ParsedData:", JSON.stringify(parsedData));
+
+  const fallbackPayload = {
+    account_id: accountId,
+    client_phone: clientPhone,
+    twilio_call_sid: callSid,
+    status,
+    type_code: parsedData.type_code,
+    danger_level: parsedData.danger_level,
+    scope: parsedData.scope,
+    availability_notes: parsedData.availability_notes,
+    parsing_confidence,
+    full_name: parsedData.full_name,
+    contact_name: parsedData.full_name,
+    address: parsedData.address,
+    description: parsedData.description,
+    callback_delay: parsedData.callback_delay,
+    priority_score: scored.priority_score,
+    value_estimate: scored.value_estimate,
+    raw_message: rawMessage,
+  };
+
   const { error: leadError } = await supabaseAdmin.from("leads").upsert(
-    {
-      account_id: accountId,
-      client_phone: clientPhone,
-      twilio_call_sid: callSid,
-      status,
-      type_code: parsedData.type_code,
-      danger_level: parsedData.danger_level,
-      scope: parsedData.scope,
-      availability_notes: parsedData.availability_notes,
-      parsing_confidence,
-      full_name: parsedData.full_name,
-      contact_name: parsedData.full_name,
-      address: parsedData.address,
-      description: parsedData.description,
-      callback_delay: parsedData.callback_delay,
-      priority_score: scored.priority_score,
-      value_estimate: scored.value_estimate,
-      raw_message: rawMessage,
-    },
+    fallbackPayload,
     { onConflict: "account_id,twilio_call_sid" }
   );
 
+  console.log("[Lead] Upsert result (fallback):", leadError ? `ERROR: ${leadError.message}` : "OK");
+
   if (leadError) {
+    console.error("[Lead] Error:", leadError);
     console.error("[voice.service] Erreur upsert lead (fallback):", leadError.message);
   } else {
     console.log(
