@@ -66,14 +66,18 @@ export function buildWelcomeTwiml(
   artisanName: string,
   accountId: string,
   callSid: string,
-  greetingText?: string
+  greetingText?: string,
+  audioUrl?: string
 ): string {
   const gatherAction = `${getBaseUrl()}/api/webhooks/twilio/voice/gather?turn=1&account_id=${encodeURIComponent(accountId)}&call_sid=${encodeURIComponent(callSid)}`;
 
-  // Mod 1 : texte d'accueil dynamique si fourni, sinon fallback
-  const speechContent = greetingText
-    ? `<prosody rate="95%">${escapeXml(greetingText)}</prosody>`
-    : `<prosody rate="95%">
+  // Si audioUrl fourni (Mistral TTS) → <Play>, sinon <Say> Polly avec SSML
+  const gatherContent = audioUrl
+    ? `<Play>${escapeXml(audioUrl)}</Play>`
+    : (() => {
+        const speechContent = greetingText
+          ? `<prosody rate="95%">${escapeXml(greetingText)}</prosody>`
+          : `<prosody rate="95%">
         Bonjour, vous êtes bien chez ${escapeXml(artisanName)}.
         <break time="400ms"/>
         Il est actuellement en intervention.
@@ -82,14 +86,16 @@ export function buildWelcomeTwiml(
         <break time="500ms"/>
         Pouvez-vous me décrire votre problème, et me dire si c&apos;est urgent ?
       </prosody>`;
+        return `<Say ${voiceAttr()} language="${LANGUAGE}">
+      ${speechContent}
+    </Say>`;
+      })();
 
   // Mod 2 : speechTimeout="auto" + speechModel + enhanced + actionOnEmptyResult
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Gather input="speech" language="${LANGUAGE}" speechTimeout="auto" speechModel="phone_call" enhanced="true" actionOnEmptyResult="true" timeout="8" action="${escapeXml(gatherAction)}">
-    <Say ${voiceAttr()} language="${LANGUAGE}">
-      ${speechContent}
-    </Say>
+    ${gatherContent}
   </Gather>
   <Say ${voiceAttr()} language="${LANGUAGE}">Je n&apos;ai pas entendu votre réponse. Au revoir.</Say>
 </Response>`;
@@ -103,15 +109,21 @@ export function buildFollowUpTwiml(
   question: string,
   nextTurn: number,
   accountId: string,
-  callSid: string
+  callSid: string,
+  audioUrl?: string
 ): string {
   const gatherAction = `${getBaseUrl()}/api/webhooks/twilio/voice/gather?turn=${nextTurn}&account_id=${encodeURIComponent(accountId)}&call_sid=${encodeURIComponent(callSid)}`;
+
+  // Si audioUrl fourni (Mistral TTS) → <Play>, sinon <Say> Polly
+  const gatherContent = audioUrl
+    ? `<Play>${escapeXml(audioUrl)}</Play>`
+    : `<Say ${voiceAttr()} language="${LANGUAGE}">${escapeXml(question)}</Say>`;
 
   // Mod 2 : speechTimeout="auto" + speechModel + enhanced + actionOnEmptyResult
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Gather input="speech" language="${LANGUAGE}" speechTimeout="auto" speechModel="phone_call" enhanced="true" actionOnEmptyResult="true" timeout="8" action="${escapeXml(gatherAction)}">
-    <Say ${voiceAttr()} language="${LANGUAGE}">${escapeXml(question)}</Say>
+    ${gatherContent}
   </Gather>
   <Say ${voiceAttr()} language="${LANGUAGE}">Je n&apos;ai pas entendu votre réponse. Je vais transmettre votre demande à l&apos;artisan.</Say>
 </Response>`;

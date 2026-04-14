@@ -15,6 +15,8 @@ import { getScoringConfig } from "@/lib/scoringConfig";
 import { sendSMS } from "@/lib/twilioClient";
 import { VOICE_CONFIRMATION_SMS } from "@/lib/smsTemplates";
 import { determineLeadStatus } from "@/lib/leadStatus";
+import { transcribeWithMistral } from "@/lib/mistralSTT";
+import { synthesizeWithMistral } from "@/lib/mistralTTS";
 import {
   buildWelcomeTwiml,
   buildFollowUpTwiml,
@@ -37,40 +39,38 @@ import { MAX_VOICE_TURNS } from "./voice.types";
 // ---------------------------------------------------------------------------
 
 /**
- * Transcrit un fichier audio via Deepgram Nova-2 (fr, ponctuation + smart_format).
- * Retourne le transcript ou null si Deepgram est indisponible / en erreur.
- * Fallback automatique sur le SpeechResult Twilio dans handleGatherResult.
+ * Upload un buffer audio MP3 sur Supabase Storage (bucket 'tts-audio').
+ * Retourne l'URL publique ou null si échec.
  */
-async function transcribeWithDeepgram(audioUrl: string): Promise<string | null> {
-  const apiKey = process.env.DEEPGRAM_API_KEY;
-  if (!apiKey) return null;
-
-  try {
-    const response = await fetch(
-      "https://api.deepgram.com/v1/listen?model=nova-2&language=fr&punctuate=true&smart_format=true&filler_words=false",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Token ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ url: audioUrl }),
-      }
-    );
-
-    if (!response.ok) {
-      console.warn("[voice.service] Deepgram HTTP error:", response.status);
-      return null;
-    }
-
-    const data = await response.json() as {
-      results?: { channels?: Array<{ alternatives?: Array<{ transcript?: string }> }> };
-    };
-    const transcript = data?.results?.channels?.[0]?.alternatives?.[0]?.transcript;
-    return typeof transcript === "string" && transcript ? transcript : null;
-  } catch (err) {
-    console.warn("[voice.service] Deepgram exception (fallback Twilio STT):", err);
+async function uploadTtsAudio(buffer: Buffer, callSid: string): Promise<string | null> {
+  if (!supabaseAdmin) return null;
+  const path = `${callSid}-${Date.now()}.mp3`;
+  const { error } = await supabaseAdmin.storage
+    .from("tts-audio")
+    .upload(path, buffer, { contentType: "audio/mpeg" });
+  if (error) {
+    console.error("[voice.service] Erreur upload TTS audio:", error.message);
     return null;
+  }
+  const { data } = supabaseAdmin.storage.from("tts-audio").getPublicUrl(path);
+  return data.publicUrl;
+}
+
+/**
+ * Supprime tous les fichiers TTS audio associés au callSid dans Supabase Storage.
+ */
+async function cleanupTtsAudio(callSid: string): Promise<void> {
+  if (!supabaseAdmin) return;
+  try {
+    const { data: files } = await supabaseAdmin.storage
+      .from("tts-audio")
+      .list("", { search: callSid });
+    if (files && files.length > 0) {
+      const paths = files.map((f) => f.name);
+      await supabaseAdmin.storage.from("tts-audio").remove(paths);
+    }
+  } catch (err) {
+    console.warn("[voice.service] Erreur nettoyage TTS audio:", err);
   }
 }
 
@@ -217,7 +217,19 @@ export async function handleIncomingCall(
 
   console.log("[voice.service] Appel entrant — artisan:", artisan.name, "call_sid:", callSid);
 
-  return buildWelcomeTwiml(artisan.name, accountId, callSid, welcomeText);
+  // TTS Mistral : synthèse + upload Supabase Storage si TTS_PROVIDER=mistral
+  let welcomeAudioUrl: string | undefined;
+  if (process.env.TTS_PROVIDER === "mistral") {
+    const buffer = await synthesizeWithMistral(welcomeText);
+    if (buffer) {
+      welcomeAudioUrl = (await uploadTtsAudio(buffer, callSid)) ?? undefined;
+    }
+    if (!welcomeAudioUrl) {
+      console.warn("[voice.service] Mistral TTS échec — fallback Polly (welcome)");
+    }
+  }
+
+  return buildWelcomeTwiml(artisan.name, accountId, callSid, welcomeText, welcomeAudioUrl);
 }
 
 /**
@@ -249,15 +261,15 @@ export async function handleGatherResult(
     return buildErrorTwiml();
   }
 
-  // Résolution du transcript : Deepgram Nova-2 si RecordingUrl disponible, sinon fallback Twilio STT
+  // Résolution du transcript : Mistral STT si MISTRAL_API_KEY + recordingUrl disponibles, sinon fallback Twilio STT
   let finalTranscript = speechResult;
-  if (process.env.DEEPGRAM_API_KEY && recordingUrl) {
-    const deepgramTranscript = await transcribeWithDeepgram(recordingUrl);
-    if (deepgramTranscript) {
-      finalTranscript = deepgramTranscript;
-      console.log("[voice.service] Transcript Deepgram Nova-2 utilisé — tour %d", turn);
+  if (process.env.MISTRAL_API_KEY && recordingUrl) {
+    const mistralTranscript = await transcribeWithMistral(recordingUrl);
+    if (mistralTranscript) {
+      finalTranscript = mistralTranscript;
+      console.log("[voice.service] Transcript Mistral STT utilisé — tour %d", turn);
     } else {
-      console.log("[voice.service] Deepgram indisponible — fallback Twilio STT tour %d", turn);
+      console.log("[voice.service] Mistral STT indisponible — fallback Twilio STT tour %d", turn);
     }
   }
 
@@ -353,11 +365,22 @@ export async function handleGatherResult(
 
   // Continue la qualification tant que les 4 infos ne sont pas obtenues
   if (analysis.needsFollowUp && turn < MAX_VOICE_TURNS && analysis.followUpQuestion) {
+    let followUpAudioUrl: string | undefined;
+    if (process.env.TTS_PROVIDER === "mistral") {
+      const buffer = await synthesizeWithMistral(analysis.followUpQuestion);
+      if (buffer) {
+        followUpAudioUrl = (await uploadTtsAudio(buffer, callSid)) ?? undefined;
+      }
+      if (!followUpAudioUrl) {
+        console.warn("[voice.service] Mistral TTS échec — fallback Polly (follow-up tour %d)", turn);
+      }
+    }
     return buildFollowUpTwiml(
       analysis.followUpQuestion,
       turn + 1,
       accountId,
-      callSid
+      callSid,
+      followUpAudioUrl
     );
   }
 
@@ -544,6 +567,9 @@ export async function handleConfirmation(
     }
   }
 
+  // Nettoyage fichiers TTS audio Supabase Storage (non bloquant)
+  void cleanupTtsAudio(callSid);
+
   return buildGoodbyeTwiml(artisan.name, parsedData.callback_delay);
 }
 
@@ -654,4 +680,7 @@ async function finalizeLead(
   if (updateError) {
     console.warn("[voice.service] Erreur update call (fallback):", updateError.message);
   }
+
+  // Nettoyage fichiers TTS audio Supabase Storage (non bloquant)
+  void cleanupTtsAudio(callSid);
 }
