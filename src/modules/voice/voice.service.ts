@@ -153,6 +153,141 @@ function delayTextPlain(callbackDelay: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Payload et helpers pour la création/mise à jour de leads vocaux
+// ---------------------------------------------------------------------------
+
+/** Payload d'un lead vocal — toutes les colonnes gérées par le pipeline vocal */
+interface LeadVoicePayload {
+  account_id: string;
+  client_phone: string | null;
+  twilio_call_sid: string;
+  status: "incomplet" | "a_traiter";
+  type_code: number | null;
+  danger_level: "none" | "low" | "medium" | "high" | "critical";
+  scope: "small" | "medium" | "large";
+  availability_notes: string | null;
+  parsing_confidence: number;
+  full_name: string | null;
+  contact_name: string | null;
+  address: string | null;
+  description: string | null;
+  priority_score: number;
+  value_estimate: string | null;
+  raw_message: string;
+}
+
+/** Masque un numéro de téléphone — affiche uniquement les 4 derniers chiffres */
+function maskPhone(phone: string | null): string {
+  if (!phone) return "null";
+  const digits = phone.replace(/\D/g, "");
+  return `****${digits.slice(-4)}`;
+}
+
+/**
+ * Insère ou met à jour un lead vocal selon la logique "1 client = 1 lead".
+ *
+ * Stratégie UPDATE-first pour éviter la violation de la contrainte unique
+ * leads_sms_dedup(account_id, client_phone) qui faisait échouer silencieusement
+ * l'ancienne implémentation upsert(onConflict: "account_id,twilio_call_sid").
+ *
+ * Étape A : UPDATE sur (account_id, client_phone) → rappel d'un client connu
+ * Étape B : INSERT si aucune ligne affectée → nouveau client
+ * Étape C : Fallback UPDATE si INSERT échoue avec code 23505 (race condition)
+ *
+ * @returns true si le lead a été créé ou mis à jour, false si erreur irrécupérable
+ */
+async function upsertLeadByClientPhone(payload: LeadVoicePayload): Promise<boolean> {
+  if (!supabaseAdmin) return false;
+
+  const { account_id, client_phone } = payload;
+  const maskedPhone = maskPhone(client_phone);
+
+  // Colonnes rafraîchies à chaque rappel + réinitialisation du cycle de relance
+  const updateData = {
+    twilio_call_sid: payload.twilio_call_sid,
+    status: payload.status,
+    type_code: payload.type_code,
+    danger_level: payload.danger_level,
+    scope: payload.scope,
+    availability_notes: payload.availability_notes,
+    parsing_confidence: payload.parsing_confidence,
+    full_name: payload.full_name,
+    contact_name: payload.contact_name,
+    address: payload.address,
+    description: payload.description,
+    priority_score: payload.priority_score,
+    value_estimate: payload.value_estimate,
+    raw_message: payload.raw_message,
+    reminder_sent_at: null,
+    relance_count: 0,
+  };
+
+  // Étape A : tenter un UPDATE si le numéro est déjà connu (rappel)
+  if (client_phone) {
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from("leads")
+      .update(updateData)
+      .eq("account_id", account_id)
+      .eq("client_phone", client_phone)
+      .select("id");
+
+    if (updateError) {
+      console.error(
+        "[Lead] CRITICAL Update failed code=%s message=%s accountId=%s",
+        updateError.code,
+        updateError.message,
+        account_id
+      );
+      return false;
+    }
+
+    if (updated && updated.length > 0) {
+      console.log("[Lead] Update existing lead for client_phone=%s", maskedPhone);
+      return true;
+    }
+  }
+
+  // Étape B : nouveau numéro → INSERT
+  const { error: insertError } = await supabaseAdmin.from("leads").insert(payload);
+
+  if (!insertError) {
+    console.log("[Lead] Insert new lead for client_phone=%s", maskedPhone);
+    return true;
+  }
+
+  // Étape C : race condition 23505 (deux appels simultanés du même numéro) → UPDATE de secours
+  if (insertError.code === "23505") {
+    console.warn(
+      "[Lead] Race condition 23505 — fallback UPDATE for client_phone=%s",
+      maskedPhone
+    );
+    const baseQuery = supabaseAdmin.from("leads").update(updateData);
+    const filteredQuery = client_phone
+      ? baseQuery.eq("account_id", account_id).eq("client_phone", client_phone)
+      : baseQuery.eq("account_id", account_id).eq("twilio_call_sid", payload.twilio_call_sid);
+
+    const { error: fallbackError } = await filteredQuery;
+    if (!fallbackError) return true;
+
+    console.error(
+      "[Lead] CRITICAL Insert failed code=%s message=%s accountId=%s",
+      insertError.code,
+      insertError.message,
+      account_id
+    );
+    return false;
+  }
+
+  console.error(
+    "[Lead] CRITICAL Insert failed code=%s message=%s accountId=%s",
+    insertError.code,
+    insertError.message,
+    account_id
+  );
+  return false;
+}
+
+// ---------------------------------------------------------------------------
 // Fonctions publiques du service
 // ---------------------------------------------------------------------------
 
@@ -533,12 +668,7 @@ export async function handleConfirmation(
     userTexts.length
   );
 
-  // Fix #2 : upsert avec (account_id, twilio_call_sid) — idempotent sur retry Twilio
-  console.log("[Lead] Starting lead creation for callSid:", callSid);
-  console.log("[Lead] Account:", accountId);
-  console.log("[Lead] ParsedData:", JSON.stringify(parsedData));
-
-  const leadPayload = {
+  const leadPayload: LeadVoicePayload = {
     account_id: accountId,
     client_phone: clientPhone,
     twilio_call_sid: callSid,
@@ -557,17 +687,8 @@ export async function handleConfirmation(
     raw_message: rawMessage,
   };
 
-  const { error: leadError } = await supabaseAdmin.from("leads").upsert(
-    leadPayload,
-    { onConflict: "account_id,twilio_call_sid" }
-  );
-
-  console.log("[Lead] Upsert result:", leadError ? `ERROR: ${leadError.message}` : "OK");
-
-  if (leadError) {
-    console.error("[Lead] Error:", leadError);
-    console.error("[voice.service] Erreur upsert lead (confirmation):", leadError.message);
-  } else {
+  const leadCreated = await upsertLeadByClientPhone(leadPayload);
+  if (leadCreated) {
     console.log(
       "[voice.service] Lead confirmé — artisan: %s, status: %s, score: %d, danger: %s",
       artisan.name,
@@ -685,12 +806,7 @@ async function finalizeLead(
   const userTexts = updatedEntries.filter((e) => e.role === "user").map((e) => e.text);
   const rawMessage = userTexts.join(" | ");
 
-  // Fix #2 : upsert idempotent
-  console.log("[Lead] Starting lead creation (fallback) for callSid:", callSid);
-  console.log("[Lead] Account:", accountId);
-  console.log("[Lead] ParsedData:", JSON.stringify(parsedData));
-
-  const fallbackPayload = {
+  const fallbackPayload: LeadVoicePayload = {
     account_id: accountId,
     client_phone: clientPhone,
     twilio_call_sid: callSid,
@@ -709,17 +825,8 @@ async function finalizeLead(
     raw_message: rawMessage,
   };
 
-  const { error: leadError } = await supabaseAdmin.from("leads").upsert(
-    fallbackPayload,
-    { onConflict: "account_id,twilio_call_sid" }
-  );
-
-  console.log("[Lead] Upsert result (fallback):", leadError ? `ERROR: ${leadError.message}` : "OK");
-
-  if (leadError) {
-    console.error("[Lead] Error:", leadError);
-    console.error("[voice.service] Erreur upsert lead (fallback):", leadError.message);
-  } else {
+  const leadCreated = await upsertLeadByClientPhone(fallbackPayload);
+  if (leadCreated) {
     console.log(
       "[voice.service] Lead créé (fallback) — artisan: %s, status: %s, score: %d",
       artisan.name,
