@@ -33,21 +33,26 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const to = formData.get("To")?.toString() ?? "";
+    const toNumber = formData.get("To")?.toString() ?? "";
 
-    if (!to || !supabaseAdmin) {
+    if (!toNumber || !supabaseAdmin) {
       return new Response(ERROR_TWIML, {
         status: 200,
         headers: { "Content-Type": "text/xml; charset=utf-8" },
       });
     }
 
+    console.log('[VOICE] To number:', formData.get('To'));
+    console.log('[VOICE] querying phone_numbers for:', toNumber);
+
     // Résolution account_id via phone_numbers
-    const { data: phoneNumber, error: phoneError } = await supabaseAdmin
+    const { data: phoneNumber, error: phoneError, status } = await supabaseAdmin
       .from("phone_numbers")
       .select("account_id")
-      .eq("number", to)
+      .eq("number", toNumber)
       .single();
+
+    console.log('[VOICE] phone_numbers query result:', JSON.stringify({ data: phoneNumber, error: phoneError, status }));
 
     if (phoneError || !phoneNumber) {
       return new Response(ERROR_TWIML, {
