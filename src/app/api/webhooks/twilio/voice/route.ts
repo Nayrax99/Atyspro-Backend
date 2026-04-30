@@ -46,28 +46,28 @@ export async function POST(req: NextRequest) {
     console.log('[VOICE] querying phone_numbers for:', toNumber);
 
     // Résolution account_id via phone_numbers
-    const { data: phoneNumber, error: phoneError, status } = await supabaseAdmin
-      .from("phone_numbers")
-      .select("account_id")
-      .eq("number", toNumber)
+    const { data: phoneData, error: phoneError, status } = await supabaseAdmin
+      .from('phone_numbers')
+      .select('account_id')
+      .eq('e164', toNumber)
       .single();
 
-    console.log('[VOICE] phone_numbers query result:', JSON.stringify({ data: phoneNumber, error: phoneError, status }));
+    console.log('[VOICE] phone_numbers query result:', JSON.stringify({ data: phoneData, error: phoneError, status }));
 
-    if (phoneError || !phoneNumber) {
+    if (phoneError || !phoneData) {
       return new Response(ERROR_TWIML, {
         status: 200,
         headers: { "Content-Type": "text/xml; charset=utf-8" },
       });
     }
 
-    const accountId = phoneNumber.account_id as string;
+    const accountId = phoneData.account_id as string;
 
     // Récupération des paramètres du compte
     const { data: account, error: accountError } = await supabaseAdmin
-      .from("accounts")
-      .select("welcome_message, assistant_name, specialty")
-      .eq("id", accountId)
+      .from('accounts')
+      .select('welcome_message, assistant_name, specialty')
+      .eq('id', phoneData.account_id)
       .single();
 
     if (accountError || !account) {
