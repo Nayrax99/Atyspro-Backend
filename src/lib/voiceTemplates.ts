@@ -1,43 +1,15 @@
 /**
- * Générateurs de TwiML XML pour l'agent vocal
- * Toutes les fonctions retournent du XML valide prêt à être envoyé à Twilio
- *
- * Voix : Polly.Lea-Generative (Amazon Polly Generative AI, naturelle et expressive)
- * SSML : supporté nativement dans <Say> pour les voix Polly
- * speechTimeout="2" : Twilio détecte la fin de parole après 2s de silence (réduit la latence)
+ * Générateurs de TwiML XML pour l'agent vocal.
+ * Toutes les fonctions retournent du XML valide prêt à être envoyé à Twilio.
+ * TTS : Cartesia Sonic-3 via cartesiaSpeak() — WAV mis en cache sur Supabase Storage.
  *
  * Fix #3/#6 : les transcripts et parsedData ne sont PLUS encodés dans les URLs.
  * Seuls account_id et call_sid sont passés en query params ; les données sont lues en DB.
  */
 
+import { cartesiaSpeak } from "./cartesiaTTS";
+
 const LANGUAGE = "fr-FR";
-
-/** Lit TTS_PROVIDER à chaque appel (runtime) — évite le gel à l'init du module. */
-function getTTSProvider(): string {
-  return process.env.TTS_PROVIDER ?? "polly";
-}
-
-/**
- * Retourne les attributs TTS selon TTS_PROVIDER.
- * polly   → Polly.Lea-Neural (ou TWILIO_TTS_VOICE)
- * mistral → fallback Polly si l'upload audio Mistral échoue
- * default → Polly.Lea-Neural
- */
-function buildSayAttributes(): { voice?: string } {
-  switch (getTTSProvider()) {
-    case "polly":
-    case "mistral":
-      return { voice: process.env.TWILIO_TTS_VOICE ?? "Polly.Lea-Neural" };
-    default:
-      return { voice: "Polly.Lea-Neural" };
-  }
-}
-
-/** Génère l'attribut voice pour les balises <Say> XML */
-function voiceAttr(): string {
-  const { voice } = buildSayAttributes();
-  return voice ? `voice="${voice}"` : "";
-}
 
 /** Construit l'URL de base pour les webhooks Gather */
 function getBaseUrl(): string {
@@ -46,7 +18,6 @@ function getBaseUrl(): string {
 
 /**
  * Mappe callback_delay vers un texte naturel pour la voix.
- * Retourne du texte brut (les apostrophes sont sûres dans le contenu XML).
  */
 function callbackDelayText(callbackDelay: string): string {
   const map: Record<string, string> = {
@@ -59,46 +30,34 @@ function callbackDelayText(callbackDelay: string): string {
 }
 
 /**
- * Génère le TwiML d'accueil avec SSML (pauses naturelles, débit légèrement ralenti).
- * Le <Say> est à l'intérieur du <Gather> pour permettre l'interruption dès que le prospect parle.
- * speechTimeout="2" réduit le blanc entre la réponse du prospect et la prochaine question.
+ * Génère le TwiML d'accueil.
+ * Le message vocal est synthétisé par Cartesia Sonic-3 et mis en cache sur Supabase Storage.
+ * speechTimeout="auto" + speechModel="phone_call" + enhanced="true" pour une détection optimale.
  */
-export function buildWelcomeTwiml(
+export async function buildWelcomeTwiml(
   artisanName: string,
   accountId: string,
   callSid: string,
   greetingText?: string,
-  audioUrl?: string
-): string {
+  _audioUrl?: string
+): Promise<string> {
   const gatherAction = `${getBaseUrl()}/api/webhooks/twilio/voice/gather?turn=1&account_id=${encodeURIComponent(accountId)}&call_sid=${encodeURIComponent(callSid)}`;
 
-  // Si audioUrl fourni (Mistral TTS) → <Play>, sinon <Say> Polly avec SSML
-  const gatherContent = audioUrl
-    ? `<Play>${escapeXml(audioUrl)}</Play>`
-    : (() => {
-        const speechContent = greetingText
-          ? `<prosody rate="95%">${escapeXml(greetingText)}</prosody>`
-          : `<prosody rate="95%">
-        Bonjour, vous êtes bien chez ${escapeXml(artisanName)}.
-        <break time="400ms"/>
-        Il est actuellement en intervention.
-        <break time="300ms"/>
-        Je suis son assistant, et je prends votre demande pour qu&apos;il vous rappelle rapidement.
-        <break time="500ms"/>
-        Pouvez-vous me décrire votre problème, et me dire si c&apos;est urgent ?
-      </prosody>`;
-        return `<Say ${voiceAttr()} language="${LANGUAGE}">
-      ${speechContent}
-    </Say>`;
-      })();
+  const welcomeText =
+    greetingText ??
+    `Bonjour, vous êtes bien chez ${artisanName}. Il est actuellement en intervention. Je suis son assistant, et je prends votre demande pour qu'il vous rappelle rapidement. Pouvez-vous me décrire votre problème, et me dire si c'est urgent ?`;
 
-  // Mod 2 : speechTimeout="auto" + speechModel + enhanced + actionOnEmptyResult
+  const [mainUrl, fallbackUrl] = await Promise.all([
+    cartesiaSpeak(welcomeText),
+    cartesiaSpeak("Je n'ai pas entendu votre réponse. Au revoir."),
+  ]);
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Gather input="speech" language="${LANGUAGE}" speechTimeout="auto" speechModel="phone_call" enhanced="true" actionOnEmptyResult="true" timeout="8" action="${escapeXml(gatherAction)}">
-    ${gatherContent}
+    <Play>${escapeXml(mainUrl)}</Play>
   </Gather>
-  <Say ${voiceAttr()} language="${LANGUAGE}">Je n&apos;ai pas entendu votre réponse. Au revoir.</Say>
+  <Play>${escapeXml(fallbackUrl)}</Play>
 </Response>`;
 }
 
@@ -106,27 +65,26 @@ export function buildWelcomeTwiml(
  * Génère le TwiML d'une question de suivi avec Gather pour le tour suivant.
  * Fix #3 : plus de prev_transcripts dans l'URL — les transcripts sont lus depuis la DB.
  */
-export function buildFollowUpTwiml(
+export async function buildFollowUpTwiml(
   question: string,
   nextTurn: number,
   accountId: string,
   callSid: string,
-  audioUrl?: string
-): string {
+  _audioUrl?: string
+): Promise<string> {
   const gatherAction = `${getBaseUrl()}/api/webhooks/twilio/voice/gather?turn=${nextTurn}&account_id=${encodeURIComponent(accountId)}&call_sid=${encodeURIComponent(callSid)}`;
 
-  // Si audioUrl fourni (Mistral TTS) → <Play>, sinon <Say> Polly
-  const gatherContent = audioUrl
-    ? `<Play>${escapeXml(audioUrl)}</Play>`
-    : `<Say ${voiceAttr()} language="${LANGUAGE}">${escapeXml(question)}</Say>`;
+  const [questionUrl, fallbackUrl] = await Promise.all([
+    cartesiaSpeak(question),
+    cartesiaSpeak("Je n'ai pas entendu votre réponse. Je vais transmettre votre demande à l'artisan."),
+  ]);
 
-  // Mod 2 : speechTimeout="auto" + speechModel + enhanced + actionOnEmptyResult
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Gather input="speech" language="${LANGUAGE}" speechTimeout="auto" speechModel="phone_call" enhanced="true" actionOnEmptyResult="true" timeout="8" action="${escapeXml(gatherAction)}">
-    ${gatherContent}
+    <Play>${escapeXml(questionUrl)}</Play>
   </Gather>
-  <Say ${voiceAttr()} language="${LANGUAGE}">Je n&apos;ai pas entendu votre réponse. Je vais transmettre votre demande à l&apos;artisan.</Say>
+  <Play>${escapeXml(fallbackUrl)}</Play>
 </Response>`;
 }
 
@@ -135,70 +93,59 @@ export function buildFollowUpTwiml(
  * Fix #3/#6 : plus de prev_transcripts ni parsedData dans l'URL — données lues depuis la DB.
  * En cas de timeout (pas de réponse), la route confirm considère la demande comme confirmée.
  */
-export function buildRecapTwiml(
+export async function buildRecapTwiml(
   recap: string,
   artisanName: string,
   callbackDelay: string,
   accountId: string,
   callSid: string,
-  audioUrl?: string
-): string {
+  _audioUrl?: string
+): Promise<string> {
   const confirmAction = `${getBaseUrl()}/api/webhooks/twilio/voice/confirm?account_id=${encodeURIComponent(accountId)}&call_sid=${encodeURIComponent(callSid)}`;
   const delayText = callbackDelayText(callbackDelay);
 
-  const gatherContent = audioUrl
-    ? `<Play>${escapeXml(audioUrl)}</Play>`
-    : `<Say ${voiceAttr()} language="${LANGUAGE}">
-      Parfait, je récapitule.
-      <break time="400ms"/>
-      Vous avez besoin de ${escapeXml(recap)}.
-      <break time="300ms"/>
-      ${escapeXml(artisanName)} vous rappelle ${escapeXml(delayText)}.
-      <break time="300ms"/>
-      Est-ce que c&apos;est correct ?
-    </Say>`;
+  const recapText = `Parfait, je récapitule. Vous avez besoin de ${recap}. ${artisanName} vous rappelle ${delayText}. Est-ce que c'est correct ?`;
+
+  const recapUrl = await cartesiaSpeak(recapText);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Gather input="speech" language="${LANGUAGE}" speechTimeout="2" timeout="5" action="${escapeXml(confirmAction)}">
-    ${gatherContent}
+    <Play>${escapeXml(recapUrl)}</Play>
   </Gather>
   <Redirect method="POST">${escapeXml(confirmAction)}</Redirect>
 </Response>`;
 }
 
 /**
- * Génère le TwiML de fin de conversation avec pause naturelle avant "Bonne journée".
+ * Génère le TwiML de fin de conversation.
  */
-export function buildGoodbyeTwiml(artisanName: string, callbackDelay?: string, audioUrl?: string): string {
+export async function buildGoodbyeTwiml(
+  artisanName: string,
+  callbackDelay?: string,
+  _audioUrl?: string
+): Promise<string> {
   const delayText = callbackDelay ? callbackDelayText(callbackDelay) : "dès que possible";
+  const goodbyeText = `Merci beaucoup. ${artisanName} vous rappelle ${delayText}. Bonne journée !`;
 
-  if (audioUrl) {
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Play>${escapeXml(audioUrl)}</Play>
-  <Hangup/>
-</Response>`;
-  }
+  const goodbyeUrl = await cartesiaSpeak(goodbyeText);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say ${voiceAttr()} language="${LANGUAGE}">
-    Merci beaucoup. ${escapeXml(artisanName)} vous rappelle ${escapeXml(delayText)}.
-    <break time="300ms"/>
-    Bonne journée !
-  </Say>
+  <Play>${escapeXml(goodbyeUrl)}</Play>
   <Hangup/>
 </Response>`;
 }
 
 /**
- * Génère le TwiML d'erreur générique
+ * Génère le TwiML d'erreur générique.
+ * Reste synchrone intentionnellement : utilisé comme filet de sécurité dans les webhooks,
+ * y compris quand Cartesia ou Supabase sont indisponibles.
  */
 export function buildErrorTwiml(): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say ${voiceAttr()} language="${LANGUAGE}">Une erreur est survenue. Veuillez rappeler directement l&apos;artisan. Au revoir.</Say>
+  <Say voice="Polly.Lea-Neural" language="${LANGUAGE}">Une erreur est survenue. Veuillez rappeler directement l&apos;artisan. Au revoir.</Say>
   <Hangup/>
 </Response>`;
 }
