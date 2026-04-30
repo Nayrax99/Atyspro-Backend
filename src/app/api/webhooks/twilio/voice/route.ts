@@ -80,6 +80,8 @@ export async function POST(req: NextRequest) {
 
     const wsUrl = `wss://${process.env.RAILWAY_WS_URL}/ws?accountId=${accountId}&specialty=${encodeURIComponent(specialty)}&assistantName=${encodeURIComponent(assistantName)}`;
 
+    console.log('[VOICE WEBHOOK] building ConversationRelay TwiML', { accountId, wsUrl: process.env.RAILWAY_WS_URL });
+
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
@@ -92,7 +94,7 @@ export async function POST(req: NextRequest) {
       headers: { "Content-Type": "text/xml; charset=utf-8" },
     });
   } catch (error) {
-    console.error("Erreur webhook Twilio Voice:", error);
+    console.error('[VOICE WEBHOOK ERROR]', error instanceof Error ? error.message : error);
     return new Response(ERROR_TWIML, {
       status: 200,
       headers: { "Content-Type": "text/xml; charset=utf-8" },
