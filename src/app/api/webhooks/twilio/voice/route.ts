@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     // Récupération des paramètres du compte
     const { data: account, error: accountError } = await supabaseAdmin
       .from('accounts')
-      .select('welcome_message, assistant_name, specialty, artisan_name')
+      .select('assistant_name, specialty, artisan_name')
       .eq('id', phoneData.account_id)
       .single();
 
@@ -78,9 +78,6 @@ export async function POST(req: NextRequest) {
     }
 
     const assistantName = (account.assistant_name as string | null) ?? "Maya";
-    const welcomeGreeting =
-      (account.welcome_message as string | null) ??
-      "Bonjour, je suis Maya, comment puis-je vous aider ?";
     const specialty = (account.specialty as string | null) ?? "";
     const artisanName = (account.artisan_name as string | null) ?? "votre artisan";
 
@@ -89,19 +86,10 @@ export async function POST(req: NextRequest) {
 
     console.log('[VOICE WEBHOOK] building ConversationRelay TwiML', { accountId, wsUrl: process.env.RAILWAY_WS_URL });
 
-    function escapeXml(str: string): string {
-      return str
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&apos;');
-    }
-
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
-    <ConversationRelay url="${wsUrlXml}" welcomeGreeting="${escapeXml(welcomeGreeting)}" language="fr-FR" ttsProvider="ElevenLabs" voice="fBpCO0Kf0krKLYGOu65w" />
+    <ConversationRelay url="${wsUrlXml}" language="fr-FR" ttsProvider="ElevenLabs" voice="fBpCO0Kf0krKLYGOu65w" />
   </Connect>
 </Response>`;
 
