@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
-    <ConversationRelay url="${wsUrlXml}" language="fr-FR" />
+    <ConversationRelay url="${wsUrlXml}" welcomeGreeting="${escapeXml(welcomeGreeting)}" language="fr-FR" ttsProvider="ElevenLabs" voice="HuLbOdhRlvQQN8oPP0AJ" />
   </Connect>
 </Response>`;
 
