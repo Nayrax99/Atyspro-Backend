@@ -84,6 +84,7 @@ export async function POST(req: NextRequest) {
     const specialty = (account.specialty as string | null) ?? "";
 
     const wsUrl = `wss://${process.env.RAILWAY_WS_URL}/ws?accountId=${accountId}&specialty=${encodeURIComponent(specialty)}&assistantName=${encodeURIComponent(assistantName)}`;
+    const wsUrlXml = wsUrl.replace(/&/g, '&amp;');
 
     console.log('[VOICE WEBHOOK] building ConversationRelay TwiML', { accountId, wsUrl: process.env.RAILWAY_WS_URL });
 
@@ -99,7 +100,7 @@ export async function POST(req: NextRequest) {
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
-    <ConversationRelay url="${wsUrl}" welcomeGreeting="${escapeXml(welcomeGreeting)}" language="fr-FR" />
+    <ConversationRelay url="${wsUrlXml}" welcomeGreeting="${escapeXml(welcomeGreeting)}" language="fr-FR" />
   </Connect>
 </Response>`;
 
