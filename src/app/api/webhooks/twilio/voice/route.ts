@@ -87,10 +87,19 @@ export async function POST(req: NextRequest) {
 
     console.log('[VOICE WEBHOOK] building ConversationRelay TwiML', { accountId, wsUrl: process.env.RAILWAY_WS_URL });
 
+    function escapeXml(str: string): string {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    }
+
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
-    <ConversationRelay url="${wsUrl}" welcomeGreeting="${welcomeGreeting}" language="fr-FR" />
+    <ConversationRelay url="${wsUrl}" welcomeGreeting="${escapeXml(welcomeGreeting)}" language="fr-FR" />
   </Connect>
 </Response>`;
 
