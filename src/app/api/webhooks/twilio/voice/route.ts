@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
-    <ConversationRelay url="${wsUrlXml}" welcomeGreeting="${escapeXml(welcomeGreeting)}" language="fr-FR" ttsProvider="Cartesia" cartesiaVoice="${process.env.CARTESIA_VOICE_ID}" transcriptionProvider="deepgram" />
+    <ConversationRelay url="${wsUrlXml}" language="fr-FR" />
   </Connect>
 </Response>`;
 
