@@ -3,8 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "sync-shared": "node ../tools/sync-shared.js",
     "dev": "next dev",
+    "predev": "npm run sync-shared",
     "build": "next build",
+    "prebuild": "npm run sync-shared",
     "start": "next start",
     "lint": "eslint"
   },
