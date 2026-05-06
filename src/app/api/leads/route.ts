@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status") || undefined;
     const search = searchParams.get("search") || undefined;
 
-    // "active" is a virtual filter for new + incomplete + to_process
+    // "active" is a virtual filter for nouveau + incomplet + a_traiter
     const ACTIVE_STATUSES = ["nouveau", "incomplet", "a_traiter"];
     const validStatuses = ["nouveau", "incomplet", "a_traiter", "traite", "active"];
     if (status && !validStatuses.includes(status)) {
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
 
       let query = client
         .from("leads")
-        .select("full_name, contact_name, client_phone, phone, type_code, delay_code, priority_score, status, address, description, created_at")
+        .select("full_name, client_phone, type_code, delay_code, priority_score, status, address, description, created_at")
         .eq("account_id", account_id)
         .order("created_at", { ascending: false })
         .limit(1000);
@@ -85,9 +85,7 @@ export async function GET(request: NextRequest) {
 
       const rows = (leads || []) as Array<{
         full_name: string | null;
-        contact_name: string | null;
         client_phone: string | null;
-        phone: string | null;
         type_code: number | null;
         delay_code: number | null;
         priority_score: number | null;
@@ -99,8 +97,8 @@ export async function GET(request: NextRequest) {
 
       const header = ["Nom", "Téléphone", "Type", "Délai", "Score", "Statut", "Adresse", "Transcription", "Date"].join(",");
       const lines = rows.map((l) => {
-        const nom = escapeCSV(l.full_name || l.contact_name);
-        const tel = escapeCSV(l.client_phone || l.phone);
+        const nom = escapeCSV(l.full_name);
+        const tel = escapeCSV(l.client_phone);
         const type = escapeCSV(l.type_code != null ? (TYPE_LABELS[l.type_code] ?? "Non renseigné") : "Non renseigné");
         const delai = escapeCSV(l.delay_code != null ? (DELAY_LABELS[l.delay_code] ?? "Non renseigné") : "Non renseigné");
         const score = escapeCSV(l.priority_score != null ? String(l.priority_score) : "");

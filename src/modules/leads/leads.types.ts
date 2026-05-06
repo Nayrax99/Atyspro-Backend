@@ -21,11 +21,5 @@ export interface ListLeadsResult {
 
 export type LeadUpdatePayload = Partial<{
   status: string;
-  contact_name: string;
-  phone: string;
   address: string;
-  request_text: string;
-  urgency: number;
-  job_type: string;
-  score: number;
 }>;

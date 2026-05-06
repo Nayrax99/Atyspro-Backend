@@ -31,7 +31,7 @@ export async function listLeads(
   }
 
   const { data: leads, error, count } = await query
-    .order("score", { ascending: false })
+    .order("priority_score", { ascending: false })
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 

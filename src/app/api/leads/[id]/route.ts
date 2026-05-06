@@ -14,13 +14,7 @@ async function getId(ctx: Ctx): Promise<string> {
 const ALLOWED_FIELDS = [
   "status",
   "full_name",
-  "contact_name",
-  "phone",
   "address",
-  "request_text",
-  "urgency",
-  "job_type",
-  "score",
 ] as const;
 
 const VALID_STATUSES = ["nouveau", "incomplet", "a_traiter", "traite"];
@@ -108,32 +102,6 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
             success: false,
             error: `Status invalide. Valeurs autorisées: ${VALID_STATUSES.join(", ")}`,
           },
-          { status: 400 }
-        );
-      }
-    }
-
-    if (updates.urgency !== undefined) {
-      if (
-        typeof updates.urgency !== "number" ||
-        updates.urgency < 0 ||
-        updates.urgency > 10
-      ) {
-        return NextResponse.json(
-          { success: false, error: "Urgency doit être un nombre entre 0 et 10" },
-          { status: 400 }
-        );
-      }
-    }
-
-    if (updates.score !== undefined) {
-      if (
-        typeof updates.score !== "number" ||
-        updates.score < 0 ||
-        updates.score > 100
-      ) {
-        return NextResponse.json(
-          { success: false, error: "Score doit être un nombre entre 0 et 100" },
           { status: 400 }
         );
       }
