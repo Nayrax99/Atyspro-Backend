@@ -86,10 +86,17 @@ export async function POST(req: NextRequest) {
 
     console.log('[VOICE WEBHOOK] building ConversationRelay TwiML', { accountId, wsUrl: process.env.RAILWAY_WS_URL });
 
+    // ConversationRelay attributes:
+    // - url: WebSocket Railway pour le runtime voice (Maya)
+    // - language: fr-FR pour STT Deepgram + TTS ElevenLabs
+    // - ttsProvider: ElevenLabs (alternative: Google, Amazon)
+    // - voice: voice ID ElevenLabs (custom or library)
+    // - elevenlabsTextNormalization: "auto" pour normaliser nombres/dates/abréviations
+    //   avant TTS (résout les bugs "11h55" prononcé "1 1 heure 5 5")
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
-    <ConversationRelay url="${wsUrlXml}" language="fr-FR" ttsProvider="ElevenLabs" voice="HuLbOdhRlvQQN8oPP0AJ" />
+    <ConversationRelay url="${wsUrlXml}" language="fr-FR" ttsProvider="ElevenLabs" voice="HuLbOdhRlvQQN8oPP0AJ" elevenlabsTextNormalization="auto" />
   </Connect>
 </Response>`;
 
