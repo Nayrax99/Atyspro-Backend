@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import type { Lead } from "@/types/lead";
-import { formatType, formatRelativeTime } from "@/types/lead";
+import type { Lead } from "@/domain/leads";
+import { formatType, formatRelativeTime } from "@/domain/leads";
 
 interface LeadCardProps {
   lead: Lead;

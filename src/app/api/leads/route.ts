@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listLeads } from "@/modules/leads";
+import { listLeads } from "@/domain/leads";
 import { requireAuth } from "@/lib/auth";
 import { createSupabaseClient } from "@/lib/supabase";
 import { ApiError } from "@/lib/utils";

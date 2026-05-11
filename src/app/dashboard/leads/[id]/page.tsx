@@ -3,8 +3,8 @@
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import type { Lead, LeadDetailResponse, LeadStatus } from "@/types/lead";
-import { LEAD_STATUS_LABELS, formatDelay, formatType } from "@/types/lead";
+import type { Lead, LeadDetailResponse, LeadStatus } from "@/domain/leads";
+import { LEAD_STATUS_LABELS, formatDelay, formatType } from "@/domain/leads";
 import { formatPhone } from "@/lib/utils";
 import { Phone, MessageCircle, ArrowLeft, Pencil, Check, X } from "lucide-react";
 import LoadingSpinner from "@/components/dashboard/LoadingSpinner";

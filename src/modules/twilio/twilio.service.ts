@@ -11,10 +11,10 @@
 
 import { supabaseAdmin } from "@/lib/supabase";
 import { ApiError } from "@/lib/utils";
-import { parseSms, assessDangerLevelFromText, estimateScopeFromText } from "@/lib/leadParsing";
-import { computeScore, computeParsingConfidence } from "@/lib/leadScoring";
-import { getScoringConfig } from "@/lib/scoringConfig";
-import { determineLeadStatus } from "@/lib/leadStatus";
+import { parseSms, assessDangerLevelFromText, estimateScopeFromText } from "@/domain/leads";
+import { computeScore, computeParsingConfidence } from "@/domain/leads";
+import { getScoringConfig } from "@/domain/leads";
+import { determineLeadStatus } from "@/domain/leads";
 import { sendSMS } from "@/lib/twilioClient";
 import { QUALIFICATION_SMS, RELANCE_CORRECTION_SMS } from "@/lib/smsTemplates";
 import type { TwilioSmsWebhookParams, TwilioVoiceWebhookParams, TwilioVoiceResult } from "./twilio.types";

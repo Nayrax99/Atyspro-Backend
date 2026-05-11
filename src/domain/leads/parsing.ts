@@ -3,7 +3,7 @@
  * Fonctions pures pour parser les SMS de qualification + helpers scoring V2.
  */
 
-import { determineLeadStatus } from "./leadStatus";
+import { determineLeadStatus } from "./status";
 import type { DangerLevel, ScopeLevel } from "./scoringConfig";
 
 /**

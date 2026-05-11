@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AlertCircle } from "lucide-react";
-import type { Lead, LeadsResponse } from "@/types/lead";
+import type { Lead, LeadsResponse } from "@/domain/leads";
 import { LeadCard } from "@/components/mobile/LeadCard";
 
 const API_BASE = "";

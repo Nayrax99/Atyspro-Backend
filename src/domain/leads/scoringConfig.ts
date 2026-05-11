@@ -4,7 +4,7 @@
  * Cache en mémoire (Map) pour éviter les requêtes répétées sur une même instance.
  */
 
-import { supabaseAdmin } from "./supabase";
+import { supabaseAdmin } from "@/lib/supabase";
 
 // ============================================================
 // Types exportés — utilisés par leadScoring, leadParsing, voice.types

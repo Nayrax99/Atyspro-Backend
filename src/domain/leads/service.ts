@@ -4,8 +4,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Lead } from "@/types/lead";
-import type { ListLeadsParams, ListLeadsResult, LeadUpdatePayload } from "./leads.types";
+import type { Lead, ListLeadsParams, ListLeadsResult, LeadUpdatePayload } from "./types";
 
 export async function listLeads(
   client: SupabaseClient,

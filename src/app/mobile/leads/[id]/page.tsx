@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { AlertCircle, ChevronLeft, MapPin, PhoneCall } from "lucide-react";
-import type { Lead, LeadDetailResponse } from "@/types/lead";
-import { LEAD_STATUS_LABELS, formatDelay, formatType } from "@/types/lead";
+import type { Lead, LeadDetailResponse } from "@/domain/leads";
+import { LEAD_STATUS_LABELS, formatDelay, formatType } from "@/domain/leads";
 
 const API_BASE = "";
 

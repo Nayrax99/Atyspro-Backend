@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
-import type { Lead, LeadsResponse, LeadStatus } from "@/types/lead";
-import { LEAD_STATUS_LABELS, formatDelay, formatType } from "@/types/lead";
+import type { Lead, LeadsResponse, LeadStatus } from "@/domain/leads";
+import { LEAD_STATUS_LABELS, formatDelay, formatType } from "@/domain/leads";
 import { formatPhone } from "@/lib/utils";
 import { ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, Search, ChevronDown } from "lucide-react";
 import LoadingSpinner from "@/components/dashboard/LoadingSpinner";

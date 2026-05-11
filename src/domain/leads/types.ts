@@ -1,6 +1,5 @@
 /**
- * Types pour les leads AtysPro
- * Alignés sur le schéma Supabase (table leads).
+ * Domain types for leads — fusion de types/lead.ts et modules/leads/leads.types.ts
  */
 
 export type LeadStatus = "nouveau" | "incomplet" | "a_traiter" | "traite";
@@ -93,3 +92,25 @@ export function formatRelativeTime(createdAt: string): string {
   if (diffD < 7) return `il y a ${diffD}j`;
   return new Date(createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 }
+
+// — types service leads —
+
+export interface ListLeadsParams {
+  account_id: string;
+  page: number;
+  limit: number;
+  status?: string;
+  statuses?: string[]; // multiple statuses filter (uses IN query)
+  search?: string;
+}
+
+export interface ListLeadsResult {
+  leads: Lead[];
+  count: number;
+  totalPages: number;
+}
+
+export type LeadUpdatePayload = Partial<{
+  status: string;
+  address: string;
+}>;

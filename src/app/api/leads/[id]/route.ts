@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getLeadById, updateLeadById } from "@/modules/leads";
+import { getLeadById, updateLeadById } from "@/domain/leads";
 import { requireAuth } from "@/lib/auth";
 import { createSupabaseClient } from "@/lib/supabase";
 import { isValidUuid, ApiError } from "@/lib/utils";
