@@ -1,141 +1,214 @@
-# backend/ — Next.js 16 App Router
+# AtysPro Backend — Contexte Claude Code
 
-> Lis `../CLAUDE.md` à la racine d'abord pour le contexte global.
+> Fichier lu par Claude Code à l'ouverture de ce repo. Pour le contexte global, voir `../CLAUDE.md`.
 
-## Rôle
+## 🎯 Rôle du backend
 
-Dashboard web (Next.js App Router), API REST consommée par mobile + dashboard, webhooks Twilio (voice + SMS legacy), cron de rappel, push notifications PWA. **N'inclut PAS la logique voice runtime** (qui est dans `websocket/`).
+Next.js 16 (App Router) qui sert :
+- **Dashboard web** pour artisans (`/dashboard/*`)
+- **API REST** pour mobile + dashboard (`/api/*`)
+- **Webhooks Twilio** (voice : retourne TwiML pointant vers Railway / sms : legacy)
+- **Push notifications** Web Push PWA
+- **Cron job** rappels de leads non traités
 
-## Structure actuelle
+⚠️ **Le voice runtime N'EST PAS ici**. Maya tourne sur Railway (`../websocket/`). Le backend ne fait QUE retourner le TwiML qui pointe vers le WebSocket.
+
+## 🏗️ Architecture (post-sprint 0.3)
 
 ```
 backend/src/
 ├── app/
-│   ├── api/                     Routes thin : valider → service → response
-│   │   ├── auth/                login, signup, logout, me, callback, onboarding, refresh, forgot-password
-│   │   ├── leads/               GET liste (+ ?format=csv), GET/PATCH [id], GET [id]/sms
-│   │   ├── account/             GET + PATCH compte
-│   │   ├── calls/               GET liste appels + KPIs
-│   │   ├── stats/               GET stats dashboard
-│   │   ├── admin/               accounts list, overview, test-push (is_admin only)
-│   │   ├── push/subscribe/      Web Push subscribe/unsubscribe
-│   │   ├── cron/reminder/       Cron rappel (CRON_SECRET protégé)
+│   ├── api/
+│   │   ├── auth/                login, signup, logout, me, onboarding, callback, forgot-password, refresh
+│   │   ├── leads/               GET list (+ ?format=csv), GET/PATCH [id], GET [id]/sms
+│   │   ├── account/             GET + PATCH
+│   │   ├── calls/               GET list avec KPIs
+│   │   ├── stats/               GET dashboard stats
+│   │   ├── admin/               accounts, overview, test-push (is_admin only)
+│   │   ├── push/subscribe/      Web Push PWA
+│   │   ├── cron/reminder/       Cron (CRON_SECRET)
 │   │   ├── webhooks/twilio/
-│   │   │   ├── voice/route.ts   → retourne TwiML ConversationRelay vers Railway
-│   │   │   └── sms/route.ts     → flow SMS legacy, kept for safety
-│   │   └── dev/                 seed, simulate (403 en production)
-│   ├── dashboard/               Pages : /, /leads/[id], /calls, /stats, /account, /notifs
-│   ├── auth/                    Login/signup/onboarding
-│   └── admin/                   Pages admin (is_admin only)
+│   │   │   ├── voice/route.ts   ← Retourne TwiML ConversationRelay
+│   │   │   └── sms/             Legacy SMS qualification
+│   │   └── dev/                 seed, simulate (disabled prod)
+│   ├── dashboard/               UI artisan (leads, stats, calls, account, admin)
+│   ├── auth/                    Login, signup, onboarding
+│   ├── admin/                   Pages admin (is_admin only)
+│   └── mobile/                  Routes web mobile-specific
 ├── components/                  dashboard/, mobile/, ui/
 ├── contexts/                    DashboardContext
-├── db/migrations/               001 → 011 (à consolider en schema.sql sprint 0)
-├── lib/                         auth, db, leadParsing, leadScoring, leadStatus, scoringConfig, smsTemplates, supabase, twilioClient, utils
-├── modules/                     dev/, health/, leads/, notifications/, twilio/
-├── theme/                       index, skins/, tokens/
-└── types/                       global.types.ts, lead.ts
+├── db/
+│   ├── schema.sql               ← Schéma consolidé (post migration 014)
+│   ├── schema.dbml              ← Pour dbdiagram.io
+│   └── migrations/              001 → 014
+├── domain/                      ← Logique métier (sprint 0.3)
+│   └── leads/                   parsing, scoring, status, service, types, scoring-config
+├── lib/                         auth, db, smsTemplates, supabase, twilioClient, utils
+│                                (lead*.ts déplacés dans domain/leads/ au sprint 0.3)
+├── modules/                     dev/, health/, notifications/, twilio/
+│                                (leads/ déplacé dans domain/leads/ au sprint 0.3)
+└── theme/                       index, skins/, tokens/
 ```
 
-## Pattern routes API
+**Pattern** : routes API THIN — validation → service → `NextResponse.json()`. Logique métier dans `domain/<topic>/service.ts` ou `modules/<domain>.service.ts`.
 
-```ts
-// /app/api/leads/[id]/route.ts
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireAuth(req);                    // throws ApiError 401 si pas authentifié
-  const body = await req.json();
-  const updated = await leadsService.updateLead(auth, params.id, body);  // logique dans modules/leads/
-  return NextResponse.json({ success: true, data: updated });
-}
+## 🗄️ DB Schema (post-migration 014)
+
+Tables :
+- `accounts` (id, user_id, email, first_name, last_name, company_name, city, specialty, pro_phone, assistant_name, artisan_name, welcome_message, score_threshold, callback_delay, onboarding_completed, is_admin)
+- `phone_numbers` (id, account_id, e164 UNIQUE, active)
+- `leads` (23 colonnes — voir ci-dessous)
+- `calls` (id, account_id, twilio_call_sid UNIQUE, direction, from_number, to_number, status, started_at, ended_at, voice_ai_result JSONB)
+- `sms_messages` (id, account_id, from_number, to_number, direction, body, twilio_message_sid UNIQUE)
+- `scoring_configs` (specialty PK, type_weights, delay_weights, danger_weights, scope_weights, type_code_map, special_rules)
+- `push_subscriptions` (id, account_id, subscription JSONB, endpoint, platform, created_at)
+
+### Table `leads` (23 colonnes)
+
+```
+id, created_at, account_id, status, address, client_phone, type_code, delay_code,
+full_name, description, raw_message, relance_count, priority_score, value_estimate,
+last_inbound_sms_at, danger_level, scope, availability_notes, parsing_confidence,
+reminder_sent_at, twilio_call_sid, source, call_transcript
 ```
 
-**Règles** :
-- Routes : validation + appel service + réponse uniquement
-- Logique métier : `src/modules/<domain>/<domain>.service.ts` (sera consolidé dans `domain/` sprint 0)
-- Validation → `lib/utils.ts` ou helpers Zod
-- Erreurs → throw `ApiError` (gestion centralisée)
+**`status` est un ENUM Postgres `lead_status`** avec EXACTEMENT 3 valeurs :
+- `a_traiter` (default, NOT NULL)
+- `incomplet`
+- `traite`
 
-## Supabase clients (3 — ne pas mélanger)
+**JAMAIS de `nouveau`** stocké. Le badge "Nouveau" est calculé UI depuis `created_at < now - 24h`.
 
-```ts
-import { createSupabaseClient } from "@/lib/supabase";  // RLS user — endpoints authentifiés
-import { supabaseAdmin } from "@/lib/supabase";          // service_role — webhooks, cron, dev
-// supabase (anon) → legacy uniquement
+**Index UNIQUE** :
+- `leads_account_phone_unique` sur `(account_id, client_phone)` — dedup global
+- `leads_account_id_twilio_call_sid_key` sur `(account_id, twilio_call_sid)`
+
+### ⛔ Colonnes fantômes supprimées (migration 014) — NE PAS RÉINTRODUIRE
+
+```
+contact_name → utilise full_name
+phone → utilise client_phone
+score → utilise priority_score
+request_text → utilise description
+job_type → utilise type_code
+urgency → utilise delay_code
+is_dangerous → utilise danger_level
+estimated_scope → utilise scope
+logement_type → supprimé
+callback_delay → seulement sur accounts, plus sur leads
 ```
 
-**Endpoint authentifié** :
-```ts
-const auth = await requireAuth(req);
-const supabase = createSupabaseClient(auth.token);
-const { data } = await supabase.from("leads").select("*");  // RLS appliquée
+## 🔐 3 clients Supabase, ne jamais les mélanger
+
+```typescript
+createSupabaseClient(token)  // Tous endpoints authentifiés — RLS active
+supabaseAdmin                // Webhooks, WebSocket, seed, cron — bypass RLS
+supabase (anon)              // Legacy uniquement, à éviter
 ```
 
-**Webhook Twilio** :
-```ts
-const { data } = await supabaseAdmin.from("phone_numbers").select(...);  // bypass RLS
-```
+## 🛡️ Auth
 
-## Dashboard pages
-
-| Route | Rôle | Fichier |
-|---|---|---|
-| `/dashboard` | Liste leads, filtres, tri, export CSV | `app/dashboard/page.tsx` (639 lignes — à splitter sprint 4) |
-| `/dashboard/leads/[id]` | Fiche lead détaillée | `app/dashboard/leads/[id]/page.tsx` |
-| `/dashboard/calls` | Historique appels + KPIs + slide-over | `app/dashboard/calls/page.tsx` |
-| `/dashboard/stats` | Stats avancées | `app/dashboard/stats/page.tsx` |
-| `/dashboard/account` | Profil + Paramètres + Abonnement (3 onglets) | `app/dashboard/account/page.tsx` |
-| `/dashboard/notifs` | Placeholder vide (à remplir) | `app/dashboard/notifs/page.tsx` |
-
-⚠️ **Inline styles partout** dans le dashboard (Tailwind 4 a des soucis de compilation sur certains composants). Continuer en inline pour tout nouveau code dashboard. Variables CSS `--ap-*` définies dans `app/globals.css`.
-
-## Auth
-
-```ts
-getAuthUser(req): AuthContext | null
-requireAuth(req): AuthContext  // throw ApiError 401 sinon
+```typescript
+getAuthUser(req)    // → AuthContext | null
+requireAuth(req)    // → AuthContext (throws 401)
 // AuthContext = { user: { id, email }, account_id, token }
 ```
 
-JWT depuis `Authorization: Bearer <token>` (mobile) ou cookie `sb-access-token` (web). Valide 7 jours, pas de refresh token. Si expiré → 401 → mobile fait logout + redirect login.
+JWT depuis `Authorization: Bearer <token>` (mobile) ou cookie `sb-access-token` (web). Valide 7 jours.
 
-## Notifications Push (Web Push)
+## 📋 Conventions
 
-- Service Worker : `public/sw.js`
-- VAPID env : `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`
-- Service : `modules/notifications/notifications.service.ts` → `sendPushNotification(account_id, payload)`
-- **Trigger 1 (PAS ENCORE — sprint 2)** : nouveau lead créé avec `priority_score >= account.score_threshold`. Sera déclenché depuis le WebSocket via un endpoint backend.
-- **Trigger 2 (actif)** : cron quotidien sur leads `a_traiter` depuis `callback_delay`, protégé par `CRON_SECRET`
+### Routes API
+- Routes THIN : validation → service → response
+- Format : `{ success: true, data: ... }` ou `{ success: false, error: "..." }`
+- Webhooks Twilio : `{ ok: true/false, ... }`
+- TypeScript strict, pas de `any`
+- Code en anglais, commentaires/UI en français
+- JSDoc en français sur fonctions publiques
 
-## Webhook voice (`api/webhooks/twilio/voice/route.ts`)
+### Validation
+- UUIDs : `isValidUuid()` (`src/lib/utils.ts`)
+- Status leads : `LeadStatus` type strict (3 valeurs)
+- `ALLOWED_FIELDS` strict sur PATCH `/api/leads/[id]` : uniquement `status`, `full_name`, `address`
 
-Rôle minimaliste :
-1. Valider signature Twilio (sauf en dev)
-2. Résoudre `accountId` via `phone_numbers.e164 = To`
-3. Récupérer `assistant_name`, `specialty`, `artisan_name` du compte
-4. Retourner TwiML `<Connect><ConversationRelay url="wss://${RAILWAY_WS_URL}/ws?accountId=...&specialty=...&assistantName=...&artisanName=..." language="fr-FR" ttsProvider="ElevenLabs" voice="HuLbOdhRlvQQN8oPP0AJ" />`
+### Tests (sprint 0.5)
+- Vitest configuré
+- `tests/leads/status.test.ts` — 9 tests sur la logique de statut
+- Lancer : `npm test`
 
-⚠️ **Encoder les params** dans l'URL avec `encodeURIComponent` + remplacer `&` par `&amp;` dans le XML.
+## 🚦 Bugs critiques fixés (à connaître)
 
-## Règles spécifiques au repo
+### Sprint 0.6 — Tri dashboard `priority_score`
+**Avant** : `.order("score")` dans `modules/leads/leads.service.ts` (colonne fantôme, Supabase ignore silencieusement → tri par date au lieu de priorité)
+**Après** : `.order("priority_score")` dans `domain/leads/service.ts`
 
-1. **Pas de logique métier dans les routes** → tout dans `modules/<domain>/<domain>.service.ts`.
-2. **Pas de `supabaseAdmin` dans endpoints authentifiés** → `createSupabaseClient(token)`.
-3. **Twilio signatures validées en prod** (`validateTwilioSignature` dans `lib/twilioClient.ts`).
-4. **Voice runtime n'appartient pas ici** — modifications voice → `websocket/`. Le webhook ici fait juste de la résolution + génération TwiML.
-5. **`/api/dev/*` retourne 403 en production** (vérifier `NODE_ENV`).
-6. **Edge runtime incompatible** avec Twilio SDK (HMAC-SHA1 natif Node) → `export const dynamic = "force-dynamic"` sur les webhooks.
-7. **CSS `--ap-*` source de vérité** → ne pas hardcoder de couleurs hex dans les composants dashboard.
-8. **UI terminologie** : "demande" pas "lead", "priorité" pas "score" en français user-facing.
+### Sprint 0.6 — Validation `urgency` fantôme
+**Avant** : route PATCH validait `urgency` (0-10) → colonne n'existe pas → erreur silencieuse
+**Après** : validation supprimée, `ALLOWED_FIELDS` purgé
 
-## Variables d'environnement
+## 🔧 Twilio voice webhook (le seul lien backend ↔ voice)
 
-`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WEBHOOK_BASE_URL`, `RAILWAY_WS_URL`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `CRON_SECRET`, `NEXT_PUBLIC_APP_URL`, `NODE_ENV`
+`src/app/api/webhooks/twilio/voice/route.ts` (lignes ~85-95) :
 
-## Migrations Supabase
+```typescript
+return new Response(
+  `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Connect>
+    <ConversationRelay 
+      url="${wsUrlXml}"
+      language="fr-FR"
+      ttsProvider="ElevenLabs"
+      voice="HuLbOdhRlvQQN8oPP0AJ"
+      elevenlabsTextNormalization="auto"
+    />
+  </Connect>
+</Response>`,
+  { headers: { 'Content-Type': 'text/xml' } }
+);
+```
 
-Dans `src/db/migrations/`. **À exécuter manuellement** dans le SQL Editor Supabase (pas de CLI Supabase migrations setup). Pour ajouter une migration :
-1. Créer `012_<nom>.sql` (numéro suivant)
-2. Tester en local (Supabase local ou directement projet dev)
-3. Appliquer en prod via SQL Editor
-4. Mettre à jour `CLAUDE.md` racine si le schéma change
+⚠️ Si tu modifies les paramètres TwiML (voice, ttsProvider, normalization), tu modifies UNIQUEMENT ce fichier. Le runtime websocket sur Railway n'est pas concerné.
 
-Migration en cours sprint 0 : générer `db/schema.sql` consolidé pour servir de référence rapide.
+## 🚀 Commandes
+
+```bash
+npm run dev              # localhost:3000
+npm run build            # prod build + typecheck
+npm run lint
+npm test                 # Vitest (9 tests)
+```
+
+## 🌐 Env vars (Vercel)
+
+```
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+TWILIO_ACCOUNT_SID
+TWILIO_AUTH_TOKEN
+TWILIO_WEBHOOK_BASE_URL    ← Pour signature validation
+RAILWAY_WS_URL              ← Host du WebSocket Railway (sans wss://)
+NEXT_PUBLIC_VAPID_PUBLIC_KEY
+VAPID_PRIVATE_KEY
+VAPID_SUBJECT
+CRON_SECRET
+NEXT_PUBLIC_APP_URL
+NODE_ENV
+```
+
+## 📋 Checklist avant push
+
+- [ ] `npm run build` passe
+- [ ] `npm test` passe (9 tests)
+- [ ] Pas de référence aux colonnes fantômes (`contact_name`, `phone`, `score`, etc.)
+- [ ] Pas de business logic dans `app/api/*` (déléguer à `domain/` ou `modules/`)
+- [ ] `supabaseAdmin` jamais utilisé dans endpoints authentifiés
+- [ ] UI en français, code en anglais
+- [ ] Pas d'`any` TypeScript
+
+## 🔗 Liens utiles
+
+- Repo : `Nayrax99/Atyspro-Backend`
+- Deploy : `https://atyspro-backend.vercel.app`
+- Supabase : projet `drrbtegznxaybmnckadd`
