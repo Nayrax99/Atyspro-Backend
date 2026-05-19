@@ -5,6 +5,16 @@ import { supabaseAdmin } from "@/lib/supabase";
 // Edge runtime incompatible : twilio SDK utilise crypto Node.js natif (HMAC-SHA1)
 export const dynamic = "force-dynamic";
 
+function buildTtsAttributes(provider: string): string {
+  if (provider === "elevenlabs_turbo") {
+    return `ttsProvider="ElevenLabs" voice="HuLbOdhRlvQQN8oPP0AJ-turbo_v2_5" elevenlabsTextNormalization="auto"`;
+  }
+  if (provider === "google_chirp") {
+    return `ttsProvider="Google" voice="fr-FR-Chirp3-HD-Aoede"`;
+  }
+  return `ttsProvider="ElevenLabs" voice="HuLbOdhRlvQQN8oPP0AJ" elevenlabsTextNormalization="auto"`;
+}
+
 const ERROR_TWIML = `<?xml version="1.0" encoding="UTF-8"?>
 <Response><Say language="fr-FR">Une erreur est survenue, veuillez rappeler.</Say></Response>`;
 
@@ -86,17 +96,11 @@ export async function POST(req: NextRequest) {
 
     console.log('[VOICE WEBHOOK] building ConversationRelay TwiML', { accountId, wsUrl: process.env.RAILWAY_WS_URL });
 
-    // ConversationRelay attributes:
-    // - url: WebSocket Railway pour le runtime voice (Maya)
-    // - language: fr-FR pour STT Deepgram + TTS ElevenLabs
-    // - ttsProvider: ElevenLabs (alternative: Google, Amazon)
-    // - voice: voice ID ElevenLabs (custom or library)
-    // - elevenlabsTextNormalization: "auto" pour normaliser nombres/dates/abréviations
-    //   avant TTS (résout les bugs "11h55" prononcé "1 1 heure 5 5")
+    const ttsAttrs = buildTtsAttributes(process.env.TTS_PROVIDER ?? "elevenlabs_flash");
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
-    <ConversationRelay url="${wsUrlXml}" language="fr-FR" ttsProvider="ElevenLabs" voice="HuLbOdhRlvQQN8oPP0AJ" elevenlabsTextNormalization="auto" transcriptionProvider="Deepgram" speechModel="nova-3-general" hints="disjoncteur,court-circuit,tableau électrique,va-et-vient,prise,interrupteur,compteur,Linky,différentiel,ampoule,coupure,panne,fusible,mise aux normes,triphasé,monophasé,domotique,luminaire,branchement,raccordement" />
+    <ConversationRelay url="${wsUrlXml}" language="fr-FR" ${ttsAttrs} transcriptionProvider="Deepgram" speechModel="nova-3-general" hints="disjoncteur,court-circuit,tableau électrique,va-et-vient,prise,interrupteur,compteur,Linky,différentiel,ampoule,coupure,panne,fusible,mise aux normes,triphasé,monophasé,domotique,luminaire,branchement,raccordement" />
   </Connect>
 </Response>`;
 
