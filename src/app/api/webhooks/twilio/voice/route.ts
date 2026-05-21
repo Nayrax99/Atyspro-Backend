@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
-    <ConversationRelay url="${wsUrlXml}" language="fr-FR" ${ttsAttrs} transcriptionProvider="Deepgram" speechModel="nova-3-general" hints="disjoncteur,court-circuit,tableau électrique,va-et-vient,prise,interrupteur,compteur,Linky,différentiel,ampoule,coupure,panne,fusible,mise aux normes,triphasé,monophasé,domotique,luminaire,branchement,raccordement" />
+    <ConversationRelay url="${wsUrlXml}" language="fr-FR" ${ttsAttrs} transcriptionProvider="Deepgram" speechModel="flux" hints="disjoncteur,court-circuit,tableau électrique,va-et-vient,prise,interrupteur,compteur,Linky,différentiel,ampoule,coupure,panne,fusible,mise aux normes,triphasé,monophasé,domotique,luminaire,branchement,raccordement" />
   </Connect>
 </Response>`;
 
