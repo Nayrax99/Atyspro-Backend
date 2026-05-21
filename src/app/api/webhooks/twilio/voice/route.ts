@@ -1,19 +1,10 @@
 import { NextRequest } from "next/server";
 import { validateTwilioSignature } from "@/lib/twilioClient";
 import { supabaseAdmin } from "@/lib/supabase";
+import { buildTtsAttributes } from "@/lib/twilio/tts";
 
 // Edge runtime incompatible : twilio SDK utilise crypto Node.js natif (HMAC-SHA1)
 export const dynamic = "force-dynamic";
-
-function buildTtsAttributes(provider: string): string {
-  if (provider === "elevenlabs_turbo") {
-    return `ttsProvider="ElevenLabs" voice="HuLbOdhRlvQQN8oPP0AJ-turbo_v2_5" elevenlabsTextNormalization="auto"`;
-  }
-  if (provider === "google_chirp") {
-    return `ttsProvider="Google" voice="fr-FR-Chirp3-HD-Aoede"`;
-  }
-  return `ttsProvider="ElevenLabs" voice="HuLbOdhRlvQQN8oPP0AJ" elevenlabsTextNormalization="auto"`;
-}
 
 const ERROR_TWIML = `<?xml version="1.0" encoding="UTF-8"?>
 <Response><Say language="fr-FR">Une erreur est survenue, veuillez rappeler.</Say></Response>`;
